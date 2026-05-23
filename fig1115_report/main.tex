@@ -1,0 +1,646 @@
+% Template:     Reporte LaTeX
+% Documento:    Replication of Barlas Fig 11.15
+% Codificación: UTF-8
+
+\documentclass[
+	english,
+	letterpaper, oneside
+]{article}
+
+% INFORMACIÓN DEL DOCUMENTO
+\def\documenttitle {Replicating Figure 11.15: A Thread-Configuration Sweep of the Hybrid CPU+GPU Mandelbrot Renderer}
+\def\documentsubtitle {}
+\def\documentsubject {Comparing the Barlas (2022) load-balancing case study on an i7-9750H + GTX 1660 Ti Max-Q laptop}
+\def\documentdate {\today}
+
+\def\documentauthor {Matias Saavedra}
+\def\coursename {Multicore and GPU Programming}
+\def\coursecode {CISC 701}
+
+\def\universityname {Universidad de Chile}
+\def\universityfaculty {Facultad de Ciencias Físicas y Matemáticas}
+\def\universitydepartment {Departamento de Ciencias de la Computación}
+\def\universitydepartmentimage {departamentos/dcc}
+\def\universitylocation {Santiago de Chile}
+
+\input{template}
+
+\begin{document}
+
+\templatePagecfg
+\templateFinalcfg
+
+\inserttitle
+
+% -----------------------------------------------------------------------
+\begin{abstract}
+This report documents a follow-up profiling experiment on
+\texttt{mandelHybrid}, the hybrid CPU+GPU Mandelbrot renderer from
+Barlas, \emph{Multicore and GPU Programming} (2nd ed., 2022),
+Section~11.5.1. The goal was to reproduce Figure~11.15 of that book---a
+sweep of end-to-end execution time across seven thread/GPU
+configurations---on a different machine (an i7-9750H~+~GTX~1660~Ti~Max-Q
+laptop) and compare the resulting curve to the book's Ryzen
+3900X~+~RTX~2060~Super result. A small instrumentation patch was added
+to the existing harness: an end-to-end \texttt{clock\_gettime} wall-clock
+timer, a self-describing configuration banner, and two boolean flags
+(\texttt{profileQuiet}, \texttt{profileSave}) that suppress per-region
+\texttt{stderr} output and skip PNG writes when batch-running. A Bash
+driver (\texttt{sweep.sh}) executes seven configurations three times each
+into a CSV; a Python script (\texttt{plot\_fig1115.py}) renders a chart
+in the style of Figure~11.15. The replication shows the same monotonic
+\emph{decrease} as one moves from GPU-alone through hybrid configurations
+with more CPU workers, but the slope is much shallower than in the book:
+on this laptop the GPU is 2.1$\times$ faster than the CPU at full
+parallelism, so adding 11~CPU workers buys only a 30\% speed-up over
+GPU-alone, versus the $\sim$50\% the book observed when its CPU and GPU
+were roughly on par.
+\end{abstract}
+
+% -----------------------------------------------------------------------
+\section{Background and Goals}
+
+Figure~11.15 of Barlas (2022) plots the average end-to-end execution time
+of a 100-frame, full-HD Mandelbrot animation as a function of thread
+configuration. Eight bars are shown, corresponding to: CPU-only with the
+full thread count of the machine, GPU-only, and six hybrid
+configurations with $1, 2, 4, 8, 16, 23$ pure CPU workers running
+alongside one GPU thread. A line overlay reports each bar's time as a
+percentage of the GPU-alone time, anchoring the comparison.
+
+The book's measurements were taken on an AMD Ryzen 3900X (12 cores,
+24~threads) paired with an NVIDIA RTX 2060 Super. On that platform the
+CPU and GPU are roughly on par for the Mandelbrot iteration kernel and
+the hybrid run cuts execution time approximately in half relative to
+either alone. This report addresses three questions:
+
+\begin{enumerate}
+    \item What instrumentation is needed to record the metric the figure
+    actually plots, given the existing per-region NVTX/CUDA-event
+    profiling captures only \emph{components} of total time and not the
+    end-to-end wall clock?
+    \item How does the same workload behave on an Intel Core i7-9750H
+    (6~cores, 12~threads) paired with an NVIDIA GeForce GTX~1660~Ti
+    Max-Q---a laptop GPU that is roughly comparable in fp64 throughput
+    to the RTX 2060 Super but mated to a CPU that is half as wide?
+    \item What is the shape of the curve and what does any deviation
+    from the book's curve reveal about the CPU/GPU balance of this
+    machine?
+\end{enumerate}
+
+\subsection{What Was Already Instrumented}
+
+A prior profiling pass had already added NVTX annotations and CUDA
+event timing to the program (documented in
+\texttt{profiling\_report/main.tex}). Those mechanisms give:
+
+\begin{itemize}
+    \item per-region GPU kernel time and device-to-host \texttt{memcpy}
+    time, summed over the run and reported in
+    \texttt{CUDAmemCleanup()};
+    \item per-region CPU compute time accumulated by a
+    \texttt{thread\_local} pair of counters in
+    \texttt{mandelregion.cpp} and reported in \texttt{printCPUSummary()};
+    \item nested NVTX ranges (\texttt{examine region},
+    \texttt{CPU region compute}, \texttt{GPU region compute}) consumable
+    by Nsight Systems.
+\end{itemize}
+
+What was \emph{not} captured was the total end-to-end wall-clock time of
+the program---the makespan---which is exactly the quantity plotted in
+Figure~11.15. \texttt{cpuTotalMs} excludes idle time. \texttt{totalKernelMs}
+covers only the GPU's busy stretches. The thread summaries are
+independent and the final time is determined by whichever thread
+finishes last, plus any image-save tail. Two trivial routes existed:
+wrap the binary with \texttt{/usr/bin/time -f "\%e"}, or bake a
+\texttt{clock\_gettime} pair into \texttt{main.cpp}. The latter was
+chosen because it makes the binary self-reporting (easier for batch
+scripts to grep) and because it gives a clean point to also emit a
+configuration banner.
+
+% -----------------------------------------------------------------------
+\section{Instrumentation Changes}
+
+\subsection{Two Global Flags Defined in \texttt{main.cpp}}
+
+Two booleans were added with \texttt{extern "C"} linkage so that the
+\texttt{nvcc}-compiled \texttt{kernel.o} and the \texttt{g++}-compiled
+\texttt{.o} files can share the symbol without name-mangling concerns:
+
+\begin{sourcecode}{cpp}{main.cpp --- profiling flag definitions.}
+// Profiling flags consulted by kernel.cu, mandelregion.cpp and
+// mandelframe.cpp.  Defined here so a single command-line switch
+// controls them.  C linkage keeps the symbol name identical in nvcc
+// and g++ object files.
+extern "C" int profileQuiet = 0;   // 1 = suppress per-region stderr prints
+extern "C" int profileSave  = 1;   // 0 = skip PNG saves (pure-compute timing)
+\end{sourcecode}
+
+Two new optional positional command-line arguments were added so the
+flags can be flipped without recompiling:
+
+\begin{sourcecode}{cpp}{main.cpp --- argument parsing.}
+// Usage: spec_file [numThr] [GPUenable] [diffT] [pixT] [quiet] [save]
+if (argc > 6) profileQuiet = atoi(argv[6]);
+if (argc > 7) profileSave  = atoi(argv[7]);
+\end{sourcecode}
+
+\subsection{Per-Region Print Gates}
+
+Three call sites had previously emitted one \texttt{stderr} line per
+leaf region. Across the 4{,}603 leaves of the standard run, plus the
+banners, an unmuted execution emits roughly 5{,}000 lines per run; 7
+configurations $\times$ 3 reps would produce $\sim$100{,}000 lines of
+stderr noise that dwarfs the summary lines we actually want to parse.
+Each call site was wrapped in an \texttt{if (!profileQuiet)} check, with
+the per-thread \texttt{printCPUSummary()} and the
+\texttt{CUDAmemCleanup()} summary deliberately left always on:
+
+\begin{sourcecode}{cuda}{kernel.cu --- GPU per-region print gated.}
+// Defined in main.cpp.  Suppresses per-region stderr lines when set,
+// leaving the once-per-run summary intact.
+extern "C" int profileQuiet;
+
+// ... inside hostFE() ...
+if (!profileQuiet)
+  fprintf(stderr,
+          "[GPU region %4ld] size %4dx%4d  kernel %.3f ms  D->H %.3f ms\n",
+          totalRegions, resX, resY, kernelMs, memcpyMs);
+\end{sourcecode}
+
+\begin{sourcecode}{cpp}{mandelregion.cpp --- CPU per-region print gated.}
+extern "C" int profileQuiet;
+
+// ... inside compute(), CPU path ...
+if (!profileQuiet)
+  fprintf(stderr,
+          "[CPU region %4ld] size %4dx%4d  compute %.3f ms\n",
+          cpuRegionCount, pixelsX, pixelsY, ms);
+\end{sourcecode}
+
+\subsection{Skip-Save Gate}
+
+Figure~11.15 in the book includes the PNG-encoding tail; for
+side-by-side comparison the sweep also defaults to \texttt{save=1}, but
+the option to time pure compute is useful for follow-up analysis. The
+guard was added inside \texttt{MandelFrame::regionComplete}, the single
+point at which the atomically-decremented remaining-regions counter
+hits zero and the frame is written:
+
+\begin{sourcecode}{cpp}{mandelframe.cpp --- PNG-save gate.}
+// Defined in main.cpp.  When 0, regionComplete skips img->save() so we
+// can time the pure compute path without the PNG-encode tail.
+extern "C" int profileSave;
+
+void MandelFrame::regionComplete()
+{
+  if (remainingRegions.fetchAndAddOrdered(-1) == 1)  // last became 0
+  {
+     if (profileSave)
+       img->save(fname, "PNG");
+  }
+}
+\end{sourcecode}
+
+\subsection{End-to-End Wall-Clock Timer and Configuration Banner}
+
+The new timer brackets exactly the compute phase: it starts immediately
+before \texttt{CUDAmemSetup} (when GPU is enabled) and stops after the
+\texttt{wait()} on every worker thread returns. Image saves are
+naturally included because they occur on the worker thread that
+decrements \texttt{remainingRegions} to 0, before that worker exits its
+\texttt{run()} loop and is joined.
+
+\begin{sourcecode}{cpp}{main.cpp --- banner, timer, machine-parseable output.}
+fprintf(stderr,
+        "[config] numThr=%d gpuEnable=%d diffT=%.3f pixT=%d "
+        "res=%dx%d frames=%d quiet=%d save=%d\n",
+        numThreads, (int)enableGPU, diffT, pixT,
+        resolutionX, resolutionY, numframes,
+        profileQuiet, profileSave);
+
+// ... thread launch ...
+
+struct timespec t0, t1;
+clock_gettime(CLOCK_MONOTONIC, &t0);
+
+if (enableGPU) {
+    CUDAmemSetup(resolutionX, resolutionY);
+    thr[0]->run();
+    CUDAmemCleanup();
+} else {
+    thr[0]->run();
+}
+for (int i = 1; i < numThreads; i++)
+    thr[i]->wait();
+
+clock_gettime(CLOCK_MONOTONIC, &t1);
+double elapsed_s = (t1.tv_sec - t0.tv_sec)
+                 + (t1.tv_nsec - t0.tv_nsec) * 1e-9;
+
+// Machine-parseable line: sweep.sh greps for this exact prefix.
+fprintf(stderr, "[total_elapsed_s] %.6f\n", elapsed_s);
+\end{sourcecode}
+
+\texttt{CLOCK\_MONOTONIC} is used for the same reason as in the
+per-region instrumentation: it is immune to wall-clock jumps from NTP
+or DST. The marker line \texttt{[total\_elapsed\_s]} is chosen because
+it is unique across all stderr output and is therefore safe to extract
+with a single \texttt{grep ... \textbackslash{}| awk '\{print \$2\}'}.
+
+\subsection{Build-System Adjustment (nvcc + gcc 16)}
+
+A separate environmental issue surfaced during the rebuild: the host
+\texttt{g++} on the test machine had been upgraded to 16.1.1, but
+\texttt{nvcc} 13.2 only supports up to GCC~15. The compile failed with
+\texttt{type\_traits} errors deep inside libstdc++. The Makefile was
+amended to pin the host compiler explicitly via \texttt{-ccbin}:
+
+\begin{sourcecode}{make}{Makefile --- pin nvcc's host compiler.}
+# nvcc 13.2 does not support gcc 16 yet; pin to g++-15 for the host
+# compiler and for nvcc's -ccbin so both halves of the program share
+# an ABI.
+HOSTCC    = g++-15
+NVCC      = nvcc -ccbin $(HOSTCC)
+CC        = $(HOSTCC)
+\end{sourcecode}
+
+Using the same compiler for both halves of the build is important
+because the C++ runtime types (e.g.\ \texttt{std::atomic\_int},
+\texttt{std::vector}) flow across the
+\texttt{nvcc}/\texttt{g++} boundary via the shared
+\texttt{MandelRegion}/\texttt{MandelFrame} headers. A divergent ABI here
+would manifest as silent corruption rather than a link error.
+
+% -----------------------------------------------------------------------
+\section{Batch Driver and Plot Script}
+
+\subsection{\texttt{sweep.sh}}
+
+The driver script runs seven configurations $N$ times each and emits a
+single CSV row per run. Configurations are tuned for a 12-thread
+machine: total threads (the \texttt{numThreads} argument to
+\texttt{mandelHybrid}) never exceed 12, and the count of \emph{pure CPU}
+workers in a hybrid run is \texttt{numThreads - 1} because thread~0 is
+the GPU driver.
+
+\begin{sourcecode}{bash}{sweep.sh --- configuration matrix and main loop.}
+CONFIGS=(
+  "CPU12         12  0"
+  "GPU            1  1"
+  "GPU+1CPU       2  1"
+  "GPU+2CPU       3  1"
+  "GPU+4CPU       5  1"
+  "GPU+8CPU       9  1"
+  "GPU+11CPU     12  1"
+)
+
+CSV="$OUT_ABS/results.csv"
+echo "label,numThreads,gpuEnable,rep,elapsed_s" > "$CSV"
+
+for entry in "${CONFIGS[@]}"; do
+  set -- $entry
+  label=$1; nthr=$2; gpu=$3
+  for r in $(seq 1 "$REPS"); do
+    rm -rf "$SCRATCH" && mkdir -p "$SCRATCH"
+    log="$OUT_ABS/logs/${label}.r${r}.log"
+    pushd "$SCRATCH" >/dev/null
+    # quiet=1, save passed through (default 1 to match Fig 11.15).
+    "$BIN_ABS" "$SPEC_ABS" "$nthr" "$gpu" "$DIFFT" "$PIXT" 1 "$SAVE" \
+        > "$log.stdout" 2> "$log.stderr"
+    popd >/dev/null
+    elapsed=$(grep '^\[total_elapsed_s\]' "$log.stderr" | awk '{print $2}')
+    echo "$label,$nthr,$gpu,$r,$elapsed" >> "$CSV"
+  done
+done
+\end{sourcecode}
+
+Two design choices are worth highlighting:
+
+\begin{itemize}
+    \item Each run is executed with its own scratch \texttt{cwd}, so
+    the PNG files for run~$r$ of config~$c$ do not pollute the next
+    invocation and disk usage stays bounded (50\,MB peak for a single
+    full-HD 100-frame run, cleaned between runs).
+    \item Configurations, reps count, save flag, and thresholds are all
+    environment-variable overrides
+    (\texttt{REPS}, \texttt{SAVE}, \texttt{DIFFT}, \texttt{PIXT},
+    \texttt{SPEC}, \texttt{OUT}) so the same script supports the main
+    Fig~11.15 sweep, a no-save (pure-compute) sweep, and a follow-up
+    threshold sensitivity study without code changes.
+\end{itemize}
+
+\subsection{\texttt{plot\_fig1115.py}}
+
+The plot script reads the CSV, groups by configuration, computes the
+mean and population standard deviation of \texttt{elapsed\_s} per group,
+and emits a Fig~11.15-style chart: blue bars with error caps on a
+left-axis time scale, a red percentage-of-GPU-alone line on the right
+axis, numeric labels on every element. Bar value labels are placed
+\emph{inside} each bar in white to avoid colliding visually with the
+percent labels above the line markers.
+
+\begin{sourcecode}{python}{plot\_fig1115.py --- core rendering block.}
+bars = ax1.bar(x, means, yerr=stds, capsize=4,
+               color="#4472C4", edgecolor="#1f3a73",
+               label="Mean execution time (s)")
+ax1.set_xticks(x); ax1.set_xticklabels(order, rotation=20, ha="right")
+ax1.set_ylabel("Execution time (s)")
+ax1.set_ylim(0, max(means) * 1.28)
+for rect, m in zip(bars, means):
+    ax1.text(rect.get_x() + rect.get_width() / 2,
+             rect.get_height() * 0.5,
+             f"{m:.2f} s",
+             ha="center", va="center", fontsize=9,
+             color="white", fontweight="bold")
+
+ax2 = ax1.twinx()
+ax2.plot(x, pct, "o-", color="#C00000",
+         label=f"% of {baseline_label}-alone")
+ax2.set_ylim(0, max(pct) * 1.28)
+\end{sourcecode}
+
+% -----------------------------------------------------------------------
+\section{Experimental Setup}
+
+\begin{table}[H]
+    \centering
+    \caption{Test platform compared with the book's.}
+    \label{tab:hw}
+    \begin{tabular}{lll}
+        \hline
+        & \textbf{This work} & \textbf{Barlas (2022)} \\
+        \hline
+        CPU            & Intel Core i7-9750H        & AMD Ryzen 3900X \\
+        Cores/threads  & 6 / 12                     & 12 / 24 \\
+        GPU            & GTX 1660 Ti Max-Q          & RTX 2060 Super \\
+        GPU memory     & 6\,GiB                     & 8\,GiB \\
+        Compute cap.   & 7.5 (Turing)               & 7.5 (Turing) \\
+        nvcc version   & 13.2                       & not stated \\
+        Reps per config & 3                         & 10 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+The workload was identical: 100 frames at $1920 \times 1080$ pixels,
+starting at corners $(-1.9, 0.94)$--$(1.2, -0.94)$ with
+\texttt{maxIterations}\,=\,100, ending at
+$(0.00164, -0.82247)$--$(0.00164, -0.82247)$ with
+\texttt{maxIterations}\,=\,10{,}000. The default adaptive-subdivision
+parameters were used: \texttt{diffThreshold}\,=\,0.5,
+\texttt{pixelSizeThresh}\,=\,32{,}768. PNG saves were enabled
+(\texttt{save}\,=\,1), matching the book.
+
+% -----------------------------------------------------------------------
+\section{Results}
+
+The CSV emitted by \texttt{sweep.sh} contained 21 rows (7 configs $\times$
+3 reps). Summary statistics are in Table~\ref{tab:results}; the chart in
+Figure~\ref{fig:replicated} is the direct analogue of the book's
+Fig~11.15.
+
+\begin{table}[H]
+    \centering
+    \caption{End-to-end wall-clock time per configuration, 3 reps each.}
+    \label{tab:results}
+    \begin{tabular}{lrrrrr}
+        \hline
+        \textbf{Config} & \textbf{Mean (s)} & \textbf{Std (s)} & \textbf{Min (s)} & \textbf{Max (s)} & \textbf{\% of GPU-alone} \\
+        \hline
+        CPU12      & 163.470 & 0.392 & 163.018 & 163.702 & 213.6\% \\
+        GPU        &  76.543 & 0.166 &  76.360 &  76.683 & 100.0\% \\
+        GPU+1CPU   &  68.453 & 0.586 &  68.061 &  69.127 &  89.4\% \\
+        GPU+2CPU   &  64.398 & 0.412 &  63.959 &  64.777 &  84.1\% \\
+        GPU+4CPU   &  60.427 & 0.692 &  59.697 &  61.073 &  78.9\% \\
+        GPU+8CPU   &  56.194 & 0.222 &  56.048 &  56.450 &  73.4\% \\
+        GPU+11CPU  &  53.618 & 0.118 &  53.500 &  53.737 &  70.0\% \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\insertimage{img/fig1115_replicated.png}{width=\linewidth}
+            {Replicated Fig~11.15 on the i7-9750H + GTX 1660 Ti Max-Q
+             laptop.  Blue bars: mean wall-clock execution time over 3
+             reps; black caps would denote standard deviation but are
+             invisible at this scale because variance is below 1\% of
+             the mean for every configuration.  Red line: percentage of
+             GPU-alone execution time.  \label{fig:replicated}}
+
+For reference, the book's Fig~11.15 is reproduced in
+Figure~\ref{fig:book}. Note the qualitatively similar shape---a
+monotonic decrease from CPU-only on the left through GPU-only and into
+the hybrid configurations---but the very different ratio between the
+left two bars.
+
+\insertimage{img/fig1115_book.png}{width=\linewidth}
+            {Reproduction of Fig~11.15 from Barlas (2022).  Note that
+             ``CPU'' here is a 24-thread Ryzen 3900X and ``GPU'' is an
+             RTX~2060 Super; the percentages on the line are relative
+             to the leftmost (24-thread CPU) bar in this rendition.
+             \label{fig:book}}
+
+% -----------------------------------------------------------------------
+\section{Analysis}
+
+\subsection{Variance Is Negligible}
+
+Per-configuration standard deviations are at most 0.69~s on a 60-second
+run (1.1\%); the smallest hybrid configurations land at 0.12--0.22~s
+(0.2--0.4\%). Three reps was therefore comfortably enough to anchor
+each bar---the error caps in Figure~\ref{fig:replicated} are not even
+visible. The 10 reps used in the book offer diminishing returns when
+the run-to-run noise is already below 1\%; reps are better spent on
+varying parameters than on shrinking already-tight error bars.
+
+\subsection{GPU Dominates on This Machine}
+
+The headline number is CPU12~/~GPU $\approx$ 2.14. The 6-core/12-thread
+i7-9750H is 2.1$\times$ slower than the GTX~1660~Ti Max-Q at this
+workload, despite running at full thread parallelism. In the book this
+ratio was much closer to 1 (visually CPU was at about 85\% of
+GPU-alone, i.e.\ \emph{faster} than the GPU); the explanation is
+straightforward---a Ryzen 3900X has twice as many threads as an
+i7-9750H, while the two GPUs (1660 Ti vs.\ 2060 Super) are in the same
+Turing generation with similar fp64 ratios. Doubling the CPU's width
+roughly doubles its throughput on this embarrassingly-parallel workload,
+flipping the comparison.
+
+\subsection{The Hybrid Curve Has the Same Shape, Just Flatter}
+
+Both the book's curve and the replicated curve descend monotonically as
+CPU workers are added to the GPU baseline, and both flatten as the
+returns from each additional worker shrink. The marginal contribution
+of CPU workers, however, differs substantially:
+
+\begin{table}[H]
+    \centering
+    \caption{Marginal contribution of each additional CPU worker added
+             to the GPU thread (this work).}
+    \label{tab:marginal}
+    \begin{tabular}{lrrr}
+        \hline
+        \textbf{Step} & \textbf{Time (s)} & \textbf{$\Delta$ time (s)} & \textbf{$\Delta$\,\% of GPU-alone} \\
+        \hline
+        GPU            & 76.54 &   ---  &   --- \\
+        \,+1 CPU       & 68.45 & -8.09  & -10.6\% \\
+        \,+2 CPU       & 64.40 & -4.05  &  -5.3\% \\
+        \,+4 CPU       & 60.43 & -3.97  &  -5.2\% \\
+        \,+8 CPU       & 56.19 & -4.24  &  -5.5\% \\
+        \,+11 CPU      & 53.62 & -2.58  &  -3.4\% \\
+        \hline
+    \end{tabular}
+\end{table}
+
+The first CPU worker is worth a full 10\% of GPU-alone time. The next
+ten together are worth another 20\%, and the last three workers (going
+from 8~CPU to 11~CPU) buy only a 3.4\% improvement. This is the
+\emph{Amdahl-like saturation of the hybrid}: once the work-queue
+overhead per item and the fundamentally sequential portions of the
+program (frame setup, image saves, the last-region tail of each frame)
+become significant relative to the per-worker contribution, additional
+workers cannot help. On the book's machine the same saturation appears
+later (the curve is still descending visibly at +16~CPU and only flattens
+at +23~CPU), which is consistent with having twice as many threads to
+absorb.
+
+\subsection{Why CPU-Only Is So Much Slower Here}
+
+The CPU-only bar on this machine (163.5~s) is more than twice the
+GPU-only bar (76.5~s). A back-of-envelope check using the per-region
+statistics from the prior NVTX/CUDA-event profiling pass:
+
+\begin{itemize}
+    \item Total leaf regions, hybrid mode: 4{,}603
+    \item Average CPU time per region: 535~ms (from
+    \texttt{printCPUSummary} totals)
+    \item Average GPU time per region: 13.5~ms
+\end{itemize}
+
+In CPU-only mode, all 4{,}603 leaves are routed to CPU workers. With 12
+threads sharing the work and an average of 535~ms per region the
+naively-predicted runtime is
+$4603 \times 0.535 / 12 \approx 205\,\text{s}$. The measured 163.5~s
+falls below this estimate because (a) CPU-only mode does not have the
+$\sim$15~s outlier region described in the prior profiling report
+disproportionately landing on one thread, since with 12 CPU threads
+splitting all work the outlier no longer happens to be the tail
+constraint; and (b) the corner-evaluation overhead in
+\texttt{examine()}---which was $\sim$24~s across 6{,}104 calls in the
+hybrid run---is amortized across more threads here. Either way, the
+order-of-magnitude prediction is correct, confirming that the measured
+makespan is consistent with the per-region measurements from the prior
+pass.
+
+\subsection{Speed-Up Summary}
+
+Three speed-up numbers worth recording:
+
+\[
+\text{Speed-up of GPU over CPU12: } \frac{163.5}{76.5} = 2.14\times
+\]
+\[
+\text{Speed-up of best hybrid over CPU12: } \frac{163.5}{53.6} = 3.05\times
+\]
+\[
+\text{Speed-up of best hybrid over GPU-alone: } \frac{76.5}{53.6} = 1.43\times
+\]
+
+The hybrid is unambiguously the right choice on this platform; using
+only the GPU leaves $\sim$30\% of performance on the table.
+
+% -----------------------------------------------------------------------
+\section{Comparison with the Book}
+
+The qualitative finding from the book---``combining both
+[CPU and GPU] cuts in half the execution time that either of them can
+achieve''---does not translate verbatim to this machine, because on
+this machine the CPU and GPU are not roughly on par. The corrected
+statement for this platform is:
+
+\begin{quote}
+\emph{On a CPU/GPU pairing where the GPU is roughly 2$\times$ faster
+than the CPU at full thread parallelism, combining both cuts the
+GPU-alone execution time by another 30\% and the CPU-alone execution
+time by a factor of 3.}
+\end{quote}
+
+The structural conclusion from Section~11.5.1 of the book---that
+dynamic load balancing via the shared work queue is effective and
+delivers monotone improvements as more workers are added---is fully
+supported. The hybrid curves have the same shape, the same convexity,
+and the same saturation behavior; only the absolute baseline and the
+slope differ, and both differences are explained by the difference in
+CPU width (12 vs.\ 24 threads).
+
+It is worth noting one residual asymmetry. The book's curve appears to
+flatten at +16~CPU, with +23~CPU offering little further improvement;
+on a 24-thread machine this is consistent with two effects compounding:
+the marginal contribution of each worker shrinking, and SMT
+contention---hyper-threads do not double pure-compute throughput
+because the integer/floating-point pipelines are shared per physical
+core. On this machine, the same effect is present (the i7-9750H is
+6c/12t, also 2 hyperthreads per core) but the configurations sampled
+stop at +11~CPU, which is the last point before saturation rather than
+deep into it.
+
+% -----------------------------------------------------------------------
+\section{Follow-Up Experiments}
+
+The instrumentation patch left two unused affordances that are
+straightforward to exploit:
+
+\begin{enumerate}
+    \item \textbf{\texttt{SAVE=0} sweep.} Re-running with
+    \texttt{SAVE=0 ./sweep.sh} would isolate the pure-compute portion
+    of the runtime. The PNG-encode tail is one of the sequential
+    portions limiting hybrid speed-up; quantifying its share would
+    reveal whether eliminating it (e.g.\ moving image encoding into a
+    background writer thread) is worth the engineering cost.
+    \item \textbf{\texttt{diffT} sensitivity.} The prior profiling
+    report identified a 15.3-second worst-case CPU region that was
+    misclassified as uniform by the corner heuristic
+    (\texttt{diffT}\,=\,0.5). \texttt{DIFFT=0.2 ./sweep.sh} would test
+    whether tightening the threshold improves either the worst-case CPU
+    region's wall time or the overall hybrid total. The trade-off is
+    more queue traffic from forced splits.
+\end{enumerate}
+
+Two further parameters not exposed by the harness but worth varying
+in a future pass:
+
+\begin{itemize}
+    \item \textbf{CUDA block size.} \texttt{BLOCK\_SIDE} is hard-coded
+    to 16 in \texttt{kernel.cu} (a 256-thread 2D block). Trying 8 and
+    32 would test occupancy-vs-divergence tradeoffs.
+    \item \textbf{Work-queue policy.} The existing
+    \texttt{MandelRegion::Compare} functor already encodes a
+    largest-first ordering; swapping the \texttt{deque} for a
+    \texttt{priority\_queue} would deliver large regions to the GPU
+    thread first, which is where they are processed fastest, and
+    might recover some of the lost speed-up on the right-hand
+    saturation tail.
+\end{itemize}
+
+% -----------------------------------------------------------------------
+\section{Conclusion}
+
+The hybrid Mandelbrot renderer from Barlas (2022) reproduces, in
+spirit, on an i7-9750H + GTX~1660~Ti~Max-Q laptop: the curve has the
+same monotonic shape, the dynamic work queue delivers good load
+balance, and the best hybrid is the best configuration on the machine.
+The book's specific quantitative claim that hybrid execution
+``cuts in half'' the execution time of either CPU or GPU alone is a
+property of a CPU/GPU pairing where the two are roughly equal in
+throughput; on a system where the GPU is the dominant accelerator, the
+hybrid still wins but by a smaller margin (1.43$\times$ over GPU-alone
+rather than $\sim$2$\times$).
+
+The instrumentation patch needed to extract the metric Fig~11.15
+actually plots was small (an \texttt{extern "C"} flag pair, a
+\texttt{clock\_gettime} bracket, three printf gates) and orthogonal to
+the existing NVTX/CUDA-event work. The batch driver and plot script are
+generic enough to re-use for any future thread-configuration or
+threshold sweep, simply by changing the \texttt{CONFIGS} array or the
+environment variables.
+
+\end{document}

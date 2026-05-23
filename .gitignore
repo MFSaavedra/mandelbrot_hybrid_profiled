@@ -1,0 +1,31 @@
+# Build artifacts
+*.o
+mandelHybrid
+
+# Generated frame images and video
+img/
+*.png
+*.mkv
+
+# Nsight profiling data (large binary files)
+*.nsys-rep
+*.sqlite
+*.ncu-rep
+
+# Archives
+*.7z
+*.zip
+
+# LaTeX intermediates
+*.aux
+*.log
+*.bbl
+*.blg
+*.toc
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# Claude Code local settings
+.claude/
