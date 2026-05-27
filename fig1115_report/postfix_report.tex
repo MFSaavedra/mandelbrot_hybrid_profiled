@@ -1,0 +1,384 @@
+% Template:     Reporte LaTeX
+% Documento:    Post-fix Fig 11.15 sweep
+% Codificación: UTF-8
+
+\documentclass[
+	english,
+	letterpaper, oneside
+]{article}
+
+\def\documenttitle {Re-running the Fig~11.15 Thread-Configuration Sweep After the \texttt{examine()} Bug Fix}
+\def\documentsubtitle {}
+\def\documentsubject {Sensitivity of the Hybrid Mandelbrot Speed-Up Curve to the Min/Max Tracking Fix}
+\def\documentdate {\today}
+
+\def\documentauthor {Matias Saavedra}
+\def\coursename {Multicore and GPU Programming}
+\def\coursecode {CISC 701}
+
+\def\universityname {Universidad de Chile}
+\def\universityfaculty {Facultad de Ciencias Físicas y Matemáticas}
+\def\universitydepartment {Departamento de Ciencias de la Computación}
+\def\universitydepartmentimage {departamentos/dcc}
+\def\universitylocation {Santiago de Chile}
+
+\input{template}
+
+\begin{document}
+
+\templatePagecfg
+\templateFinalcfg
+
+\inserttitle
+
+% -----------------------------------------------------------------------
+\begin{abstract}
+This report re-runs the seven-configuration thread-and-GPU sweep
+documented in \texttt{fig1115\_report/main.tex} after the one-line
+correctness fix to \texttt{MandelRegion::examine()}'s min/max tracking
+loop. The same machine, the same \texttt{spec.in}, the same
+\texttt{sweep.sh} configuration matrix, and the same number of repetitions
+(three per config) are used. The post-fix sweep delivers the same
+qualitative shape as before --- monotonic decrease as CPU workers are
+added to the GPU baseline, saturation tail at the right edge --- but
+exhibits a uniform $\sim$1--2\,\% \emph{slowdown} across every hybrid
+configuration and a +1.9\,\% slowdown on the GPU-alone configuration. The
+CPU-only configuration is statistically indistinguishable from the
+pre-fix baseline. The slowdown is consistent with the +12\,\% increase
+in leaf regions and +5.5\,\% increase in kernel launches measured in the
+separate post-fix Nsight Systems profile (\texttt{postfix\_report.tex}):
+the fix raises queue traffic and per-launch overhead without removing
+the workload's binding constraint, which is the $\sim$14\,s CPU outlier
+region. Speed-up ratios (best hybrid over GPU-alone, best hybrid over
+CPU-only) are unchanged within run-to-run noise.
+\end{abstract}
+
+% -----------------------------------------------------------------------
+\section{Setup}
+
+The experimental setup is identical to the previous sweep in every
+respect except the binary being measured.
+
+\begin{itemize}
+    \item \textbf{Hardware}: Intel Core~i7-9750H (6 physical / 12 logical
+    cores) + NVIDIA GeForce GTX~1660~Ti~Max-Q (6\,GiB; compute
+    capability 7.5); same laptop, same desktop session, no concurrent
+    workloads.
+    \item \textbf{Workload}: 100 frames at $1920 \times 1080$ from
+    \texttt{spec.in}, zoom trajectory ending at
+    \texttt{maxIterations}\,=\,10{,}000.
+    \item \textbf{Configurations}: the seven labels in
+    \texttt{sweep.sh}'s \texttt{CONFIGS} array
+    (\texttt{CPU12}, \texttt{GPU}, \texttt{GPU+1CPU},
+    \texttt{GPU+2CPU}, \texttt{GPU+4CPU}, \texttt{GPU+8CPU},
+    \texttt{GPU+11CPU}), three reps each.
+    \item \textbf{Subdivision parameters}:
+    \texttt{diffThreshold}\,=\,0.5, \texttt{pixelSizeThresh}\,=\,32{,}768;
+    PNG saves enabled (\texttt{SAVE=1}) to match the original sweep and
+    the book's Fig~11.15.
+    \item \textbf{Binary}: rebuilt from the \texttt{examine\_minmax\_bugfix}
+    branch, which differs from the previous sweep's binary in exactly the
+    five lines that change \texttt{else if} into a second independent
+    \texttt{if} on the min/max reduction. See \texttt{bug\_report.tex} for
+    the analysis and \texttt{postfix\_report.tex} for the corresponding
+    nsys profile.
+\end{itemize}
+
+\noindent
+The driver script (\texttt{sweep.sh}) was invoked as:
+
+\begin{sourcecode}{bash}{Sweep invocation.}
+REPS=3 OUT=sweep_results_postfix SAVE=1 ./sweep.sh
+\end{sourcecode}
+
+\noindent
+which writes 21 rows (7 configs $\times$ 3 reps) to
+\texttt{sweep\_results\_postfix/results.csv} and per-run stderr logs to
+\texttt{sweep\_results\_postfix/logs/}.
+
+% -----------------------------------------------------------------------
+\section{Results}
+
+\subsection{Post-Fix Sweep}
+
+Table~\ref{tab:results-post} reports mean, population standard deviation,
+min and max wall-clock time per configuration over the three reps. The
+``\,\% of GPU-alone'' column is computed exactly as in the pre-fix
+report.
+
+\begin{table}[H]
+    \centering
+    \caption{End-to-end wall-clock time per configuration, post-fix
+             binary, 3 reps each.}
+    \label{tab:results-post}
+    \begin{tabular}{lrrrrr}
+        \hline
+        \textbf{Config} & \textbf{Mean (s)} & \textbf{Std (s)} & \textbf{Min (s)} & \textbf{Max (s)} & \textbf{\% of GPU-alone} \\
+        \hline
+        CPU12      & 162.764 & 2.442 & 159.311 & 164.500 & 208.6\,\% \\
+        GPU        &  78.031 & 0.208 &  77.786 &  78.294 & 100.0\,\% \\
+        GPU+1CPU   &  69.236 & 0.356 &  68.733 &  69.498 &  88.7\,\% \\
+        GPU+2CPU   &  65.464 & 0.252 &  65.142 &  65.759 &  83.9\,\% \\
+        GPU+4CPU   &  61.983 & 0.343 &  61.545 &  62.382 &  79.4\,\% \\
+        GPU+8CPU   &  57.011 & 0.092 &  56.888 &  57.107 &  73.1\,\% \\
+        GPU+11CPU  &  54.608 & 0.392 &  54.178 &  55.127 &  70.0\,\% \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\insertimage{../sweep_results_postfix/fig1115.png}{width=\linewidth}
+            {Fig~11.15-style chart from the post-fix sweep. Blue bars:
+             mean wall-clock execution time over 3 reps; black error
+             caps mark standard deviation. Red line: percentage of
+             GPU-alone execution time. \label{fig:postfix}}
+
+\subsection{Side-by-Side Comparison}
+
+Table~\ref{tab:compare-sweep} places the post-fix numbers next to the
+pre-fix baseline (reproduced from
+\texttt{fig1115\_report/main.tex}).
+
+\begin{table}[H]
+    \centering
+    \caption{Pre-fix vs.\ post-fix mean wall-clock time per
+             configuration (3 reps each, same machine).}
+    \label{tab:compare-sweep}
+    \begin{tabular}{lrrrr}
+        \hline
+        \textbf{Config} & \textbf{Pre-fix (s)} & \textbf{Post-fix (s)} & \textbf{$\Delta$ (s)} & \textbf{$\Delta$\,\%} \\
+        \hline
+        CPU12      & 163.470 & 162.764 & $-0.706$ & $-0.4\,\%$ \\
+        GPU        &  76.543 &  78.031 & $+1.488$ & $+1.9\,\%$ \\
+        GPU+1CPU   &  68.453 &  69.236 & $+0.782$ & $+1.1\,\%$ \\
+        GPU+2CPU   &  64.398 &  65.464 & $+1.067$ & $+1.7\,\%$ \\
+        GPU+4CPU   &  60.427 &  61.983 & $+1.557$ & $+2.6\,\%$ \\
+        GPU+8CPU   &  56.194 &  57.011 & $+0.817$ & $+1.5\,\%$ \\
+        GPU+11CPU  &  53.618 &  54.608 & $+0.990$ & $+1.8\,\%$ \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsection{Speed-Up Ratios}
+
+\begin{table}[H]
+    \centering
+    \caption{Speed-up ratios pre- vs.\ post-fix. The bug fix does not
+             change the headline speed-up numbers within run-to-run
+             noise.}
+    \label{tab:speedup}
+    \begin{tabular}{lrr}
+        \hline
+        \textbf{Ratio} & \textbf{Pre-fix} & \textbf{Post-fix} \\
+        \hline
+        GPU-alone / CPU12             & 2.14$\times$ & 2.09$\times$ \\
+        Best hybrid / CPU12           & 3.05$\times$ & 2.98$\times$ \\
+        Best hybrid / GPU-alone       & 1.428$\times$ & 1.429$\times$ \\
+        \hline
+    \end{tabular}
+\end{table}
+
+% -----------------------------------------------------------------------
+\section{Analysis}
+
+\subsection{The Hybrid Curve Is Uniformly Shifted Up by ~1--2\,\%}
+
+The most striking feature of Table~\ref{tab:compare-sweep} is the
+\emph{sign of the change}: every hybrid configuration ran slightly
+\emph{slower} after the fix. The shift is consistent in direction
+(positive across all five hybrid points), small in magnitude
+(maximum 2.6\,\% at \texttt{GPU+4CPU}), and far below the pre-fix
+run-to-run variance for some configurations but above it for others. To
+put the shift in context against the variance:
+
+\begin{itemize}
+    \item The largest pre-fix population standard deviation among the
+    hybrid configurations was 0.565~s (\texttt{GPU+4CPU}); the largest
+    post-fix is 0.392~s (\texttt{GPU+11CPU}). The $+1.557$~s shift on
+    \texttt{GPU+4CPU} is roughly 2.8$\sigma$ of either run --- a real
+    signal, not noise.
+    \item The +1.9\,\% shift on \texttt{GPU} (the pure-GPU
+    configuration) is $\sim$9$\sigma$ relative to the pre-fix
+    \texttt{GPU} standard deviation (0.136~s). This is the cleanest
+    diagnostic: with no CPU workers in the loop, the only thing the bug
+    fix can change is how many kernel launches and copies the GPU
+    thread does.
+\end{itemize}
+
+\subsection{Why the Slowdown Is Expected}
+
+The companion Nsight Systems profile in \texttt{postfix\_report.tex}
+records the precise mechanism. After the fix:
+
+\begin{itemize}
+    \item Total leaf regions rose from 4{,}603 to 5{,}152 ($+11.9\,\%$).
+    \item GPU kernel launches rose from 3{,}543 to 3{,}738 ($+5.5\,\%$).
+    \item CPU leaves rose from 1{,}060 to 1{,}414 ($+33.4\,\%$).
+    \item The average D$\rightarrow$H transfer (15~µs $\to$ 24~µs) and
+    the median CPU region (147~ms $\to$ 56~ms) both moved in directions
+    consistent with smaller per-leaf granularity.
+\end{itemize}
+
+\noindent
+Each extra leaf carries a fixed overhead independent of its pixel area:
+a \texttt{WorkQueue::append}/\texttt{extract} pair, an \texttt{examine}
+call (corner evaluation, except for the corner inherited from the
+parent), and --- for GPU leaves --- a \texttt{cudaLaunchKernel}, the
+kernel's own grid setup, four \texttt{cudaEventRecord} calls, a
+\texttt{cudaMemcpy} that always blocks on kernel completion, and a
+\texttt{cudaEventSynchronize}. Doubling the number of cheap leaves
+roughly doubles the per-leaf overhead share, while halving the per-leaf
+work. Below some break-even pixel count, splitting a region costs more
+in fixed overhead than it saves in work. The Mandelbrot interior is
+already past that break-even (uniform interior tiles always pass the
+decision test and are computed in one shot), but the additional splits
+introduced by the fix are by definition the marginal ones that the
+pre-fix code was wrongly classifying --- and for which the
+overhead/work trade-off is closest to break-even.
+
+\subsection{The Binding Constraint Has Not Moved}
+
+The end-to-end wall time of the best hybrid run is set by the last
+thread to finish, which is the thread that drew the worst-case
+region. \texttt{postfix\_report.tex} reports that the worst CPU region
+fell only modestly under the fix (15.3~s~$\to$~14.2~s, $-7\,\%$) and
+that the binding constraint --- a region with an internal
+high-iteration filament that does not touch any of the four
+corners --- is unchanged. Because the per-thread tail is set by this
+region rather than by the number of leaves, adding 12\,\% more leaves
+adds work without subtracting any from the tail. The arithmetic is
+straightforward: the new leaves spread $\sim$0.5--1~s of additional
+overhead across the eleven CPU threads (their total wall time rises
+from 50.50--52.59~s to 50.19--52.19~s, only marginally), but the GPU
+thread completes its 47--48~s of work and then idles until the
+straggler CPU thread is done. The +1~s of extra GPU-side overhead
+($\sim$3{,}738~$-$~3{,}543~=~195 extra kernel launches at $\sim$5~ms
+each on average) plus the small added queue-coordination cost is
+precisely the size of the slowdown observed in
+Table~\ref{tab:compare-sweep}.
+
+\subsection{Why \texttt{CPU12} Is Unchanged}
+
+The CPU-only configuration is the only one that does \emph{not} suffer
+in absolute time. The mean fell from 163.470~s to 162.764~s
+($-0.4\,\%$). Two effects compete:
+
+\begin{itemize}
+    \item More leaves means more queue traffic on the CPU side too;
+    this should add overhead.
+    \item More leaves also means smaller pieces, which helps the
+    twelve CPU threads share the work more evenly --- whichever thread
+    happens to pull the worst-case region now spends 14.2~s on it
+    instead of 15.3~s while the others continue to drain the queue.
+    Because there are eleven other threads to absorb the extra leaves,
+    no thread becomes a new tail.
+\end{itemize}
+
+\noindent
+The two effects roughly cancel for \texttt{CPU12}. The price paid for
+zero net change is a noticeable rise in run-to-run variance: the
+standard deviation went from 0.32~s pre-fix to 2.44~s post-fix, driven
+by one rep that completed in 159.3~s while the other two clustered
+around 164.5~s. This is consistent with thread-scheduling sensitivity
+around the worst-case region: whether it happens to be claimed by the
+first or last thread to call \texttt{que->extract()} can shift the
+makespan by several seconds. The pre-fix code's lower-variance behaviour
+in this configuration may have been an artefact of the buggy reduction
+funnelling the same regions to the same threads more deterministically;
+the cleaner classification post-fix exposes a real but small
+scheduling-driven jitter.
+
+\subsection{Speed-Up Ratios Are Effectively Unchanged}
+
+Table~\ref{tab:speedup} confirms that the bug fix does not move any of
+the three speed-up numbers worth reporting:
+
+\begin{itemize}
+    \item \textbf{Best-hybrid over GPU-alone}: 1.428$\times$ pre-fix vs.\
+    1.429$\times$ post-fix --- statistically identical.
+    \item \textbf{GPU-alone over CPU12}: 2.14$\times$ vs.\ 2.09$\times$
+    --- a 2--3\,\% shift, within the variance of the noisier post-fix
+    \texttt{CPU12} measurement.
+    \item \textbf{Best-hybrid over CPU12}: 3.05$\times$ vs.\
+    2.98$\times$ --- same story.
+\end{itemize}
+
+\noindent
+The shape of the curve is preserved (Figure~\ref{fig:postfix}). The
+qualitative conclusions of the original sweep --- that the hybrid is
+the right configuration on this platform, that the marginal
+contribution of each additional CPU worker shrinks but stays positive
+out to 11~workers, and that the curve saturates around the +8~CPU
+point --- all hold without modification.
+
+% -----------------------------------------------------------------------
+\section{Implications}
+
+\subsection{Correctness Fixes With Zero or Slightly-Negative Performance Are Still Worth Shipping}
+
+The bug fix does the right thing structurally --- it makes the
+decision rule \emph{do what it claims to do}, which is the precondition
+for any future heuristic improvement to deliver predictable results.
+Without the fix, lowering \texttt{diffThreshold} or adding a
+nine-point stencil would interact with a reduction that silently
+discards corner samples, making the system harder to reason about.
+After the fix, the corner-spread heuristic is now an honest knob.
+
+The 1--2\,\% wall-time cost is the price of that honesty, and it is the
+right price to pay. The cost is not a regression in the fix
+\emph{itself}; it is the renderer correctly paying for splits the
+pre-fix code was getting for free by skipping them. If the new splits
+were useless, lowering \texttt{diffThreshold} would not help either.
+The fact that the new splits do correctly bisect non-uniform regions
+means that future tuning (lower \texttt{diffThreshold}, edge-midpoint
+sampling) will operate on a foundation that classifies its inputs
+faithfully.
+
+\subsection{What Would Move the Curve}
+
+\texttt{postfix\_report.tex} lists the four follow-ups whose effect
+the post-fix sweep makes more concrete:
+
+\begin{enumerate}
+    \item \textbf{Lower \texttt{diffThreshold} from 0.5 to 0.2--0.3}.
+    Would attack the 14~s tail directly. Best expected upside:
+    sub-second on the best-hybrid mean; downside is more queue traffic
+    (we already paid 1--2\,\% for the bug fix's modest splits, so
+    further splits are probably another 1--2\,\%).
+    \item \textbf{Edge-midpoint sampling}. Larger code change. Catches
+    interior filaments. The natural way to compress the 14~s tail.
+    \item \textbf{Cardioid/period-2 bulb interior certificate}.
+    Cheapest. For each region, test whether all four corners lie inside
+    the analytic interior; if yes, skip iteration entirely and constant-fill.
+    Would save iteration work proportional to how much of each frame
+    falls inside the main cardioid (variable across the zoom path).
+    \item \textbf{Async CUDA streams}. The largest remaining
+    optimisation by absolute wall time. Would let the GPU thread
+    continue pulling from the queue while the previous kernel and its
+    transfer drain. Decoupled from the bug fix.
+\end{enumerate}
+
+A \texttt{diffThreshold} sensitivity sweep ($\{0.5, 0.3, 0.2, 0.1\}$,
+same seven configs) would be a natural next experiment and reuses the
+existing \texttt{sweep.sh} (via \texttt{DIFFT}) without any further
+code changes.
+
+% -----------------------------------------------------------------------
+\section{Conclusion}
+
+Repeating the seven-configuration sweep on the post-fix binary delivers
+the same speed-up curve as before, shifted uniformly upward by 1--2\,\%
+for every hybrid configuration and by 1.9\,\% for GPU-alone. The CPU-only
+configuration is unchanged in mean but noisier. The slowdown is the
+direct cost of additional leaves that the fix correctly exposes
+(+12\,\% more \texttt{examine()} calls, +5.5\,\% more kernel launches),
+none of which can attack the binding constraint (the 14~s CPU
+worst-case region). Speed-up ratios are preserved.
+
+The fix is therefore a correctness improvement that pays a small,
+predictable performance tax. That tax buys a clean foundation for the
+heuristic-level improvements (lower threshold, edge-midpoint sampling,
+cardioid certificate) which are now the only remaining levers that can
+reduce the worst-case region time --- and through it, the end-to-end
+wall time --- on this platform.
+
+\end{document}

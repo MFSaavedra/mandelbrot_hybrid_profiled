@@ -1,0 +1,383 @@
+% Template:     Reporte LaTeX
+% Documento:    Bug report - min/max tracking in MandelRegion::examine()
+% Codificación: UTF-8
+
+% CREACIÓN DEL DOCUMENTO
+\documentclass[
+	english,
+	letterpaper, oneside
+]{article}
+
+% INFORMACIÓN DEL DOCUMENTO
+\def\documenttitle {A Latent Bug in the Adaptive Subdivision Heuristic of \texttt{mandelHybrid}}
+\def\documentsubtitle {Min/Max Tracking in \texttt{MandelRegion::examine()}}
+\def\documentsubject {Adaptive Region Splitting, Load Balancing}
+\def\documentdate {\today}
+
+\def\documentauthor {Matias Saavedra}
+\def\coursename {Multicore and GPU Programming}
+\def\coursecode {CISC 701}
+
+\def\universityname {Universidad de Chile}
+\def\universityfaculty {Facultad de Ciencias Físicas y Matemáticas}
+\def\universitydepartment {Departamento de Ciencias de la Computación}
+\def\universitydepartmentimage {departamentos/dcc}
+\def\universitylocation {Santiago de Chile}
+
+% IMPORTACIÓN DEL TEMPLATE
+\input{template}
+
+% INICIO DE PÁGINAS
+\begin{document}
+
+% CONFIGURACIÓN DE PÁGINA Y ENCABEZADOS
+\templatePagecfg
+
+% CONFIGURACIONES FINALES
+\templateFinalcfg
+
+% ======================= INICIO DEL DOCUMENTO =======================
+
+\inserttitle
+
+% -----------------------------------------------------------------------
+\begin{abstract}
+This report documents a latent correctness bug in
+\texttt{MandelRegion::examine()}, the function at the heart of the
+adaptive load-balancing strategy used by \texttt{mandelHybrid}. The bug
+lies in the loop that computes the minimum and maximum
+iteration counts across the four corners of a region: by chaining the
+two updates with an \texttt{else if}, the original code makes max-tracking
+unreachable on the first iteration and on every subsequent iteration where
+a new minimum is found. As a consequence, regions whose largest corner
+value happens to be the upper-right corner are systematically misclassified
+as ``uniform'' and computed in a single pass, even when they straddle a
+high-iteration boundary filament. The bug coexists with—and very likely
+contributed to—the 15.3~s worst-case CPU region observed in the original
+profiling run. We describe the role of \texttt{examine()} in the
+hybrid renderer, walk through the failure modes of the original loop on
+representative corner-value patterns, and present a one-line fix that
+restores correct independent tracking of \texttt{minIter} and
+\texttt{maxIter}.
+\end{abstract}
+
+% -----------------------------------------------------------------------
+\section{Context: How the Adaptive Subdivision Works}
+
+A \texttt{MandelRegion} represents a rectangular sub-area of the output
+image, holding both its pixel-space coordinates and the complex-plane
+coordinates that it maps to. Each worker thread (one driving the GPU,
+the rest CPU-only) pops regions from a shared \texttt{WorkQueue} and calls
+\texttt{MandelRegion::examine()} on them. This function is the entire
+load-balancing strategy of the renderer: it decides, for every region,
+whether to compute its pixels immediately or to subdivide it into four
+quadrants that will be pushed back onto the queue for other workers to
+pick up.
+
+\subsection{The Corner Heuristic}
+
+The cheap test that drives this decision is to sample the Mandelbrot
+iteration count \texttt{diverge()} at the four corners of the region
+(\texttt{UPPER\_LEFT}, \texttt{UPPER\_RIGHT}, \texttt{LOWER\_LEFT},
+\texttt{LOWER\_RIGHT}). If the four iteration counts are close to one
+another, the region is assumed to be uniform—either entirely inside the
+Mandelbrot set or entirely outside it—and is computed as a single block.
+If the counts spread widely, the boundary of the set is presumed to cut
+through the region, so the region is split.
+
+The corner values are stored in \texttt{cornersIter[4]}, initialized to
+the sentinel \texttt{UNKNOWN = -1}. When a region is subdivided, each
+child inherits exactly one corner value from its parent, so that no
+corner of the original region is recomputed by its descendants. The
+decision threshold is configured by the static field
+\texttt{MandelRegion::diffThresh} (default \texttt{0.5}) and the
+absolute lower bound \texttt{MandelRegion::pixelSizeThresh}
+(default \texttt{32768} pixels), set by
+\texttt{initColorMapAndThrer()}:
+
+\begin{sourcecode}{cpp}{mandelregion.cpp — static thresholds.}
+QRgb *MandelRegion::colormap;
+double MandelRegion::diffThresh;
+int MandelRegion::pixelSizeThresh;
+
+void MandelRegion::initColorMapAndThrer (int maxV,
+                                         double diffT = 0.3,
+                                         int    pixT  = 2048)
+{
+  colormap = new QRgb[maxV];
+  diffThresh = diffT;
+  pixelSizeThresh = pixT;
+  // ... colour map initialization ...
+}
+\end{sourcecode}
+
+\subsection{The Decision Rule}
+
+Once the four corner iteration counts have been computed, the decision
+rule is a single boolean expression:
+
+\begin{sourcecode}{cpp}{mandelregion.cpp — decision rule.}
+// either compute the pixels or break the region in 4 pieces
+if (maxIter - minIter < diffThresh * maxIter
+    || pixelsX * pixelsY < pixelSizeThresh)
+  {
+    compute (onGPU);
+    ownerFrame->regionComplete ();
+  }
+else
+  {
+    // ... four-way split, push four children onto the queue ...
+    ownerFrame->regionSplit ();
+  }
+\end{sourcecode}
+
+The first disjunct, \texttt{maxIter - minIter < diffThresh * maxIter},
+is the uniformity check. The second is the absolute size floor that
+prevents infinite subdivision near the fractal boundary. Both
+\texttt{minIter} and \texttt{maxIter} must therefore be computed
+correctly across the four corners for the heuristic to work as intended.
+
+% -----------------------------------------------------------------------
+\section{The Bug}
+
+\subsection{The Original Loop}
+
+The reduction that computes \texttt{minIter} and \texttt{maxIter} from
+the four corner values appears immediately above the decision rule:
+
+\begin{sourcecode}{cpp}{mandelregion.cpp — original min/max reduction (buggy).}
+int minIter = INT_MAX, maxIter = 0;
+
+// evaluate the corners first
+for (int i = 0; i < 4; i++)
+  {
+    if (cornersIter[i] == UNKNOWN)
+      {
+        switch (i)
+          {
+          case (UPPER_RIGHT):
+            cornersIter[i] = diverge (lowerX, upperY);
+            break;
+          case (UPPER_LEFT):
+            cornersIter[i] = diverge (upperX, upperY);
+            break;
+          case (LOWER_RIGHT):
+            cornersIter[i] = diverge (lowerX, lowerY);
+            break;
+          default:           // LOWER_LEFT
+            cornersIter[i] = diverge (upperX, lowerY);
+          }
+      }
+    if (minIter > cornersIter[i])
+      minIter = cornersIter[i];
+    else if (maxIter < cornersIter[i])
+      maxIter = cornersIter[i];
+  }
+\end{sourcecode}
+
+\subsection{Why the \texttt{else if} Is Wrong}
+
+Tracking the running minimum and the running maximum of a sequence are
+\emph{independent} operations: a single value can simultaneously be the
+smallest seen so far and (trivially, if it is the only sample) the largest
+seen so far. The original code chains the two updates with an
+\texttt{else~if}, which says ``only consider updating \texttt{maxIter} if
+we did not just update \texttt{minIter}''. Whenever a sample lowers the
+minimum, the max-update is silently skipped on that sample.
+
+The most damaging case is the first iteration. Because \texttt{minIter}
+is initialized to \texttt{INT\_MAX}, the very first corner always
+triggers the min branch, and the max branch is never entered. The first
+corner's value therefore never has the chance to set \texttt{maxIter}.
+
+\subsection{Failure Walk-Throughs}
+
+We analyse three representative patterns of corner values. In each case,
+recall that \texttt{minIter} starts at \texttt{INT\_MAX} and
+\texttt{maxIter} starts at \texttt{0}, and corners are visited in the
+order \texttt{UPPER\_RIGHT}, \texttt{UPPER\_LEFT}, \texttt{LOWER\_RIGHT},
+\texttt{LOWER\_LEFT} as encoded by the constants in
+\texttt{mandelregion.h}.
+
+\paragraph{Case A — the maximum is at the first corner.}
+Corner values: $[\,8000,\;50,\;60,\;70\,]$.
+
+\begin{itemize}
+    \item $i=0$: $\texttt{INT\_MAX} > 8000$ is true $\Rightarrow$
+          $\texttt{minIter} = 8000$. The \texttt{else if} is skipped.
+          $\texttt{maxIter}$ stays $0$.
+    \item $i=1$: $8000 > 50$ $\Rightarrow$ $\texttt{minIter} = 50$.
+          Skipped.
+    \item $i=2$: $50 > 60$ false $\Rightarrow$ $0 < 60$ true
+          $\Rightarrow$ $\texttt{maxIter} = 60$.
+    \item $i=3$: $50 > 70$ false $\Rightarrow$ $60 < 70$ true
+          $\Rightarrow$ $\texttt{maxIter} = 70$.
+\end{itemize}
+
+\noindent
+Final: $\texttt{minIter} = 50$, $\texttt{maxIter} = 70$. The real maximum
+of $8000$ has been discarded. The decision rule evaluates as
+$70 - 50 = 20 < 0.5 \cdot 70 = 35$ — \emph{the region is classified as
+uniform and computed in a single block}, even though the corner values
+actually span by a factor of 160. If the missing high-iteration corner
+is representative of a high-iteration filament passing through the
+upper-right area, this is exactly the misclassification pattern that
+produces a worst-case CPU region.
+
+\paragraph{Case B — all four corners equal (genuinely uniform interior).}
+Corner values: $[\,100,\;100,\;100,\;100\,]$.
+
+\begin{itemize}
+    \item $i=0$: $\texttt{INT\_MAX} > 100$ $\Rightarrow$
+          $\texttt{minIter} = 100$. Skipped. $\texttt{maxIter}$ stays $0$.
+    \item $i=1$: $100 > 100$ false $\Rightarrow$ $0 < 100$ true
+          $\Rightarrow$ $\texttt{maxIter} = 100$. \emph{Rescued.}
+    \item $i=2,3$: no change.
+\end{itemize}
+
+\noindent
+Final: $\texttt{minIter} = \texttt{maxIter} = 100$. Spread is zero, the
+region is correctly classified as uniform. This case—where the first
+corner's value happens to repeat at the second corner—is the only reason
+the bug is not catastrophic in practice. For Mandelbrot images, the vast
+majority of uniform regions are interior tiles where all four corners hit
+\texttt{MAXITER}, and they self-rescue at $i=1$.
+
+\paragraph{Case C — strictly decreasing corners.}
+Corner values: $[\,400,\;300,\;200,\;100\,]$.
+
+\begin{itemize}
+    \item $i=0$: $\texttt{minIter} = 400$, $\texttt{maxIter}$ stays $0$.
+    \item $i=1$: $400 > 300$ $\Rightarrow$ $\texttt{minIter} = 300$.
+          Skipped.
+    \item $i=2$: $300 > 200$ $\Rightarrow$ $\texttt{minIter} = 200$.
+          Skipped.
+    \item $i=3$: $200 > 100$ $\Rightarrow$ $\texttt{minIter} = 100$.
+          Skipped.
+\end{itemize}
+
+\noindent
+Final: $\texttt{minIter} = 100$, $\texttt{maxIter} = 0$. The decision
+rule evaluates as $0 - 100 = -100 < 0.5 \cdot 0 = 0$ — true. The region
+is classified as uniform and computed in a single block. Note also that
+the right-hand side $\texttt{diffThresh} \cdot \texttt{maxIter}$
+collapses to $0$ whenever the bug discards the true maximum, making the
+decision rule degenerate: \emph{any} negative left-hand side passes, and
+the spread can never look ``large'' relative to a maximum of zero.
+
+\subsection{Probability of Triggering the Bug}
+
+Given four random corner samples, the maximum lies at position $0$
+(visited first) with probability $1/4$ assuming uniformly random
+permutation of ranks. So roughly one region in four has its maximum
+silently dropped purely from corner-visit order, before considering the
+spatial correlations of the Mandelbrot iteration field. Most of those
+regions still happen to be classified correctly, because Mandelbrot
+iteration counts are highly correlated across nearby points and Case~B
+patterns dominate. But the regions that \emph{do} contain a single
+high-iteration corner at position 0 are exactly the regions that should
+have been split—and they are precisely the regions that produce the
+long-tail outliers in the profile.
+
+% -----------------------------------------------------------------------
+\section{The Fix}
+
+The repair is to use two independent \texttt{if} statements:
+
+\begin{sourcecode}{cpp}{mandelregion.cpp — corrected min/max reduction.}
+// Track min and max independently. The original code chained these
+// with `else if`, which made max-tracking unreachable whenever the
+// current sample also lowered the min -- most notably on i==0, where
+// minIter starts at INT_MAX so the min branch always fires and
+// maxIter is never updated from the first corner.
+if (cornersIter[i] < minIter)
+  minIter = cornersIter[i];
+if (cornersIter[i] > maxIter)
+  maxIter = cornersIter[i];
+\end{sourcecode}
+
+After the fix:
+
+\begin{itemize}
+    \item Case A correctly yields $\texttt{minIter} = 50$,
+          $\texttt{maxIter} = 8000$. The decision rule evaluates as
+          $7950 < 0.5 \cdot 8000 = 4000$ — false — and the region is
+          split, as it should be.
+    \item Case B still correctly yields $100 = 100$, and the region
+          is computed in one block.
+    \item Case C now yields $\texttt{minIter} = 100$,
+          $\texttt{maxIter} = 400$. The decision rule evaluates as
+          $300 < 0.5 \cdot 400 = 200$ — false — and the region is split.
+\end{itemize}
+
+The fix adds one comparison per corner (four extra cheap comparisons
+per call to \texttt{examine()}). Compared to the cost of even a single
+\texttt{diverge()} corner evaluation, which runs up to
+\texttt{MAXITER} multiplications and additions, this is negligible.
+
+% -----------------------------------------------------------------------
+\section{Connection to the 15.3-Second Outlier}
+
+The original profiling report identified the worst-case CPU region of
+15.3~s as a misclassified boundary region, and attributed it to the
+intrinsic weakness of the four-corner heuristic: a fractal filament
+crossing the region's interior without touching any of the four corners.
+That explanation is plausible and likely contributes to outliers in
+general.
+
+However, the min/max tracking bug provides a second, simpler explanation
+that should be ruled out first: a region whose only high-iteration corner
+happened to be \texttt{UPPER\_RIGHT}—visited at $i=0$—will have that
+corner's value silently dropped from \texttt{maxIter}, with the
+decision rule then degenerating to ``always uniform'' (Case~C above) or
+to a spread that looks artificially small (Case~A). Either outcome
+classifies the region as uniform and dispatches it directly to
+\texttt{compute()}.
+
+In the original profile (100 frames, $1920 \times 1080$, 12 threads),
+the bug would have been triggered for an estimated $\sim 25\%$ of
+regions on each \texttt{examine()} call (the probability that the
+sample at $i=0$ is also the maximum), although only a small fraction
+of those would result in observable misclassification. Re-running the
+profile with the corrected loop is the cleanest way to disentangle the
+bug's contribution from the heuristic's intrinsic weakness. Any
+remaining outliers after the fix can then be attributed to the
+heuristic itself, justifying the further improvements suggested in the
+original report (lower \texttt{diffThreshold}, edge-midpoint sampling,
+cardioid/bulb interior certificates).
+
+% -----------------------------------------------------------------------
+\section{Summary}
+
+\begin{itemize}
+    \item \texttt{MandelRegion::examine()} is the load-balancing
+          policy of \texttt{mandelHybrid}: it samples four corners,
+          computes the spread of their iteration counts, and either
+          subdivides the region or computes its pixels.
+    \item The original loop chains the min-update and the max-update
+          with an \texttt{else~if}, making max-tracking unreachable
+          whenever the current sample also lowers the min.
+    \item On the first iteration this is unconditional: the first
+          corner's value is never considered as a potential maximum.
+    \item In Case A (max at corner 0 only) the bug discards the true
+          maximum and the region is wrongly classified as uniform.
+          In Case C (strictly decreasing corners) \texttt{maxIter}
+          remains 0, the decision rule degenerates, and the region
+          is again wrongly classified as uniform.
+    \item Case B (all corners equal) is the only reason the bug is
+          tolerable in practice: most uniform interior tiles have all
+          four corners at \texttt{MAXITER}, so the second iteration
+          rescues \texttt{maxIter}.
+    \item The fix is one line: replace \texttt{else~if} with a second
+          independent \texttt{if}, so that every sample updates both
+          \texttt{minIter} and \texttt{maxIter}.
+    \item The bug is a strong candidate for at least part of the
+          15.3-second outlier identified in the previous profiling
+          report. Re-profiling with the fix in place will clarify how
+          much of the load-balance imbalance was attributable to this
+          bug versus to the intrinsic weakness of the four-corner
+          heuristic.
+\end{itemize}
+
+% FIN DEL DOCUMENTO
+\end{document}

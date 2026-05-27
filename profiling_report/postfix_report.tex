@@ -1,0 +1,395 @@
+% Template:     Reporte LaTeX
+% Documento:    Post-fix nsys re-profiling of mandelHybrid.
+% Codificación: UTF-8
+
+\documentclass[
+	english,
+	letterpaper, oneside
+]{article}
+
+\def\documenttitle {Re-Profiling \texttt{mandelHybrid} After the \texttt{examine()} Min/Max Bug Fix}
+\def\documentsubtitle {Comparison Against the Pre-Fix Nsight Systems Baseline}
+\def\documentsubject {CUDA Profiling with NVTX and CUDA Events}
+\def\documentdate {\today}
+
+\def\documentauthor {Matias Saavedra}
+\def\coursename {Multicore and GPU Programming}
+\def\coursecode {CISC 701}
+
+\def\universityname {Universidad de Chile}
+\def\universityfaculty {Facultad de Ciencias Físicas y Matemáticas}
+\def\universitydepartment {Departamento de Ciencias de la Computación}
+\def\universitydepartmentimage {departamentos/dcc}
+\def\universitylocation {Santiago de Chile}
+
+\input{template}
+
+\begin{document}
+
+\templatePagecfg
+\templateFinalcfg
+
+\inserttitle
+
+% -----------------------------------------------------------------------
+\begin{abstract}
+This report re-runs the Nsight Systems profile of \texttt{mandelHybrid}
+after the one-line bug fix to \texttt{MandelRegion::examine()}'s min/max
+tracking loop documented in \texttt{bug\_report.tex}, and compares the new
+measurements against the pre-fix baseline of
+\texttt{profiling\_report/main.tex}. The methodology is identical: 100
+frames at $1920 \times 1080$ on an i7-9750H + GTX~1660~Ti~Max-Q with
+12 threads (1~GPU~+~11~CPU), invoked as
+\texttt{nsys profile --trace=cuda,nvtx,osrt -o report ./mandelHybrid spec.in}.
+The fix produced visible, mostly-expected changes in the work-decomposition
+metrics: \textbf{+12\% more \texttt{examine()} calls} (6{,}104~$\to$~6{,}836),
+\textbf{+12\% more leaf regions} (4{,}603~$\to$~5{,}152, with the CPU pool
+absorbing most of the increase: 1{,}060~$\to$~1{,}414), \textbf{-26\%
+average CPU region time} (535~ms~$\to$~398~ms), and \textbf{-70\% in the
+GPU region maximum} (465.7~ms~$\to$~139.4~ms). The single most striking
+finding, however, is that the \textbf{15.3~s CPU outlier survived the fix},
+landing at \textbf{14.2~s} in the new run. The bug fix is therefore a
+correctness improvement that does what its analysis predicted (more splits,
+tighter tails on the GPU side), but the long-tail CPU outlier is now
+confirmed to be caused by the intrinsic weakness of the four-corner
+heuristic rather than the tracking bug.
+\end{abstract}
+
+% -----------------------------------------------------------------------
+\section{Methodology}
+
+Identical to the pre-fix run that produced
+\texttt{first\_run/report.nsys-rep}: the same \texttt{spec.in}
+(100~frames at $1920 \times 1080$, the same zoom trajectory ending at
+\texttt{maxIterations}\,=\,10{,}000), the same machine (i7-9750H,
+6~physical / 12~logical cores; GTX~1660~Ti~Max-Q; nvcc~13.2 driving
+g++-15 for the host compile), and the same defaults for
+\texttt{numThreads} (12, the machine's logical core count),
+\texttt{gpuEnable} (1), \texttt{diffThreshold} (0.5), and
+\texttt{pixelSizeThresh} (32{,}768). The only differences are:
+
+\begin{itemize}
+    \item the binary now contains the one-line fix to
+    \texttt{MandelRegion::examine()}'s reduction loop:
+
+\begin{sourcecode}{cpp}{mandelregion.cpp --- the fix being measured.}
+// Track min and max independently. The original code chained these
+// with `else if`, which made max-tracking unreachable whenever the
+// current sample also lowered the min -- most notably on i==0, where
+// minIter starts at INT_MAX so the min branch always fires and
+// maxIter is never updated from the first corner.
+if (cornersIter[i] < minIter)
+  minIter = cornersIter[i];
+if (cornersIter[i] > maxIter)
+  maxIter = cornersIter[i];
+\end{sourcecode}
+
+    \item the new \texttt{report.nsys-rep} lives in \texttt{second\_run/}
+    so the pre-fix report in \texttt{first\_run/} remains untouched as
+    a baseline.
+\end{itemize}
+
+The invocation was
+\texttt{nsys profile --trace=cuda,nvtx,osrt -o report ../mandelHybrid ../spec.in},
+run from \texttt{second\_run/} so the \texttt{img$NNNN$.png} outputs and
+the profile report land together. PNGs are cleaned afterward; the
+\texttt{report.nsys-rep} and the \texttt{report.sqlite} export it
+generates are kept.
+
+% -----------------------------------------------------------------------
+\section{Results}
+
+\subsection{NVTX Range Summary}
+
+Table~\ref{tab:nvtx-post} is the direct analogue of Table~1 of the
+pre-fix report. All times are summed across all threads and all
+instances; the \texttt{Range} column lists the three NVTX labels added
+to the program in the original instrumentation pass.
+
+\begin{table}[H]
+    \centering
+    \caption{NVTX range summary, post-fix run (summed across all threads).}
+    \label{tab:nvtx-post}
+    \begin{tabular}{lrrrrrr}
+        \hline
+        \textbf{Range} & \textbf{Time\%} & \textbf{Total (s)} & \textbf{Instances} & \textbf{Avg (ms)} & \textbf{Med (ms)} & \textbf{Max (ms)} \\
+        \hline
+        \texttt{examine region}     & 50.9\% & 633.05 & 6{,}836 &  92.61 & 2.29 & 14{,}214 \\
+        \texttt{CPU region compute} & 45.3\% & 563.22 & 1{,}414 & 398.32 & 56.29 & 14{,}214 \\
+        \texttt{GPU region compute} &  3.8\% &  47.79 & 3{,}738 &  12.78 & 4.80 &    139.4 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsection{Per-Thread CPU Work Distribution}
+
+Per-thread totals were extracted from the
+\texttt{[CPU profiling summary - this thread]} lines printed when each
+worker drains the queue. Threads are listed in the order they finished
+(the order is not stable run-to-run; numbering is for reference only).
+
+\begin{table}[H]
+    \centering
+    \caption{CPU region distribution across the 11 CPU threads, post-fix.}
+    \label{tab:cpu-threads-post}
+    \begin{tabular}{rrrr}
+        \hline
+        \textbf{Thread} & \textbf{Regions} & \textbf{Total (s)} & \textbf{Avg (ms/region)} \\
+        \hline
+         1 & 153 & 51.17 & 334.5 \\
+         2 & 110 & 51.71 & 470.1 \\
+         3 &  91 & 50.67 & 556.8 \\
+         4 & 179 & 51.22 & 286.2 \\
+         5 & 115 & 51.39 & 446.9 \\
+         6 &  93 & 51.17 & 550.2 \\
+         7 & 175 & 51.69 & 295.4 \\
+         8 & 138 & 50.80 & 368.1 \\
+         9 & 130 & 50.19 & 386.1 \\
+        10 & 120 & 50.94 & 424.5 \\
+        11 & 110 & 52.19 & 474.5 \\
+        \hline
+        \textbf{Total CPU} & \textbf{1{,}414} & --- & \textbf{398.3} \\
+        \textbf{GPU thread} & \textbf{3{,}738} & \textbf{47.79} & \textbf{12.8} \\
+        \hline
+        \textbf{End-to-end wall} & --- & \textbf{53.24} & --- \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsection{CUDA API and GPU Kernel Summary}
+
+\begin{table}[H]
+    \centering
+    \caption{CUDA API summary, post-fix (host-side, driver perspective).}
+    \label{tab:cuda-api-post}
+    \begin{tabular}{lrrrr}
+        \hline
+        \textbf{API call} & \textbf{Time\%} & \textbf{Calls} & \textbf{Avg} & \textbf{Total} \\
+        \hline
+        \texttt{cudaMemcpy}          & 99.2\% & 3{,}738 & 12.7~ms  & 47.4~s   \\
+        \texttt{cudaLaunchKernel}    &  0.1\% & 3{,}738 & 15.3~µs  & 57.1~ms  \\
+        \texttt{cudaEventRecord}     &  0.1\% & 14{,}952& 4.5~µs   & 66.9~ms  \\
+        \texttt{cudaEventSynchronize}&  0.0\% & 3{,}738 & 4.8~µs   & 17.9~ms  \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{GPU kernel and D$\rightarrow$H memcpy times, post-fix
+             (CUPTI hardware counters).}
+    \label{tab:gpu-post}
+    \begin{tabular}{lrrrrrr}
+        \hline
+        \textbf{Operation} & \textbf{Count} & \textbf{Total (s)} & \textbf{Avg} & \textbf{Med} & \textbf{Min} & \textbf{Max} \\
+        \hline
+        \texttt{mandelKernel}         & 3{,}738 & 46.50  & 12.44~ms & 4.55~ms & 8.2~µs  & 138.9~ms \\
+        D$\rightarrow$H memcpy        & 3{,}738 &  0.090 & 24.0~µs  & 20.0~µs & 19.5~µs &  90.4~µs \\
+        \hline
+    \end{tabular}
+\end{table}
+
+% -----------------------------------------------------------------------
+\section{Pre-Fix vs.\ Post-Fix Comparison}
+
+Table~\ref{tab:compare} puts the headline numbers side by side.
+
+\begin{table}[H]
+    \centering
+    \caption{Pre-fix vs.\ post-fix headline metrics on the same machine,
+             same spec, same default thresholds.}
+    \label{tab:compare}
+    \begin{tabular}{lrrr}
+        \hline
+        \textbf{Metric} & \textbf{Pre-fix} & \textbf{Post-fix} & \textbf{$\Delta$} \\
+        \hline
+        \texttt{examine()} calls         & 6{,}104   & 6{,}836   & +12.0\% \\
+        Total leaf regions                & 4{,}603   & 5{,}152   & +11.9\% \\
+        \quad of which CPU-computed       & 1{,}060   & 1{,}414   & +33.4\% \\
+        \quad of which GPU-computed       & 3{,}543   & 3{,}738   & +5.5\% \\
+        Avg CPU compute / region (ms)    & 535       & 398       & -25.6\% \\
+        Avg GPU compute / region (ms)    & 13.5      & 12.8      & -5.2\% \\
+        Max CPU region (s)                & 15.3      & 14.2      & -7.1\% \\
+        Max GPU region (ms)              & 465.7     & 139.4     & -70.1\% \\
+        CPU thread wall spread (s)       & 50.50--52.59 & 50.19--52.19 & similar \\
+        \quad spread \%                   & 4.1\%     & 3.8\%     & similar \\
+        GPU thread wall (s)               & 47.11     & 47.79     & +1.4\% \\
+        End-to-end elapsed (s)            & $\sim$52  & 53.24     & similar \\
+        \texttt{examine()} overhead/call (ms) & 3.95 & 3.22  & -18.5\% \\
+        D$\rightarrow$H transfer avg (µs) & 15.0     & 24.0      & +60.0\% \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsection{What Changed and Why}
+
+\paragraph{More splits, smaller pieces.} The fix exposed regions that the
+buggy reduction had silently classified as ``uniform'' when in fact a
+high corner value (or a value not in iteration order) had been
+discarded. Each such misclassification now correctly triggers a four-way
+split, producing additional leaves. The +12\% in \texttt{examine()}
+calls and the +12\% in leaf count are consistent with the back-of-envelope
+estimate from \texttt{bug\_report.tex} that $\sim$25\% of regions had
+their maximum dropped, of which a fraction crossed the
+\texttt{diffThresh} threshold.
+
+\paragraph{CPU pool absorbs most of the new splits.} GPU leaves grew by
++5.5\% but CPU leaves grew by +33.4\%. This is exactly what the
+work-queue scheduler predicts: when the average region shrinks, the GPU's
+per-region wins shrink in absolute terms (small regions launch a kernel
+on a small grid; the kernel finishes quickly and the GPU has to come
+back to the queue to pull another item, leaving more small items for the
+CPU workers). The CPU's 40$\times$ slower per-region rate
+(Section~4.1~of the pre-fix report) means the CPU naturally claims any
+work that is small enough for the GPU's per-call overhead to dominate.
+
+\paragraph{Average per-region time fell on both sides.} The CPU average
+dropped 26\% (535~$\to$~398~ms) and the GPU average dropped 5\%
+(13.5~$\to$~12.8~ms). The asymmetry is again a small-region effect: the
+new splits subdivide regions that were previously computed as one block,
+so the per-region figure now includes more medium-sized pieces and
+fewer mid-large pieces.
+
+\paragraph{GPU long tail nearly disappeared; CPU long tail did not.}
+The GPU's worst-case region fell by 70\%, from 465.7~ms down to
+139.4~ms. This was exactly the kind of region the bug was hiding: a
+high-iteration region whose maximum-corner happened to be discarded by
+the buggy reduction, dispatched as a single block to the GPU. Splitting
+it into four (and recursing) caps the GPU's per-launch tail. The CPU's
+worst-case region, on the other hand, only fell from 15.3~s to 14.2~s
+(-7\%). This residual outlier is the same pattern that
+\texttt{bug\_report.tex} called out as \emph{not} explainable by the
+bug: a region whose interior contains a high-iteration filament that
+genuinely does not touch any of the four corners. No reduction fix can
+help here; the heuristic itself is the limiting factor, and the
+follow-ups suggested in the original profiling report (lower
+\texttt{diffThreshold}, edge-midpoint sampling, cardioid certificates)
+are now the only remaining levers.
+
+\paragraph{Load balance: marginally tighter, but unchanged in character.}
+The 11-thread spread improved from 50.50--52.59~s (4.1\%) to
+50.19--52.19~s (3.8\%) --- a small improvement. Most of the per-thread
+variance comes from the same outlier region as before, just now slightly
+smaller and absorbed by a different thread. The end-to-end wall time is
+essentially unchanged (53.24~s post-fix; the pre-fix headline figure was
+``$\sim$52~s'' inferred from the per-thread totals).
+
+\paragraph{\texttt{examine()} per-call overhead actually dropped.} The
+table shows pure subdivision overhead (\texttt{examine}~$-$~CPU~$-$~GPU)
+falling from 3.95~ms/call to 3.22~ms/call (-18\%). This is at first
+counter-intuitive --- if the fix exposes more splits, you might expect
+more corner-evaluation work. The opposite is the case because the bulk
+of the new splits happen \emph{deeper in the quad-tree}: each child
+inherits one of its parent's corners (see lines~228--237 of
+\texttt{mandelregion.cpp}), so a deep split spends one
+\texttt{diverge()} call per new corner needed, not four. The new splits
+therefore add cheap leaves to the existing tree, not new roots; per-call
+overhead reflects an average tilted slightly toward already-cached
+corners.
+
+\paragraph{D$\rightarrow$H transfer time went up.} The CUPTI memcpy
+counter average rose from 15~µs to 24~µs (+60\%). This is not a
+regression; it is a small-region effect. PCIe transfers have a fixed
+launch latency (driver setup, ring-buffer enqueue, DMA descriptor
+preparation) on top of the per-byte cost. As regions get smaller, the
+fixed cost amortizes over fewer bytes and the per-call average rises.
+The aggregate transfer time (89.6~ms versus the pre-fix 53~ms) is still
+negligible against the kernel time (46.5~s); the conclusion of the
+pre-fix report --- ``\texttt{cudaMemcpy} spends 99.9\% of its reported
+time waiting for the kernel, not transferring bytes'' --- still holds.
+
+\subsection{Worst-Case Region: Bug or Heuristic?}
+
+The pre-fix report attributed the 15.3~s CPU outlier to the
+corner-heuristic weakness; \texttt{bug\_report.tex} added the
+alternative explanation that the reduction bug may have been
+\emph{either} the sole cause or a contributing factor. With the post-fix
+measurement now in hand, the question is resolved: the outlier is
+\textbf{predominantly} caused by the heuristic, with the bug
+contributing a modest reduction in worst-case duration. Quantitatively,
+the bug fix removed roughly $15.3 - 14.2 = 1.1$~s (7\%) from the worst
+single region, which is consistent with the fix simply tightening the
+spread on a region whose corners were already misclassifying badly and
+where the discarded maximum was an incremental signal. The remaining
+14.2~s is a region whose corner values are genuinely close to one
+another while its interior contains a long-iteration filament; the
+fractal boundary of the Mandelbrot set guarantees such regions exist at
+every scale.
+
+% -----------------------------------------------------------------------
+\section{Implications and Next Steps}
+
+The fix is a clean correctness improvement that delivers most of the
+predicted effects:
+
+\begin{itemize}
+    \item It makes the four-corner heuristic do what its decision rule
+    \emph{claims} to do: split when the iteration spread is large.
+    Roughly $\sim$12\% of regions that were previously being computed
+    in a single pass are now correctly being subdivided.
+    \item The GPU tail dropped by 70\%, eliminating the worst-case
+    kernel launches that previously stalled thread~0 in
+    \texttt{cudaMemcpy} for up to 465~ms.
+    \item The CPU average dropped by 26\% per region, lowering the
+    blast radius of any single unlucky region claim from a queue
+    extraction.
+    \item Per-thread load balance tightened slightly (4.1\%~$\to$~3.8\%
+    spread).
+\end{itemize}
+
+\noindent
+It does \emph{not} change the end-to-end wall time at this thread
+configuration. The reason is that the bottleneck on this machine is
+neither queue throughput nor classifier accuracy --- it is the
+single-threaded \texttt{maxIterations}\,=\,10{,}000 inner loop hitting
+boundary points at the deepest zoom levels. Until the heuristic itself
+is improved, no amount of correctness work on the reduction can move
+the worst-case region below the seconds-scale.
+
+\subsection{Recommended Follow-Ups}
+
+The post-fix measurements sharpen the priority list of the
+improvements suggested in the pre-fix report:
+
+\begin{enumerate}
+    \item \textbf{Lower \texttt{diffThreshold}.} With the bug fixed and
+    the long-tail still seconds-scale, lowering \texttt{diffThreshold}
+    from 0.5 to 0.2--0.3 is now the most direct way to attack the
+    remaining 14~s outlier. The trade-off is more queue traffic; given
+    that the per-call \texttt{examine()} overhead is already low
+    (3~ms/call), the cost should be modest.
+    \item \textbf{Edge-midpoint and 9-point stencil sampling.}
+    Sampling the edge midpoints (and possibly the centre) and inheriting
+    those samples as the children's corners would catch interior
+    filaments that miss all four corners --- precisely the failure mode
+    behind the 14.2~s leftover.
+    \item \textbf{Cardioid/period-2 bulb interior certificate.} For
+    regions whose corners all satisfy the cardioid or main-bulb
+    membership test, a constant-fill is free and exact. Most-zoom
+    frames spend a significant fraction of their pixels inside the main
+    cardioid; certifying them would skip thousands of unnecessary
+    iterations per leaf.
+    \item \textbf{Async CUDA streams.} The pre-fix report's headline
+    finding (\texttt{cudaMemcpy} blocks on kernel completion for
+    13~ms/region) is unchanged --- still the largest unexplored
+    optimisation. Async streams could overlap kernel~$n$ with copy of
+    kernel~$n{-}1$ and recover most of that 13~ms.
+\end{enumerate}
+
+% -----------------------------------------------------------------------
+\section{Conclusion}
+
+The one-line fix to \texttt{MandelRegion::examine()}'s min/max
+reduction is now confirmed by direct measurement to deliver the
+predicted effects: more splits ($+12$\%), smaller pieces (CPU avg
+$-26$\%), and a much tighter GPU tail ($-70$\% on the maximum
+region). The end-to-end wall time is unchanged at this thread
+configuration because the binding constraint is the heuristic itself,
+not the reduction --- a fact that the survival of the $\sim$14~s CPU
+outlier makes unambiguous. The previously-attributed cause of that
+outlier (``the corner heuristic misclassified a boundary region'') is
+now correctly understood as a fractal-filament effect that no fix at
+the reduction layer can address. Future profiling effort should now
+focus on the four follow-ups listed in Section~4.1.
+
+\end{document}

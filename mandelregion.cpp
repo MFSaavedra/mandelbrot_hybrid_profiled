@@ -198,9 +198,14 @@ void MandelRegion::examine (WorkQueue & q, bool onGPU = false)
               cornersIter[i] = diverge (upperX, lowerY);
             }
         }
-      if (minIter > cornersIter[i])
+      // Track min and max independently. The original code chained these
+      // with `else if`, which made max-tracking unreachable whenever the
+      // current sample also lowered the min — most notably on i==0, where
+      // minIter starts at INT_MAX so the min branch always fires and
+      // maxIter is never updated from the first corner.
+      if (cornersIter[i] < minIter)
         minIter = cornersIter[i];
-      else if (maxIter < cornersIter[i])
+      if (cornersIter[i] > maxIter)
         maxIter = cornersIter[i];
     }
 
