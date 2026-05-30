@@ -31,6 +31,10 @@
 
 \inserttitle
 
+\begin{center}\small\textsf{%
+Binary: \texttt{d5bf30c} (tag \texttt{binary-v1-bugfix}) --- after the bug fix.%
+}\end{center}
+
 % -----------------------------------------------------------------------
 \begin{abstract}
 This report sweeps the \texttt{diffThreshold} parameter of
@@ -95,7 +99,7 @@ behaviour). The interesting regime is in between.
     \texttt{pixelSizeThresh}\,=\,$32{,}768$.
     \item \textbf{Threshold sweep}: $\{0.05, 0.1, 0.2, 0.3, 0.5\}$.
     The value $0.5$ is the legacy default; it was re-used from the
-    \texttt{sweep\_results\_postfix} run rather than re-measured, to
+    \texttt{experiments/05-fig1115-postfix} run rather than re-measured, to
     save 9 redundant runs.
     \item \textbf{Configurations}: three labels per \texttt{diffT} ---
     \texttt{CPU12} (\texttt{numThreads}\,=\,$12$, \texttt{gpuEnable}\,=\,$0$),
@@ -153,7 +157,7 @@ parsed for max-region statistics. This added 5 runs.
     \end{tabular}
 \end{table}
 
-\insertimage{../difft_sweep/difft_sweep.png}{width=\linewidth}
+\insertimage{../experiments/06-difft-postfix/difft_sweep.png}{width=\linewidth}
             {Left: mean wall time per config across \texttt{diffT} (log
              x-axis), error bars showing standard deviation. Right:
              zoom on the \texttt{GPU+11CPU} hybrid with the
@@ -378,7 +382,7 @@ is more valuable than a marginal mean.
 The diffT knob is now functionally exhausted on this workload. To
 shrink the wall time further the heuristic itself must be replaced or
 augmented. The three modifications listed at the end of
-\texttt{postfix\_report.tex} (edge-midpoint sampling, cardioid
+\texttt{04-postfix-profile.tex} (edge-midpoint sampling, cardioid
 certificates, async streams) remain the right candidates; this report
 now provides quantitative evidence for the urgency of the first one,
 since the 15~s outlier is demonstrably immune to any tightening of the

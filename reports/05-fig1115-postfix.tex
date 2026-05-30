@@ -31,10 +31,14 @@
 
 \inserttitle
 
+\begin{center}\small\textsf{%
+Binary: \texttt{d5bf30c} (tag \texttt{binary-v1-bugfix}) --- after the bug fix.%
+}\end{center}
+
 % -----------------------------------------------------------------------
 \begin{abstract}
 This report re-runs the seven-configuration thread-and-GPU sweep
-documented in \texttt{fig1115\_report/main.tex} after the one-line
+documented in \texttt{02-fig1115-replication.tex} after the one-line
 correctness fix to \texttt{MandelRegion::examine()}'s min/max tracking
 loop. The same machine, the same \texttt{spec.in}, the same
 \texttt{sweep.sh} configuration matrix, and the same number of repetitions
@@ -46,7 +50,7 @@ configuration and a +1.9\,\% slowdown on the GPU-alone configuration. The
 CPU-only configuration is statistically indistinguishable from the
 pre-fix baseline. The slowdown is consistent with the +12\,\% increase
 in leaf regions and +5.5\,\% increase in kernel launches measured in the
-separate post-fix Nsight Systems profile (\texttt{postfix\_report.tex}):
+separate post-fix Nsight Systems profile (\texttt{04-postfix-profile.tex}):
 the fix raises queue traffic and per-launch overhead without removing
 the workload's binding constraint, which is the $\sim$14\,s CPU outlier
 region. Speed-up ratios (best hybrid over GPU-alone, best hybrid over
@@ -79,8 +83,8 @@ respect except the binary being measured.
     \item \textbf{Binary}: rebuilt from the \texttt{examine\_minmax\_bugfix}
     branch, which differs from the previous sweep's binary in exactly the
     five lines that change \texttt{else if} into a second independent
-    \texttt{if} on the min/max reduction. See \texttt{bug\_report.tex} for
-    the analysis and \texttt{postfix\_report.tex} for the corresponding
+    \texttt{if} on the min/max reduction. See \texttt{03-bug-analysis.tex} for
+    the analysis and \texttt{04-postfix-profile.tex} for the corresponding
     nsys profile.
 \end{itemize}
 
@@ -88,13 +92,13 @@ respect except the binary being measured.
 The driver script (\texttt{sweep.sh}) was invoked as:
 
 \begin{sourcecode}{bash}{Sweep invocation.}
-REPS=3 OUT=sweep_results_postfix SAVE=1 ./sweep.sh
+REPS=3 OUT=experiments/05-fig1115-postfix SAVE=1 scripts/sweep_fig1115.sh
 \end{sourcecode}
 
 \noindent
 which writes 21 rows (7 configs $\times$ 3 reps) to
-\texttt{sweep\_results\_postfix/results.csv} and per-run stderr logs to
-\texttt{sweep\_results\_postfix/logs/}.
+\texttt{experiments/05-fig1115-postfix/results.csv} and per-run stderr logs to
+\texttt{experiments/05-fig1115-postfix/logs/}.
 
 % -----------------------------------------------------------------------
 \section{Results}
@@ -126,7 +130,7 @@ report.
     \end{tabular}
 \end{table}
 
-\insertimage{../sweep_results_postfix/fig1115.png}{width=\linewidth}
+\insertimage{../experiments/05-fig1115-postfix/fig1115.png}{width=\linewidth}
             {Fig~11.15-style chart from the post-fix sweep. Blue bars:
              mean wall-clock execution time over 3 reps; black error
              caps mark standard deviation. Red line: percentage of
@@ -136,7 +140,7 @@ report.
 
 Table~\ref{tab:compare-sweep} places the post-fix numbers next to the
 pre-fix baseline (reproduced from
-\texttt{fig1115\_report/main.tex}).
+\texttt{02-fig1115-replication.tex}).
 
 \begin{table}[H]
     \centering
@@ -206,7 +210,7 @@ put the shift in context against the variance:
 
 \subsection{Why the Slowdown Is Expected}
 
-The companion Nsight Systems profile in \texttt{postfix\_report.tex}
+The companion Nsight Systems profile in \texttt{04-postfix-profile.tex}
 records the precise mechanism. After the fix:
 
 \begin{itemize}
@@ -239,7 +243,7 @@ overhead/work trade-off is closest to break-even.
 
 The end-to-end wall time of the best hybrid run is set by the last
 thread to finish, which is the thread that drew the worst-case
-region. \texttt{postfix\_report.tex} reports that the worst CPU region
+region. \texttt{04-postfix-profile.tex} reports that the worst CPU region
 fell only modestly under the fix (15.3~s~$\to$~14.2~s, $-7\,\%$) and
 that the binding constraint --- a region with an internal
 high-iteration filament that does not touch any of the four
@@ -335,7 +339,7 @@ faithfully.
 
 \subsection{What Would Move the Curve}
 
-\texttt{postfix\_report.tex} lists the four follow-ups whose effect
+\texttt{04-postfix-profile.tex} lists the four follow-ups whose effect
 the post-fix sweep makes more concrete:
 
 \begin{enumerate}

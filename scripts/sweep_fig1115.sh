@@ -5,28 +5,35 @@
 # configurations N times each and writes one CSV row per run.  The CSV is
 # consumed by plot_fig1115.py.
 #
+# The script auto-locates the project root from its own path, so it works
+# from any cwd.  Run it as scripts/sweep_fig1115.sh (or just give the full path).
+#
 # Usage:
-#   ./sweep.sh                       # default: 3 reps, results in sweep_results/
-#   REPS=5 OUT=run1 ./sweep.sh
-#   SPEC=spec.in SAVE=0 ./sweep.sh   # SAVE=0 skips PNGs for pure-compute timing
+#   scripts/sweep_fig1115.sh                       # default: 3 reps, results in experiments/sweep_results/
+#   REPS=5 OUT=experiments/05-fig1115-postfix scripts/sweep_fig1115.sh
+#   SAVE=0 scripts/sweep_fig1115.sh                # skip PNG writes for pure-compute timing
 #
 # Environment variables (all optional):
 #   REPS  = number of repetitions per config        (default 3)
-#   OUT   = output directory                        (default sweep_results)
-#   SPEC  = spec.in file                            (default ./spec.in)
+#   OUT   = output directory (relative to cwd if not absolute; default experiments/sweep_results)
+#   SPEC  = spec.in file                            (default $PROJECT_ROOT/spec.in)
+#   BIN   = mandelHybrid binary                     (default $PROJECT_ROOT/mandelHybrid)
 #   SAVE  = 1 to write PNGs, 0 to skip              (default 1, matching Fig 11.15)
 #   DIFFT = diffThreshold                           (default 0.5)
 #   PIXT  = pixelSizeThreshold                      (default 32768)
 set -euo pipefail
 
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+PROJECT_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+
 REPS=${REPS:-3}
-OUT=${OUT:-sweep_results}
-SPEC=${SPEC:-spec.in}
+OUT=${OUT:-$PROJECT_ROOT/experiments/sweep_results}
+SPEC=${SPEC:-$PROJECT_ROOT/spec.in}
+BIN=${BIN:-$PROJECT_ROOT/mandelHybrid}
 SAVE=${SAVE:-1}
 DIFFT=${DIFFT:-0.5}
 PIXT=${PIXT:-32768}
 
-BIN=./mandelHybrid
 [[ -x "$BIN" ]] || { echo "Binary $BIN not found — run make first." >&2; exit 1; }
 [[ -f "$SPEC" ]] || { echo "Spec file $SPEC not found." >&2; exit 1; }
 

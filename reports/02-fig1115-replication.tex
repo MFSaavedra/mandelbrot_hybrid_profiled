@@ -32,6 +32,10 @@
 
 \inserttitle
 
+\begin{center}\small\textsf{%
+Binary: \texttt{0f782fd} (tag \texttt{binary-v0-buggy}) --- original code, pre-bugfix.%
+}\end{center}
+
 % -----------------------------------------------------------------------
 \begin{abstract}
 This report documents a follow-up profiling experiment on
@@ -92,7 +96,7 @@ either alone. This report addresses three questions:
 
 A prior profiling pass had already added NVTX annotations and CUDA
 event timing to the program (documented in
-\texttt{profiling\_report/main.tex}). Those mechanisms give:
+\texttt{01-initial-profile.tex}). Those mechanisms give:
 
 \begin{itemize}
     \item per-region GPU kernel time and device-to-host \texttt{memcpy}

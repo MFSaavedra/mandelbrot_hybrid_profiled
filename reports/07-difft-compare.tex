@@ -31,10 +31,14 @@
 
 \inserttitle
 
+\begin{center}\small\textsf{%
+Compares binary \texttt{0f782fd} (tag \texttt{binary-v0-buggy}, original) vs.\ \texttt{d5bf30c} (tag \texttt{binary-v1-bugfix}, post-fix).%
+}\end{center}
+
 % -----------------------------------------------------------------------
 \begin{abstract}
 This report repeats the \texttt{diffThreshold} sensitivity sweep of
-\texttt{difft\_report.tex} on the original (buggy) binary
+\texttt{06-difft-sweep.tex} on the original (buggy) binary
 (\texttt{examine\_rewrite} branch) as a sanity check, and compares the
 two runs side by side. The methodology is identical in every other
 respect: five threshold values
@@ -66,8 +70,8 @@ threshold-tuning issue.
 The binary measured in this report is the one on the
 \texttt{examine\_rewrite} branch (the original code, with the
 \texttt{else~if} min/max reduction described in
-\texttt{bug\_report.tex}); the binary measured in
-\texttt{difft\_report.tex} was the
+\texttt{03-bug-analysis.tex}); the binary measured in
+\texttt{06-difft-sweep.tex} was the
 \texttt{examine\_minmax\_bugfix} branch. Everything else is identical:
 
 \begin{itemize}
@@ -76,8 +80,8 @@ The binary measured in this report is the one on the
     \texttt{pixelSizeThresh}\,=\,$32{,}768$.
     \item \textbf{Threshold sweep}: $\{0.05, 0.1, 0.2, 0.3, 0.5\}$.
     The $0.5$ baseline for each branch is reused from the corresponding
-    Fig~11.15 sweep --- \texttt{sweep\_results/} for pre-fix and
-    \texttt{sweep\_results\_postfix/} for post-fix.
+    Fig~11.15 sweep --- \texttt{experiments/02-fig1115-prefix/} for pre-fix and
+    \texttt{experiments/05-fig1115-postfix/} for post-fix.
     \item \textbf{Configurations and reps}: \texttt{CPU12}, \texttt{GPU},
     \texttt{GPU+11CPU}; 3 reps each.
     \item \textbf{Max-region pass}: 5 single-rep \texttt{quiet=0} runs
@@ -132,7 +136,7 @@ The binary measured in this report is the one on the
     \end{tabular}
 \end{table}
 
-\insertimage{../difft_sweep_prefix/compare.png}{width=\linewidth}
+\insertimage{../experiments/07-difft-prefix/compare.png}{width=\linewidth}
             {Pre-fix vs.\ post-fix mean wall time per \texttt{diffT} on
              a log-x axis, one panel per configuration; error bars
              show $\pm 1\sigma$. CPU-only is uniformly faster
@@ -214,7 +218,7 @@ preserved across the fix:
 \noindent
 This is the result a reviewer would want to see: the fix does not
 change \emph{which} \texttt{diffT} to pick, only how each \texttt{diffT}
-performs. The recommendation from \texttt{difft\_report.tex} to lower
+performs. The recommendation from \texttt{06-difft-sweep.tex} to lower
 the default from $0.5$ to $0.1$ is robust to the fix.
 
 \subsection{The Bug Fix Is Strictly Beneficial on CPU-Only and Strictly Costly on GPU-Only}
@@ -266,7 +270,7 @@ Table~\ref{tab:worst} are $960\times540$. Both branches, every
 \texttt{diffT}. The compute time of this region ranges 13.3--15.6~s
 across the ten cells of the table, mostly within noise of each other.
 The bug fix did not unlock this outlier (it could not have ---
-\texttt{bug\_report.tex} explained why the bug discards corner-0's
+\texttt{03-bug-analysis.tex} explained why the bug discards corner-0's
 maximum only, while this region has all four corners at
 \texttt{MAXITER} so its corner spread is identically zero, beyond
 either branch's classifier's reach). The diffT sweep did not unlock
@@ -286,7 +290,7 @@ Standard deviations tell an unexpected story
     \item \textbf{\texttt{CPU12} at \texttt{diffT}\,=\,$0.5$}: pre-fix
     $\sigma = 0.32$~s, post-fix $\sigma = 2.44$~s. The post-fix
     variance is $8 \times$ higher at the legacy default. The
-    \texttt{difft\_report.tex} attribution was thread-scheduling
+    \texttt{06-difft-sweep.tex} attribution was thread-scheduling
     jitter on the worst-case region; the pre-fix data shows that this
     jitter is much smaller on the buggy branch.
     \item \textbf{\texttt{GPU+11CPU} at \texttt{diffT}\,=\,$0.5$}:
@@ -337,7 +341,7 @@ real and quantifiable.
 \section{Summary of Recommendations}
 
 The pre-fix sanity check confirms every actionable conclusion from
-\texttt{difft\_report.tex}:
+\texttt{06-difft-sweep.tex}:
 
 \begin{enumerate}
     \item \textbf{Use \texttt{diffT}\,=\,$0.1$ as the default.} Both

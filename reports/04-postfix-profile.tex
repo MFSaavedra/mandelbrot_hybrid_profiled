@@ -31,13 +31,17 @@
 
 \inserttitle
 
+\begin{center}\small\textsf{%
+Binary: \texttt{d5bf30c} (tag \texttt{binary-v1-bugfix}) --- after the one-line fix to \texttt{MandelRegion::examine()}'s min/max reduction.%
+}\end{center}
+
 % -----------------------------------------------------------------------
 \begin{abstract}
 This report re-runs the Nsight Systems profile of \texttt{mandelHybrid}
 after the one-line bug fix to \texttt{MandelRegion::examine()}'s min/max
-tracking loop documented in \texttt{bug\_report.tex}, and compares the new
+tracking loop documented in \texttt{03-bug-analysis.tex}, and compares the new
 measurements against the pre-fix baseline of
-\texttt{profiling\_report/main.tex}. The methodology is identical: 100
+\texttt{01-initial-profile.tex}. The methodology is identical: 100
 frames at $1920 \times 1080$ on an i7-9750H + GTX~1660~Ti~Max-Q with
 12 threads (1~GPU~+~11~CPU), invoked as
 \texttt{nsys profile --trace=cuda,nvtx,osrt -o report ./mandelHybrid spec.in}.
@@ -59,7 +63,7 @@ heuristic rather than the tracking bug.
 \section{Methodology}
 
 Identical to the pre-fix run that produced
-\texttt{first\_run/report.nsys-rep}: the same \texttt{spec.in}
+\texttt{experiments/01-initial-profile/report.nsys-rep}: the same \texttt{spec.in}
 (100~frames at $1920 \times 1080$, the same zoom trajectory ending at
 \texttt{maxIterations}\,=\,10{,}000), the same machine (i7-9750H,
 6~physical / 12~logical cores; GTX~1660~Ti~Max-Q; nvcc~13.2 driving
@@ -84,14 +88,14 @@ if (cornersIter[i] > maxIter)
   maxIter = cornersIter[i];
 \end{sourcecode}
 
-    \item the new \texttt{report.nsys-rep} lives in \texttt{second\_run/}
-    so the pre-fix report in \texttt{first\_run/} remains untouched as
+    \item the new \texttt{report.nsys-rep} lives in \texttt{experiments/04-postfix-profile/}
+    so the pre-fix report in \texttt{experiments/01-initial-profile/} remains untouched as
     a baseline.
 \end{itemize}
 
 The invocation was
 \texttt{nsys profile --trace=cuda,nvtx,osrt -o report ../mandelHybrid ../spec.in},
-run from \texttt{second\_run/} so the \texttt{img$NNNN$.png} outputs and
+run from \texttt{experiments/04-postfix-profile/} so the \texttt{img$NNNN$.png} outputs and
 the profile report land together. PNGs are cleaned afterward; the
 \texttt{report.nsys-rep} and the \texttt{report.sqlite} export it
 generates are kept.
@@ -229,7 +233,7 @@ high corner value (or a value not in iteration order) had been
 discarded. Each such misclassification now correctly triggers a four-way
 split, producing additional leaves. The +12\% in \texttt{examine()}
 calls and the +12\% in leaf count are consistent with the back-of-envelope
-estimate from \texttt{bug\_report.tex} that $\sim$25\% of regions had
+estimate from \texttt{03-bug-analysis.tex} that $\sim$25\% of regions had
 their maximum dropped, of which a fraction crossed the
 \texttt{diffThresh} threshold.
 
@@ -258,7 +262,7 @@ the buggy reduction, dispatched as a single block to the GPU. Splitting
 it into four (and recursing) caps the GPU's per-launch tail. The CPU's
 worst-case region, on the other hand, only fell from 15.3~s to 14.2~s
 (-7\%). This residual outlier is the same pattern that
-\texttt{bug\_report.tex} called out as \emph{not} explainable by the
+\texttt{03-bug-analysis.tex} called out as \emph{not} explainable by the
 bug: a region whose interior contains a high-iteration filament that
 genuinely does not touch any of the four corners. No reduction fix can
 help here; the heuristic itself is the limiting factor, and the
@@ -301,7 +305,7 @@ time waiting for the kernel, not transferring bytes'' --- still holds.
 \subsection{Worst-Case Region: Bug or Heuristic?}
 
 The pre-fix report attributed the 15.3~s CPU outlier to the
-corner-heuristic weakness; \texttt{bug\_report.tex} added the
+corner-heuristic weakness; \texttt{03-bug-analysis.tex} added the
 alternative explanation that the reduction bug may have been
 \emph{either} the sole cause or a contributing factor. With the post-fix
 measurement now in hand, the question is resolved: the outlier is
