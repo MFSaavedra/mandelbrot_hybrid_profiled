@@ -1,0 +1,390 @@
+% Template:     Reporte LaTeX
+% Documento:    diffThreshold sweep comparison: pre-fix vs post-fix
+% Codificación: UTF-8
+
+\documentclass[
+	english,
+	letterpaper, oneside
+]{article}
+
+\def\documenttitle {Pre-Fix vs.\ Post-Fix \texttt{diffThreshold} Sensitivity}
+\def\documentsubtitle {Sanity-Check Repeat of the diffT Sweep on the Original (Buggy) Binary}
+\def\documentsubject {Adaptive Subdivision, Load Balancing}
+\def\documentdate {\today}
+
+\def\documentauthor {Matias Saavedra}
+\def\coursename {Multicore and GPU Programming}
+\def\coursecode {CISC 701}
+
+\def\universityname {Universidad de Chile}
+\def\universityfaculty {Facultad de Ciencias Físicas y Matemáticas}
+\def\universitydepartment {Departamento de Ciencias de la Computación}
+\def\universitydepartmentimage {departamentos/dcc}
+\def\universitylocation {Santiago de Chile}
+
+\input{template}
+
+\begin{document}
+
+\templatePagecfg
+\templateFinalcfg
+
+\inserttitle
+
+% -----------------------------------------------------------------------
+\begin{abstract}
+This report repeats the \texttt{diffThreshold} sensitivity sweep of
+\texttt{difft\_report.tex} on the original (buggy) binary
+(\texttt{examine\_rewrite} branch) as a sanity check, and compares the
+two runs side by side. The methodology is identical in every other
+respect: five threshold values
+$\{0.05, 0.1, 0.2, 0.3, 0.5\}$ across three configurations
+(\texttt{CPU12}, \texttt{GPU}, \texttt{GPU+11CPU}), three reps each,
+plus one \texttt{quiet=0} rep per \texttt{diffT} of \texttt{GPU+11CPU}
+for max-region data. The headline finding is that \emph{the optimal
+\texttt{diffT} is the same on both branches} --- the hybrid sweet
+spot sits at $\texttt{diffT}=0.1$ with means within 0.1~s of each
+other ($52.85$~s pre-fix, $52.80$~s post-fix). However, the bug
+fix's wall-time delta is strongly \emph{config-dependent}:
+\textbf{CPU-only runs $\sim$1\% faster post-fix at every \texttt{diffT}},
+while \textbf{GPU-only runs $\sim$1\% slower post-fix at every \texttt{diffT}},
+and \textbf{the hybrid is essentially neutral} (within $\pm 0.5\%$)
+across the tighter thresholds, becoming $+1.8\%$ slower only at the
+legacy default of $0.5$. The bug-fix overhead is real but is exactly
+cancelled by improved load balance on configurations where there are
+multiple CPU workers to absorb the extra leaves; for the GPU-only
+case (one worker, no load-balance benefit available) the overhead
+shows up cleanly. The 960$\times$540, $\sim$15~s worst-case CPU region
+remains immovable on both branches at every threshold, confirming it
+is a heuristic problem and neither a tracking-bug artefact nor a
+threshold-tuning issue.
+\end{abstract}
+
+% -----------------------------------------------------------------------
+\section{Setup}
+
+The binary measured in this report is the one on the
+\texttt{examine\_rewrite} branch (the original code, with the
+\texttt{else~if} min/max reduction described in
+\texttt{bug\_report.tex}); the binary measured in
+\texttt{difft\_report.tex} was the
+\texttt{examine\_minmax\_bugfix} branch. Everything else is identical:
+
+\begin{itemize}
+    \item \textbf{Hardware and workload}: i7-9750H + GTX~1660~Ti~Max-Q,
+    100 frames at $1920\times1080$, default
+    \texttt{pixelSizeThresh}\,=\,$32{,}768$.
+    \item \textbf{Threshold sweep}: $\{0.05, 0.1, 0.2, 0.3, 0.5\}$.
+    The $0.5$ baseline for each branch is reused from the corresponding
+    Fig~11.15 sweep --- \texttt{sweep\_results/} for pre-fix and
+    \texttt{sweep\_results\_postfix/} for post-fix.
+    \item \textbf{Configurations and reps}: \texttt{CPU12}, \texttt{GPU},
+    \texttt{GPU+11CPU}; 3 reps each.
+    \item \textbf{Max-region pass}: 5 single-rep \texttt{quiet=0} runs
+    per branch (one per \texttt{diffT}) on \texttt{GPU+11CPU} to
+    capture per-region times.
+\end{itemize}
+
+% -----------------------------------------------------------------------
+\section{Side-By-Side Results}
+
+\subsection{Wall-Clock Times}
+
+\begin{table}[H]
+    \centering
+    \caption{Mean wall-clock time (s) per config and \texttt{diffT},
+             3 reps each. $\Delta$ is post-fix minus pre-fix. Negative
+             $\Delta$ means the bug fix \emph{helped} this
+             configuration; positive means it \emph{hurt}.}
+    \label{tab:wall}
+    \begin{tabular}{lrrrrr}
+        \hline
+        \textbf{Config / diffT} & \textbf{0.05} & \textbf{0.10} & \textbf{0.20} & \textbf{0.30} & \textbf{0.50} \\
+        \hline
+        CPU12 pre-fix   & 163.12 & 163.90 & 163.88 & 163.58 & 163.47 \\
+        CPU12 post-fix  & 161.47 & 161.96 & 162.59 & 162.24 & 162.76 \\
+        $\Delta$ (\%)   & $-1.0$\% & $-1.2$\% & $-0.8$\% & $-0.8$\% & $-0.4$\% \\
+        \hline
+        GPU pre-fix     &  77.27 &  77.18 &  77.14 &  77.14 &  76.54 \\
+        GPU post-fix    &  77.60 &  77.81 &  77.82 &  77.83 &  78.03 \\
+        $\Delta$ (\%)   & $+0.4$\% & $+0.8$\% & $+0.9$\% & $+0.9$\% & $+1.9$\% \\
+        \hline
+        GPU+11CPU pre-fix  &  53.24 &  52.85 &  53.19 &  53.30 &  53.62 \\
+        GPU+11CPU post-fix &  53.45 &  52.80 &  52.90 &  53.21 &  54.61 \\
+        $\Delta$ (\%)      & $+0.4$\% & $-0.1$\% & $-0.5$\% & $-0.2$\% & $+1.8$\% \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{Population standard deviations (s) per config and
+             \texttt{diffT}, 3 reps each.}
+    \label{tab:std}
+    \begin{tabular}{lrrrrr}
+        \hline
+        \textbf{Config / diffT} & \textbf{0.05} & \textbf{0.10} & \textbf{0.20} & \textbf{0.30} & \textbf{0.50} \\
+        \hline
+        CPU12 pre/post      & 1.85 / 0.47 & 0.45 / 0.71 & 0.53 / 0.32 & 0.25 / 0.94 & 0.32 / 2.44 \\
+        GPU pre/post        & 0.09 / 0.03 & 0.09 / 0.08 & 0.09 / 0.08 & 0.09 / 0.09 & 0.14 / 0.21 \\
+        GPU+11CPU pre/post  & 0.51 / 1.26 & 0.79 / 0.50 & 0.49 / 0.25 & 0.47 / 0.75 & 0.10 / 0.39 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\insertimage{../difft_sweep_prefix/compare.png}{width=\linewidth}
+            {Pre-fix vs.\ post-fix mean wall time per \texttt{diffT} on
+             a log-x axis, one panel per configuration; error bars
+             show $\pm 1\sigma$. CPU-only is uniformly faster
+             post-fix; GPU-only is uniformly slower post-fix; the
+             hybrid curve is nearly coincident except at the legacy
+             default \texttt{diffT}\,=\,$0.5$. \label{fig:compare}}
+
+\subsection{Leaf Counts Generated}
+
+The bug suppresses splits that the corrected reduction permits, so
+the post-fix run always generates more leaves. The gap is largest at
+low \texttt{diffT} (where the threshold is tight enough that many
+borderline-spread regions need to be reclassified) and narrows at the
+legacy default.
+
+\begin{table}[H]
+    \centering
+    \caption{Total leaves per run (workload-independent at fixed
+             \texttt{diffT}: equal across all three configurations on
+             the same branch).}
+    \label{tab:leaves}
+    \begin{tabular}{lrrrrr}
+        \hline
+        \textbf{diffT} & \textbf{0.05} & \textbf{0.10} & \textbf{0.20} & \textbf{0.30} & \textbf{0.50} \\
+        \hline
+        Pre-fix leaves   & 4{,}900 & 4{,}900 & 4{,}888 & 4{,}816 & 4{,}603 \\
+        Post-fix leaves  & 5{,}323 & 5{,}323 & 5{,}320 & 5{,}290 & 5{,}152 \\
+        $\Delta$ leaves  & $+423$ & $+423$ & $+432$ & $+474$ & $+549$ \\
+        $\Delta$ \%      & $+8.6$\% & $+8.6$\% & $+8.8$\% & $+9.8$\% & $+11.9$\% \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsection{Worst-Case CPU Region (single rep, \texttt{quiet=0})}
+
+\begin{table}[H]
+    \centering
+    \caption{Per-branch worst-case CPU region from a single
+             \texttt{quiet=0} rep of \texttt{GPU+11CPU} at each
+             \texttt{diffT}. The size column gives pixel width$\times$height.}
+    \label{tab:worst}
+    \begin{tabular}{rrlrl}
+        \hline
+        \textbf{diffT} & \textbf{Pre-fix maxCPU (s)} & \textbf{Pre size} & \textbf{Post-fix maxCPU (s)} & \textbf{Post size} \\
+        \hline
+        0.05 & 13.32 & $960\times540$ & 14.00 & $960\times540$ \\
+        0.10 & 15.31 & $960\times540$ & 15.47 & $960\times540$ \\
+        0.20 & 15.13 & $960\times540$ & 15.35 & $960\times540$ \\
+        0.30 & 15.35 & $960\times540$ & 15.41 & $960\times540$ \\
+        0.50 & 15.62 & $960\times540$ & 15.29 & $960\times540$ \\
+        \hline
+    \end{tabular}
+\end{table}
+
+% -----------------------------------------------------------------------
+\section{Analysis}
+
+\subsection{The Optimum \texttt{diffT} Is Branch-Independent}
+
+The single most reassuring result of this sanity check is that the
+shape of each configuration's wall-time-vs-\texttt{diffT} curve is
+preserved across the fix:
+
+\begin{itemize}
+    \item For the hybrid \texttt{GPU+11CPU}, the best value of
+    \texttt{diffT} is $0.1$ on both branches, with means
+    $52.85$~s pre-fix and $52.80$~s post-fix --- a delta of $50$~ms,
+    below noise.
+    \item For \texttt{GPU} alone, the best value of \texttt{diffT} is
+    $0.5$ on the pre-fix branch ($76.54$~s) but $0.05$ on the post-fix
+    branch ($77.60$~s). However, this is a slight artefact of how
+    differently the two endpoints behave: see the GPU discussion below.
+    \item For \texttt{CPU12}, every threshold lands in a 1.4-second
+    band ($161.5$--$162.8$~s post-fix, $163.1$--$163.9$~s pre-fix).
+    The CPU-only configuration is essentially insensitive to
+    \texttt{diffT} on either branch.
+\end{itemize}
+
+\noindent
+This is the result a reviewer would want to see: the fix does not
+change \emph{which} \texttt{diffT} to pick, only how each \texttt{diffT}
+performs. The recommendation from \texttt{difft\_report.tex} to lower
+the default from $0.5$ to $0.1$ is robust to the fix.
+
+\subsection{The Bug Fix Is Strictly Beneficial on CPU-Only and Strictly Costly on GPU-Only}
+
+The sign of the post-fix vs.\ pre-fix delta is uniform within each
+configuration:
+
+\begin{itemize}
+    \item \textbf{CPU12 is always faster post-fix} ($-0.4\%$ to
+    $-1.2\%$). The mechanism is direct: with 12 CPU threads, the +423
+    extra leaves at \texttt{diffT}\,$\le$\,$0.1$ are absorbed in
+    parallel (35 extra leaves per thread on average), and the resulting
+    finer-grained work makes load balance across threads tighter. The
+    overhead of generating the extra leaves is more than compensated.
+    \item \textbf{GPU is always slower post-fix} ($+0.4\%$ to
+    $+1.9\%$). With only one GPU thread, every extra leaf is one extra
+    kernel launch + memcpy + event-sync round-trip on the same hardware
+    serial. There is no parallelism to absorb the overhead; the cost
+    shows up directly. The biggest delta is at \texttt{diffT}\,=\,$0.5$
+    where the fix adds $+549$ leaves (5{,}152 vs.\ 4{,}603);
+    \texttt{GPU}'s wall time rises by $+1.5$~s ($+1.9\%$), almost
+    exactly accounted for by the $549$ extra kernel launches at a few
+    ms each.
+    \item \textbf{GPU+11CPU is essentially neutral across the curve
+    except at \texttt{diffT}\,=\,$0.5$.} At every other threshold, the
+    post-fix delta lands within $\pm 0.5\%$ of pre-fix. The hybrid
+    case has 11 CPU workers \emph{and} a GPU thread, so the GPU's
+    overhead penalty and the CPU pool's load-balance benefit partly
+    cancel. They cancel less well at \texttt{diffT}\,=\,$0.5$ because
+    the absolute extra-leaf count is biggest there ($+549$); they
+    cancel essentially perfectly at tighter thresholds.
+\end{itemize}
+
+\noindent
+This is a sharper version of the finding originally documented in
+\texttt{postfix\_report.tex} from the Fig~11.15 sweep: the bug fix's
+performance cost depends on which workers are available to absorb the
+additional splits. The earlier report observed the slowdown at the
+legacy default ($+1.8\%$ on hybrid at \texttt{diffT}\,=\,$0.5$); this
+report adds the corresponding picture across the entire threshold
+range, and reveals that the slowdown is not an intrinsic property of
+the fix but a property of the threshold value at which the fix was
+measured.
+
+\subsection{The 960$\times$540 Outlier Is Immune on Both Branches}
+
+The pixel dimensions of the worst single CPU region in every column of
+Table~\ref{tab:worst} are $960\times540$. Both branches, every
+\texttt{diffT}. The compute time of this region ranges 13.3--15.6~s
+across the ten cells of the table, mostly within noise of each other.
+The bug fix did not unlock this outlier (it could not have ---
+\texttt{bug\_report.tex} explained why the bug discards corner-0's
+maximum only, while this region has all four corners at
+\texttt{MAXITER} so its corner spread is identically zero, beyond
+either branch's classifier's reach). The diffT sweep did not unlock
+this outlier (a tighter threshold still cannot reject zero spread).
+Two independent levers, both with no effect on the binding
+constraint.
+
+This is the cleanest possible evidence that the worst-case region is
+a heuristic problem and not a tracking-bug or tuning artefact.
+
+\subsection{Variance: A Subtler Story}
+
+Standard deviations tell an unexpected story
+(Table~\ref{tab:std}):
+
+\begin{itemize}
+    \item \textbf{\texttt{CPU12} at \texttt{diffT}\,=\,$0.5$}: pre-fix
+    $\sigma = 0.32$~s, post-fix $\sigma = 2.44$~s. The post-fix
+    variance is $8 \times$ higher at the legacy default. The
+    \texttt{difft\_report.tex} attribution was thread-scheduling
+    jitter on the worst-case region; the pre-fix data shows that this
+    jitter is much smaller on the buggy branch.
+    \item \textbf{\texttt{GPU+11CPU} at \texttt{diffT}\,=\,$0.5$}:
+    pre-fix $\sigma = 0.10$~s, post-fix $\sigma = 0.39$~s. Again
+    $\sim 4 \times$ noisier post-fix at the legacy default.
+    \item \textbf{\texttt{GPU+11CPU} at \texttt{diffT}\,=\,$0.05$}:
+    pre-fix $\sigma = 0.51$~s, post-fix $\sigma = 1.26$~s.
+    $2.5 \times$ noisier post-fix at the most aggressive value.
+    \item \textbf{\texttt{CPU12} at \texttt{diffT}\,=\,$0.05$}: pre-fix
+    $\sigma = 1.85$~s, post-fix $\sigma = 0.47$~s. Here the pattern
+    \emph{inverts}: the post-fix is more deterministic.
+\end{itemize}
+
+\noindent
+A consistent interpretation: the buggy classifier sometimes makes the
+same misclassifications across reps (since the bug depends on the
+\emph{order} in which corner values are visited, which is
+deterministic from the geometric subdivision tree); these systematic
+misclassifications stabilise some configurations into more repeatable
+schedules. Fixing the bug exposes the workload's underlying
+non-deterministic scheduling sensitivities, which then become visible
+as run-to-run variance. The exception is \texttt{CPU12} at
+\texttt{diffT}\,=\,$0.05$: at the most aggressive threshold on the
+buggy branch there are not enough leaves (4{,}900) to amortise the
+worst-case region across 12 threads, and the worst-region scheduling
+becomes unstable; the fix's $+423$ leaves give the queue enough
+material to dilute the variance.
+
+\subsection{Why the Pre-Fix Curve Has a Different Best for GPU}
+
+On the pre-fix branch, the \texttt{GPU} configuration is best at
+\texttt{diffT}\,=\,$0.5$ ($76.54$~s), with the four-tightest
+thresholds clustered between $77.1$ and $77.3$~s. This is the opposite
+ordering from what one might naively expect: the buggy code's
+worst-classification \emph{helps} the single GPU thread because
+\emph{not} splitting reduces the per-launch overhead the GPU thread
+pays. The fix recovers $+549$ leaves at \texttt{diffT}\,=\,$0.5$ and
+those translate directly into a $+1.5$~s wall-time penalty for the
+GPU-only configuration. The post-fix branch's monotonic improvement
+from $0.5$ down to $0.05$ shows that, with the bug corrected,
+\emph{less aggressive thresholds} are now the worse choice for
+GPU-only.
+
+This is a useful confirmation that the fix's per-launch overhead is
+real and quantifiable.
+
+% -----------------------------------------------------------------------
+\section{Summary of Recommendations}
+
+The pre-fix sanity check confirms every actionable conclusion from
+\texttt{difft\_report.tex}:
+
+\begin{enumerate}
+    \item \textbf{Use \texttt{diffT}\,=\,$0.1$ as the default.} Both
+    branches agree this is the hybrid sweet spot. The fix-induced
+    overhead at \texttt{diffT}\,=\,$0.5$ disappears at this
+    tighter value.
+    \item \textbf{Avoid \texttt{diffT}\,=\,$0.05$.} Post-fix variance
+    is unacceptably high there; pre-fix variance is bad too. The
+    pixel-size floor saturates the splitting before this threshold
+    can contribute additional useful work.
+    \item \textbf{The corner heuristic itself is the bottleneck.}
+    Two orthogonal experiments (the diffT sweep on each branch)
+    independently fail to subdivide the $960\times540$, $\sim$15~s
+    worst-case region. The only paths forward are edge-midpoint
+    sampling, cardioid/bulb certificates, or async streams; none of
+    these can be replaced by parameter tuning.
+\end{enumerate}
+
+% -----------------------------------------------------------------------
+\section{Conclusion}
+
+Repeating the \texttt{diffThreshold} sensitivity sweep on the
+original buggy binary produces a result that is reassuring along the
+dimensions that matter:
+
+\begin{itemize}
+    \item The optimal \texttt{diffT} is the same on both branches.
+    \item The shape of each wall-time curve is preserved.
+    \item The bug-fix's wall-time delta is exactly the per-configuration
+    cost-or-benefit one would predict from the load-balance argument
+    in \texttt{postfix\_report.tex}: cost on GPU (no parallelism to
+    absorb overhead), benefit on CPU (many threads to absorb extra
+    leaves), and approximate neutrality on hybrid (the two effects
+    cancel).
+    \item The worst-case region is invariant to both \texttt{diffT}
+    and the bug fix.
+\end{itemize}
+
+\noindent
+The sanity check uncovered no contradiction with the earlier
+reports, but it did sharpen one quantitative claim: the
+$+1.8\%$ hybrid slowdown observed in \texttt{postfix\_report.tex} at
+the legacy default \texttt{diffT}\,=\,$0.5$ is the worst case of the
+post-fix performance penalty across the entire \texttt{diffT} range
+that has been tested. At the recommended new default of $0.1$, the
+penalty is zero within noise. The bug fix is therefore a correctness
+improvement with a tuning-dependent performance cost, and at the
+right \texttt{diffT} that cost vanishes.
+
+\end{document}

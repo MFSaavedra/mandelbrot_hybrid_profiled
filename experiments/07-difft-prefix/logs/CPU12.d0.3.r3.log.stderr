@@ -1,0 +1,38 @@
+[config] numThr=12 gpuEnable=0 diffT=0.300 pixT=32768 res=1920x1080 frames=100 quiet=1 save=1
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 420
+  Total compute time      : 161567.187 ms  (avg 384.684 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 448
+  Total compute time      : 161464.994 ms  (avg 360.413 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 376
+  Total compute time      : 161152.262 ms  (avg 428.596 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 368
+  Total compute time      : 161156.122 ms  (avg 437.924 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 432
+  Total compute time      : 160769.339 ms  (avg 372.151 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 320
+  Total compute time      : 161575.792 ms  (avg 504.924 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 370
+  Total compute time      : 161301.509 ms  (avg 435.950 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 350
+  Total compute time      : 160705.367 ms  (avg 459.158 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 341
+  Total compute time      : 162022.811 ms  (avg 475.140 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 442
+  Total compute time      : 162465.777 ms  (avg 367.570 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 489
+  Total compute time      : 161559.285 ms  (avg 330.387 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 460
+  Total compute time      : 161967.582 ms  (avg 352.103 ms/region)
+[total_elapsed_s] 163.584920
