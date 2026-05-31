@@ -1,0 +1,41 @@
+[config] numThr=12 gpuEnable=1 diffT=0.100 pixT=32768 res=1920x1080 frames=100 quiet=1 save=0 viz=0 vizFrame=-1
+[OUTLIER] frame=73 depth=1 img=(0,0) px=960x540 c=[-0.511800,-0.346601]..[-0.093736,-0.599931] corners=7327/7327/7327/7327 spread=0 meanIter=7131.2 inset=97.3% cardioidBulb=0 ms=13639.4
+[OUTLIER] frame=89 depth=1 img=(0,0) px=960x540 c=[-0.207537,-0.628596]..[-0.037215,-0.731805] corners=8911/8911/8911/8911 spread=0 meanIter=7551.2 inset=84.4% cardioidBulb=0 ms=14291.4
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 157
+  Total compute time      : 49490.380 ms  (avg 315.225 ms/region)
+[GPU profiling summary]
+  Regions computed on GPU : 3786
+  Total kernel time       : 45396.999 ms  (avg 11.991 ms/region)
+  Total D→H memcpy time   : 194.099 ms  (avg 0.051 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 121
+  Total compute time      : 49533.389 ms  (avg 409.367 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 134
+  Total compute time      : 49548.748 ms  (avg 369.767 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 104
+  Total compute time      : 49778.683 ms  (avg 478.641 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 152
+  Total compute time      : 49807.937 ms  (avg 327.684 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 129
+  Total compute time      : 49813.087 ms  (avg 386.148 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 141
+  Total compute time      : 49871.594 ms  (avg 353.699 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 139
+  Total compute time      : 50010.685 ms  (avg 359.789 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 149
+  Total compute time      : 50128.305 ms  (avg 336.432 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 160
+  Total compute time      : 50161.987 ms  (avg 313.512 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 151
+  Total compute time      : 50262.831 ms  (avg 332.866 ms/region)
+[total_elapsed_s] 50.266351

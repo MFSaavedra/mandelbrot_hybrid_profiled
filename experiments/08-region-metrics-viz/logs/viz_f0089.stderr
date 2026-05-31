@@ -1,0 +1,30 @@
+[config] numThr=12 gpuEnable=1 diffT=0.100 pixT=32768 res=1920x1080 frames=1 quiet=1 save=0 viz=1 vizFrame=89
+[GPU profiling summary]
+  Regions computed on GPU : 6
+  Total kernel time       : 245.021 ms  (avg 40.837 ms/region)
+  Total D→H memcpy time   : 0.276 ms  (avg 0.046 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 5
+  Total compute time      : 917.465 ms  (avg 183.493 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 11
+  Total compute time      : 1125.080 ms  (avg 102.280 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 16
+  Total compute time      : 1325.964 ms  (avg 82.873 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 2
+  Total compute time      : 3922.397 ms  (avg 1961.199 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 2
+  Total compute time      : 3935.583 ms  (avg 1967.791 ms/region)
+[OUTLIER] frame=89 depth=1 img=(0,0) px=960x540 c=[-0.207537,-0.628596]..[-0.037215,-0.731805] corners=8911/8911/8911/8911 spread=0 meanIter=7551.1 inset=84.4% cardioidBulb=0 ms=13017.2
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 1
+  Total compute time      : 13017.222 ms  (avg 13017.222 ms/region)
+[total_elapsed_s] 13.017398
+[viz] wrote img_f0089_d00.png (outlines for depth <= 0)
+[viz] wrote img_f0089_d01.png (outlines for depth <= 1)
+[viz] wrote img_f0089_d02.png (outlines for depth <= 2)
+[viz] wrote img_f0089_d03.png (outlines for depth <= 3)
+[viz] 57 subdivision nodes, max depth 3

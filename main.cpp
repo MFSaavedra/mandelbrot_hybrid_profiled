@@ -5,6 +5,9 @@
 #include <unistd.h>
 #include <time.h>
 #include <QThread>
+#include <QImage>
+#include <QPainter>
+#include <QColor>
 #include "workqueue.h"
 #include "mandelframe.h"
 #include "mandelregion.h"
@@ -15,6 +18,62 @@
 // the symbol name identical in nvcc and g++ object files.
 extern "C" int profileQuiet = 0;   // 1 = suppress per-region stderr prints
 extern "C" int profileSave  = 1;   // 0 = skip PNG saves (pure-compute timing)
+extern "C" int vizMode      = 0;   // 1 = subdivision-animation mode (see below)
+
+//************************************************************
+// vizMode: render a single frozen frame (interpolation disabled) and replay
+// the recorded subdivision tree as a depth-by-depth animation.  For each
+// recursion depth k it writes "<prefix>_dNN.png": a copy of the finished image
+// overlaid with the region outlines that exist down to depth k.  Internal
+// (split) nodes are drawn as a grey skeleton; computed leaves are coloured by
+// executor — cyan for the GPU thread, yellow for the CPU threads — so the
+// load-balancing partition is directly visible.  Runs after the wall-clock
+// timer stops, so it never perturbs the measured compute phase.
+static void generateDepthFrames(MandelFrame *f, const char *prefix)
+{
+  if (f->vizRects.isEmpty())
+    {
+      fprintf(stderr, "[viz] no recorded rectangles — nothing to draw\n");
+      return;
+    }
+
+  int maxDepth = 0;
+  for (const VizRect &r : f->vizRects)
+    if (r.depth > maxDepth)
+      maxDepth = r.depth;
+
+  const QColor colSkeleton(90, 90, 90);     // internal / split nodes
+  const QColor colGPU(0, 255, 255);         // leaves computed on the GPU thread
+  const QColor colCPU(255, 230, 0);         // leaves computed on a CPU thread
+
+  char outName[MAXFNAME + 16];
+  for (int k = 0; k <= maxDepth; k++)
+    {
+      QImage frame = f->img->copy();        // detached deep copy per depth level
+      QPainter p(&frame);
+
+      // Subdivision skeleton first, so leaf colours win on shared borders.
+      p.setPen(QPen(colSkeleton, 1));
+      for (const VizRect &r : f->vizRects)
+        if (!r.leaf && r.depth <= k)
+          p.drawRect(r.x, r.y, r.w - 1, r.h - 1);
+
+      // Computed leaves on top, coloured by executor.
+      for (const VizRect &r : f->vizRects)
+        if (r.leaf && r.depth <= k)
+          {
+            p.setPen(QPen(r.onGPU ? colGPU : colCPU, 1));
+            p.drawRect(r.x, r.y, r.w - 1, r.h - 1);
+          }
+
+      p.end();
+      snprintf(outName, sizeof(outName), "%s_d%02d.png", prefix, k);
+      frame.save(outName, "PNG");
+      fprintf(stderr, "[viz] wrote %s (outlines for depth <= %d)\n", outName, k);
+    }
+  fprintf(stderr, "[viz] %d subdivision nodes, max depth %d\n",
+          (int) f->vizRects.size(), maxDepth);
+}
 
 
 //************************************************************
@@ -58,6 +117,8 @@ void CalcThr::run ()
 //              diffThreshold pixelThreshold : optional thresholds for frame partitioning heuristics
 //              quiet : 0/1, 1 suppresses per-region stderr prints (default 0)
 //              save  : 0/1, 0 skips PNG image saves for pure-compute timing (default 1)
+//              viz   : 0/1, 1 renders one frozen frame and emits the depth-by-depth
+//                      subdivision animation <prefix>_dNN.png (default 0)
 int main (int argc, char *argv[])
 {
   int numframes, resolutionX, resolutionY;
@@ -66,11 +127,12 @@ int main (int argc, char *argv[])
   int maxIterations[2];
   double diffT = 0.5;
   int pixT = 32768;
+  int vizFrame = 0;             // which interpolated frame to freeze on in vizMode
 
   if (argc < 2)
     {
       cerr << "Usage : " << argv[0]
-           << " spec_file [numThr] [GPUenable] [diffT] [pixT] [quiet] [save]\n";
+           << " spec_file [numThr] [GPUenable] [diffT] [pixT] [quiet] [save] [viz] [vizFrame]\n";
       exit (1);
     }
 
@@ -94,6 +156,12 @@ int main (int argc, char *argv[])
   if (argc > 7)
     profileSave = atoi (argv[7]);
 
+  if (argc > 8)
+    vizMode = atoi (argv[8]);
+
+  if (argc > 9)
+    vizFrame = atoi (argv[9]);
+
   ifstream fin (argv[1]);
   fin >> numframes >> resolutionX >> resolutionY;
   fin >> imageFilePrefix;
@@ -108,7 +176,6 @@ int main (int argc, char *argv[])
   WorkQueue workQ;
 
   // generate the needed frame objects and the corresponding regions
-  MandelFrame **fr = new MandelFrame *[numframes];
   double uX = upperCornerX[0], uY = upperCornerY[0];
   double lX = lowerCornerX[0], lY = lowerCornerY[0];
   int iter = maxIterations[0];
@@ -120,25 +187,55 @@ int main (int argc, char *argv[])
   sy2 = (lowerCornerY[1] - lowerCornerY[0]) / numframes;
   iterInc = (maxIterations[1] - maxIterations[0]) * 1.0 / numframes;
   char fname[MAXFNAME];
-  for (int i = 0; i < numframes; i++)
+  char vizPrefix[MAXFNAME];
+
+  // vizMode renders exactly one interpolated frame (selected by vizFrame),
+  // freezing the camera; the depth animation replaces the usual sequence.
+  // The interpolation steps above are computed against the real frame count so
+  // the chosen frame matches what a full run would have produced.
+  int framesToBuild = vizMode ? 1 : numframes;
+  MandelFrame **fr = new MandelFrame *[framesToBuild];
+
+  if (vizMode)
     {
-      sprintf (fname, "%s%04i.png", imageFilePrefix, i);
-      fr[i] = new MandelFrame (uX, uY, lX, lY, resolutionX, resolutionY, fname, iter);
-      workQ.append (new MandelRegion (uX, uY, lX, lY, 0, 0, resolutionX, resolutionY, fr[i]));
-      uX += sx1;
-      uY += sy1;
-      lX += sx2;
-      lY += sy2;
-      iter += iterInc;
+      if (vizFrame < 0)          vizFrame = 0;
+      if (vizFrame >= numframes) vizFrame = numframes - 1;
+      double fuX = upperCornerX[0] + sx1 * vizFrame;
+      double fuY = upperCornerY[0] + sy1 * vizFrame;
+      double flX = lowerCornerX[0] + sx2 * vizFrame;
+      double flY = lowerCornerY[0] + sy2 * vizFrame;
+      int    fiter = maxIterations[0] + iterInc * vizFrame;
+      // Per-frame prefix so depth frames from different vizFrames don't collide.
+      sprintf (vizPrefix, "%s_f%04d", imageFilePrefix, vizFrame);
+      sprintf (fname, "%s.png", vizPrefix);
+      fr[0] = new MandelFrame (fuX, fuY, flX, flY, resolutionX, resolutionY, fname, fiter);
+      fr[0]->frameIndex = vizFrame;
+      workQ.append (new MandelRegion (fuX, fuY, flX, flY, 0, 0, resolutionX, resolutionY, fr[0]));
+    }
+  else
+    {
+      for (int i = 0; i < numframes; i++)
+        {
+          sprintf (fname, "%s%04i.png", imageFilePrefix, i);
+          fr[i] = new MandelFrame (uX, uY, lX, lY, resolutionX, resolutionY, fname, iter);
+          fr[i]->frameIndex = i;
+          workQ.append (new MandelRegion (uX, uY, lX, lY, 0, 0, resolutionX, resolutionY, fr[i]));
+          uX += sx1;
+          uY += sy1;
+          lX += sx2;
+          lY += sy2;
+          iter += iterInc;
+        }
     }
 
 
   // Self-describing banner so each run's log file identifies its configuration.
   fprintf(stderr,
           "[config] numThr=%d gpuEnable=%d diffT=%.3f pixT=%d res=%dx%d "
-          "frames=%d quiet=%d save=%d\n",
+          "frames=%d quiet=%d save=%d viz=%d vizFrame=%d\n",
           numThreads, (int)enableGPU, diffT, pixT,
-          resolutionX, resolutionY, numframes, profileQuiet, profileSave);
+          resolutionX, resolutionY, framesToBuild, profileQuiet, profileSave,
+          vizMode, vizMode ? vizFrame : -1);
 
   // generate the threads that will process the workload
   CalcThr **thr = new CalcThr *[numThreads];
@@ -175,6 +272,11 @@ int main (int argc, char *argv[])
 
   // Machine-parseable line: sweep.sh greps for this exact prefix.
   fprintf(stderr, "[total_elapsed_s] %.6f\n", elapsed_s);
+
+  // Emit the subdivision animation outside the timed region so it never
+  // counts against the measured compute phase.
+  if (vizMode)
+    generateDepthFrames(fr[0], vizPrefix);
 
   return 0;
 }

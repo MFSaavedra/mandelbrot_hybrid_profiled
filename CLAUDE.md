@@ -16,7 +16,7 @@ CUDA architecture is set to `-arch=native` (requires CUDA 11.6+). For older `nvc
 ## Run
 
 ```bash
-./mandelHybrid spec.in <numThreads> <gpuEnable> [diffThreshold] [pixelThreshold] [quiet] [save]
+./mandelHybrid spec.in <numThreads> <gpuEnable> [diffThreshold] [pixelThreshold] [quiet] [save] [viz] [vizFrame]
 ```
 
 - `numThreads`: total CPU+GPU worker threads (defaults to CPU core count)
@@ -25,6 +25,8 @@ CUDA architecture is set to `-arch=native` (requires CUDA 11.6+). For older `nvc
 - `pixelThreshold`: pixel count (default 32768). Regions smaller than this are always computed without further splitting
 - `quiet`: `1` suppresses per-region stderr prints; per-thread and per-GPU summaries still emit
 - `save`: `0` skips PNG writes (for pure-compute timing)
+- `viz`: `1` enables visualization mode — renders one frozen interpolated frame (interpolation disabled) and emits the depth-by-depth subdivision animation `<prefix>_fNNNN_dKK.png`, one PNG per recursion depth `K`, with region outlines coloured by executor (cyan = GPU thread, yellow = CPU thread, grey = split skeleton). Default `0`. The animation is rendered after the wall-clock timer stops, so it never perturbs timing.
+- `vizFrame`: in `viz` mode, which interpolated frame index to freeze on (default `0`). Frame 0 is the wide full-set view (`maxIter=100`, cheap, no GPU participation); late frames are deep zooms with high `maxIter` where the GPU participates and the outliers live (e.g. `89`).
 
 Example: `./mandelHybrid spec.in 7 1`
 
@@ -55,14 +57,16 @@ mandelbrot_hybrid_profiled/
 │   ├── 04-postfix-profile.tex
 │   ├── 05-fig1115-postfix.tex
 │   ├── 06-difft-sweep.tex
-│   └── 07-difft-compare.tex
+│   ├── 07-difft-compare.tex
+│   └── 08-region-metrics-viz.tex
 ├── experiments/               raw measurement data, numbered to match reports
 │   ├── 01-initial-profile/    (was first_run/)
 │   ├── 02-fig1115-prefix/     (was sweep_results/)
 │   ├── 04-postfix-profile/    (was second_run/)
 │   ├── 05-fig1115-postfix/    (was sweep_results_postfix/)
 │   ├── 06-difft-postfix/      (was difft_sweep/)
-│   └── 07-difft-prefix/       (was difft_sweep_prefix/)
+│   ├── 07-difft-prefix/       (was difft_sweep_prefix/)
+│   └── 08-region-metrics-viz/ (viz frames, metrics + outlier logs, perf A/B)
 └── scripts/
     ├── sweep_fig1115.sh       (was sweep.sh; auto-resolves project root)
     ├── plot_fig1115.py
@@ -74,6 +78,7 @@ Note: report `03` (bug analysis) has no corresponding `experiments/03-...` becau
 ## Branches and tags
 
 - `main` — current best version. Holds all reports and all experiment data.
+- `feat/viz-mode` — adds region work metrics, the 5 s outlier dump, and the `vizMode` subdivision animation (report `08`). Instrumentation only; the subdivision decision is unchanged (verified: byte-identical 5,323-leaf decomposition vs `d5bf30c`). Not yet merged/tagged; intended tag on merge is `binary-v2-viz`.
 - `examine_minmax_bugfix` — the commit that fixed the min/max reduction in `MandelRegion::examine()`. Same code state as `main` modulo subsequent reorganization commits.
 - `examine_rewrite`, `master` — original code with the min/max tracking bug intact. Kept as historical references.
 
@@ -135,6 +140,10 @@ Hybrid CPU+GPU Mandelbrot set renderer that uses adaptive region splitting as it
 
 **Quiet/save flags** (`main.cpp`): `profileQuiet` (positional arg 6) and `profileSave` (arg 7) gate per-region stderr prints and PNG writes respectively. Batch sweeps use `quiet=1, save=1`.
 
+**Region work metrics + outlier dump** (`mandelregion.cpp`, added on `feat/viz-mode`): `compute()` accumulates total iterations and interior-pixel count per region on both the CPU and GPU branches (one add per pixel, reusing the existing `color==MAXGRAY` branch — negligible vs the `diverge()` loop), reporting mean iterations/pixel and interior fraction. Any CPU region exceeding `OUTLIER_MS` (5000 ms) emits an `[OUTLIER]` line — frame, depth, pixel + complex rectangles, corner iters, spread, work metrics, and `inMainCardioidOrBulb` membership — regardless of `quiet`. Regions also carry a `depth` field (root = 0, children = parent+1) and frames carry a `frameIndex`.
+
+**Visualization mode** (`main.cpp` `generateDepthFrames`, `mandelframe.*`): `viz=1` (arg 8) freezes one interpolated frame (`vizFrame`, arg 9) and emits a depth-by-depth subdivision animation `<prefix>_fNNNN_dKK.png`. Every examined region registers a `VizRect` (rect, depth, leaf/split, executor) with its owner frame under a mutex; after the timer stops, each depth `K` is rendered as the finished image overlaid with all outlines of depth `≤ K` — grey for split nodes, cyan for GPU leaves, yellow for CPU leaves. Verified performance-neutral and decomposition-identical vs `d5bf30c` (report `08`).
+
 To profile (example):
 ```bash
 mkdir -p experiments/initial-profile
@@ -162,7 +171,7 @@ nsys-ui report.nsys-rep                   # GUI timeline
 
 **`cudaMemcpy` is dominated by kernel-wait time, not transfer**: the actual PCIe D→H transfer averages 15–24 µs, while `cudaMemcpy` reports 12–13 ms per call — 99% is the synchronous wait for the kernel. PCIe bandwidth is *not* a bottleneck; async streams would recover this latency.
 
-**The worst-case region is `960×540` and takes ~15 s on a single CPU thread.** It survives the bug fix and the diffT sweep. Its four corners all sit inside the Mandelbrot set (iter = `MAXITER` = 10000), so the corner-spread is identically zero and the uniformity rule passes at every `diffThresh`. The four-corner heuristic cannot subdivide this region without sampling additional interior points.
+**The worst-case region is `960×540` and takes ~15 s on a single CPU thread.** It survives the bug fix and the diffT sweep. Its four corners all sit inside the Mandelbrot set (iter = the frame's `maxIter`), so the corner-spread is identically zero and the uniformity rule passes at every `diffThresh`. The four-corner heuristic cannot subdivide this region without sampling additional interior points. Report `08` later pinned the two concrete instances (frames 73 and 89 at `diffT=0.1`) and showed via a cardioid/bulb membership test that they are **minibrot interiors, not main-cardioid/bulb regions** — so the cheap cardioid certificate cannot help; edge-midpoint sampling is required.
 
 ## Sensitivity studies
 
@@ -210,7 +219,7 @@ The fix's wall-time delta is strongly *config-dependent*: CPU-only is 0.4–1.2%
 
 ### What no parameter sweep could fix
 
-The 960×540 worst-case CPU region remains 14–15 s at every `diffT` on every binary version. It is the binding constraint on end-to-end wall time. Tuning cannot help; the heuristic itself must change.
+The 960×540 worst-case CPU region remains 14–15 s at every `diffT` on every binary version. It is the binding constraint on end-to-end wall time. Tuning cannot help; the heuristic itself must change. Report `08` characterised it fully: the binding instances (frames 73, 89) are minibrot interiors with zero corner spread, so the fix is the 9-point edge-midpoint stencil (next-step 2b), not the cardioid certificate (2a).
 
 ## Reports
 
@@ -225,6 +234,7 @@ Seven LaTeX reports document the work chronologically. Each report's title page 
 | `reports/05-fig1115-postfix.tex` | `d5bf30c` (v1) | Repeated Fig 11.15 sweep on the post-fix binary |
 | `reports/06-difft-sweep.tex` | `d5bf30c` (v1) | `diffThreshold` sensitivity on the post-fix binary, sweet spot identified |
 | `reports/07-difft-compare.tex` | `0f782fd` + `d5bf30c` | Pre-fix vs.\ post-fix diffT sweep comparison (sanity check + load-balance analysis) |
+| `reports/08-region-metrics-viz.tex` | `feat/viz-mode` atop `d5bf30c` | Region work metrics + subdivision visualizer; locates the two binding outliers (frames 73, 89) and shows via the new cardioid/bulb test that they are minibrot interiors (not main cardioid/bulb); performance-neutral A/B vs `d5bf30c` |
 
 Build any report with:
 ```bash
@@ -252,6 +262,7 @@ Raw measurement data, by experiment number. Per-rep `.stderr` and `.stdout` file
 | `experiments/05-fig1115-postfix/` | `binary-v1-bugfix` | `results.csv` + 21 stderr logs + `fig1115.png` |
 | `experiments/06-difft-postfix/` | `binary-v1-bugfix` | `results.csv` + 36 stderr logs + `quiet0/` max-region logs + `difft_sweep.png` |
 | `experiments/07-difft-prefix/` | `binary-v0-buggy` | `results.csv` + 36 stderr logs + `quiet0/` max-region logs + `compare.png` |
+| `experiments/08-region-metrics-viz/` | `feat/viz-mode` atop `d5bf30c` | `viz/` depth frames + montage/GIF, `logs/` (metrics + outlier dumps), `perf/results.csv` (A/B vs `d5bf30c`) |
 
 ## Conclusions
 
@@ -264,9 +275,9 @@ Raw measurement data, by experiment number. Per-rep `.stderr` and `.stdout` file
 
 In priority order:
 
-1. **Locate the worst region.** Add a `printf` in `MandelRegion::compute()` that emits the region's `(upperX, upperY)` and frame number when its compute time exceeds, say, 5000 ms. One run pinpoints which frame and which area of the Mandelbrot set produces the outlier. This unlocks the decision between (2a) and (2b).
-2a. **If the outlier is inside the main cardioid or the period-2 bulb** (membership test: `q = (x-1/4)^2 + y^2; q*(q + (x-1/4)) <= y^2/4` for the cardioid; `(x+1)^2 + y^2 <= 1/16` for the bulb): ship a cardioid/bulb interior certificate in `examine()` — if all four corners satisfy the test, skip iteration entirely and constant-fill. Cheapest possible fix.
-2b. **Otherwise**: add edge-midpoint sampling (9-point stencil), inheriting the new samples as children's corners on split. Catches interior filaments that all four original corners miss.
+1. **Locate the worst region.** ✅ **Done — see `reports/08-region-metrics-viz.tex`.** The `[OUTLIER]` dump in `MandelRegion::compute()` (fires above 5000 ms) found exactly two binding outliers at `diffT=0.1`: frames **73** (13.6 s) and **89** (14.3 s), both `960×540` depth-1 upper-left quadrants whose four corners all sit at the frame's `maxIter` (spread 0). The new cardioid/bulb membership test reports **`cardioidBulb=0`** for both, and the interior-pixel fraction is 84–97%.
+2a. ~~**If the outlier is inside the main cardioid or the period-2 bulb**~~ **Ruled out by report 08.** The membership test (`q = (x-1/4)^2 + y^2; q*(q + (x-1/4)) <= y^2/4` for the cardioid; `(x+1)^2 + y^2 <= 1/16` for the bulb) returns 0 for both outliers — they are interior to a **minibrot**, not the main cardioid/bulb. A cardioid/bulb certificate would not fire on them, so it cannot relieve the 14 s tail. (It remains a cheap win for the early wide frames whose pixels genuinely fall in the main cardioid, but that is not the binding constraint.)
+2b. ✅ **This is the path.** Add edge-midpoint sampling (9-point stencil), inheriting the new samples as children's corners on split. Report 08 shows the outliers' mean iteration count (7,131 / 7,551) is measurably below their corner value (7,327 / 8,911), proving sub-`maxIter` structure exists between the corners that the four-point sampler misses — so a 9-point stencil would expose a non-zero spread and trigger the split the corners suppress.
 3. **Async CUDA streams** in `hostFE()`: launch the kernel into a non-default stream and use `cudaStreamSynchronize` only when reading results. Recovers up to ~13 ms/region of GPU-thread idle time spent in `cudaMemcpy`. Independent of any heuristic change.
 4. **Largest-first priority queue**: replace `WorkQueue`'s `deque` with `priority_queue` using the existing `MandelRegion::Compare` functor. Routes larger regions to the GPU thread first. Modest expected upside (~1 s).
 5. **`pixelSizeThresh` sweep at `diffT=0.1`**: the decision rule is `diff_uniform OR below_pixT`, so `pixT` cannot force-split the 15 s outlier (which passes the diff test). It can tighten load balance among floor-classified regions. Quick to test.

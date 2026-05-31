@@ -16,9 +16,18 @@ MandelFrame::MandelFrame(double uX, double uY, double lX, double lY, int pX, int
     MAXITER = maxiter;
     pixelsX = pX;
     pixelsY = pY;
+    frameIndex = 0;        // overwritten by main.cpp after construction
     stepX = (lowerX - upperX) / pixelsX;
     stepY = (upperY - lowerY) / pixelsY;
     remainingRegions = 1;  // when this becomes 0, the frame has been calculated
+}
+//----------------------------------------------------------------------
+// Thread-safe append of one subdivision node.  Called only on the vizMode
+// path, so the lock never touches the timed compute path.
+void MandelFrame::addVizRect(const VizRect &r)
+{
+    QMutexLocker ml(&vizLock);
+    vizRects.append(r);
 }
 //----------------------------------------------------------------------
 void MandelFrame::regionSplit()

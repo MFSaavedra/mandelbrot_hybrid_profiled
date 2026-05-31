@@ -1,0 +1,38 @@
+[config] numThr=12 gpuEnable=1 diffT=0.100 pixT=32768 res=1920x1080 frames=1 quiet=1 save=0
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 7
+  Total compute time      : 60.421 ms  (avg 8.632 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 6
+  Total compute time      : 61.191 ms  (avg 10.198 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 6
+  Total compute time      : 61.590 ms  (avg 10.265 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 11
+  Total compute time      : 62.018 ms  (avg 5.638 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 8
+  Total compute time      : 62.108 ms  (avg 7.764 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 6
+  Total compute time      : 64.264 ms  (avg 10.711 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 6
+  Total compute time      : 64.580 ms  (avg 10.763 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 6
+  Total compute time      : 65.710 ms  (avg 10.952 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 8
+  Total compute time      : 66.302 ms  (avg 8.288 ms/region)
+[GPU profiling summary]
+  Regions computed on GPU : 0
+  Total kernel time       : 0.000 ms  (avg 0.000 ms/region)
+  Total D→H memcpy time   : 0.000 ms  (avg 0.000 ms/region)
+[total_elapsed_s] 0.319220
+[viz] wrote img_d00.png (outlines for depth <= 0)
+[viz] wrote img_d01.png (outlines for depth <= 1)
+[viz] wrote img_d02.png (outlines for depth <= 2)
+[viz] wrote img_d03.png (outlines for depth <= 3)
+[viz] 85 subdivision nodes, max depth 3

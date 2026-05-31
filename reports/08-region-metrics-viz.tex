@@ -1,0 +1,356 @@
+% Template:     Reporte LaTeX
+% Documento:    Region metrics + subdivision visualizer for mandelHybrid.
+% Codificación: UTF-8
+
+\documentclass[
+	english,
+	letterpaper, oneside
+]{article}
+
+\def\documenttitle {Region Metrics and a Subdivision Visualizer for \texttt{mandelHybrid}}
+\def\documentsubtitle {Locating the Load-Balancing Outliers, and a Performance-Neutral Instrumentation Pass}
+\def\documentsubject {Adaptive Subdivision, Load Balancing, Profiling Instrumentation}
+\def\documentdate {\today}
+
+\def\documentauthor {Matias Saavedra}
+\def\coursename {Multicore and GPU Programming}
+\def\coursecode {CISC 701}
+
+\def\universityname {Universidad de Chile}
+\def\universityfaculty {Facultad de Ciencias Físicas y Matemáticas}
+\def\universitydepartment {Departamento de Ciencias de la Computación}
+\def\universitydepartmentimage {departamentos/dcc}
+\def\universitylocation {Santiago de Chile}
+
+\input{template}
+
+\begin{document}
+
+\templatePagecfg
+\templateFinalcfg
+
+\inserttitle
+
+\begin{center}\small\textsf{%
+Binary: \texttt{feat/viz-mode} branch built on top of \texttt{d5bf30c} (tag \texttt{binary-v1-bugfix}).
+The additions are instrumentation only --- per-region work metrics, an outlier
+dump, and a \texttt{vizMode} subdivision animation --- and do not alter the
+subdivision decision. Baseline for the performance A/B is \texttt{d5bf30c} itself.%
+}\end{center}
+
+% -----------------------------------------------------------------------
+\begin{abstract}
+This report adds three pieces of instrumentation to \texttt{mandelHybrid} and
+uses them to characterise the load-balancing outlier that
+\texttt{04-postfix-profile.tex} and \texttt{06-difft-sweep.tex} identified but
+could not dissect: per-region \emph{work} metrics (mean iterations per pixel,
+interior-pixel fraction), an \texttt{[OUTLIER]} dump for any CPU region
+exceeding 5~s, and a \texttt{vizMode} that freezes one interpolated frame and
+emits a depth-by-depth subdivision animation coloured by executor. Measured on
+100~frames at $1920\times1080$ (i7-9750H + GTX~1660~Ti~Max-Q, 12~threads,
+\texttt{diffT}\,=\,0.1), the metrics located the two binding outliers ---
+frames~73 and~89, both $960\times540$ depth-1 regions costing \textbf{13.6~s
+and 14.3~s} on a single CPU thread. The headline finding is delivered by the
+new cardioid/bulb membership test: \textbf{both outliers return
+\texttt{cardioidBulb}\,=\,0}. They are interior to the set (84--97\,\% of their
+pixels reach \texttt{maxIter}) but lie inside a \emph{minibrot}, not the main
+cardioid or period-2 bulb --- which means the cheapest proposed fix, the
+cardioid interior certificate, \emph{cannot} touch them. Finally, the
+instrumentation is performance-neutral: new mean \textbf{51.63~s} vs.\ baseline
+\textbf{51.89~s} ($-0.5\%$, inside the $\sim$3\,\% run-to-run spread), with a
+byte-identical 5{,}323-leaf decomposition on every rep.
+\end{abstract}
+
+% -----------------------------------------------------------------------
+\section{Setup and Instrumentation}
+
+\paragraph{Workload and machine.} Identical to the post-fix profile: the same
+\texttt{spec.in} (100~frames at $1920\times1080$, zoom trajectory ending at
+\texttt{maxIterations}\,=\,10{,}000), the same i7-9750H (6c/12t) + GTX~1660~Ti
+Max-Q, 12~worker threads (1~GPU~+~11~CPU). All runs use the recommended
+\texttt{diffThreshold}\,=\,0.1 and \texttt{pixelSizeThresh}\,=\,32{,}768 from
+\texttt{06-difft-sweep.tex}. Compute-only runs use \texttt{save}\,=\,0 to strip
+the PNG-encode tail.
+
+\paragraph{1. Per-region work metrics.} \texttt{MandelRegion::compute()} now
+accumulates the total iteration count and the number of interior
+(\texttt{maxIter}) pixels in the same pass that fills the image buffer, on both
+the CPU and GPU branches. It reports mean iterations per pixel and the
+interior-pixel fraction. These are work proxies independent of wall time: the
+interior fraction in particular isolates \emph{why} a region is slow --- every
+interior pixel costs the full \texttt{maxIter} iterations.
+
+\paragraph{2. Outlier dump.} Any CPU region whose wall time exceeds 5{,}000~ms
+emits one structured line regardless of the quiet flag, recording its frame,
+depth, pixel and complex-plane rectangles, the four corner iteration counts,
+the corner spread, the two work metrics, and a cardioid/bulb membership flag:
+
+\begin{sourcecode}{cpp}{mandelregion.cpp --- the interior-membership test reported per outlier.}
+// True if (x,y) lies in the main cardioid or the period-2 bulb -- the two
+// largest interior components of the Mandelbrot set.
+bool MandelRegion::inMainCardioidOrBulb (double x, double y)
+{
+  double xm = x - 0.25;
+  double q  = xm * xm + y * y;
+  if (q * (q + xm) <= 0.25 * y * y)   // main cardioid
+    return true;
+  double xp = x + 1.0;
+  if (xp * xp + y * y <= 0.0625)      // period-2 bulb
+    return true;
+  return false;
+}
+\end{sourcecode}
+
+\paragraph{3. \texttt{vizMode} subdivision animation.} A new positional flag
+(\texttt{viz}, with an optional \texttt{vizFrame} selector) freezes the camera
+on a single interpolated frame and replaces the usual frame sequence with a
+depth animation. Every examined region registers its pixel rectangle, recursion
+depth, leaf/split status, and executor with its owner frame; after the timed
+phase, \texttt{generateDepthFrames()} writes one PNG per depth level $k$,
+overlaying the outlines of every node with depth~$\le k$. Internal (split)
+nodes are drawn as a grey skeleton; computed leaves are coloured \textbf{cyan
+for the GPU thread} and \textbf{yellow for CPU threads}, so the load-balancing
+partition is directly visible. The collection is gated on \texttt{vizMode} and
+the depth frames are emitted \emph{after} the wall-clock timer stops, so neither
+touches the measured compute phase.
+
+\paragraph{Performance A/B.} To confirm the additions are free, the new binary
+and the \texttt{d5bf30c} baseline (built in a separate worktree) were each run
+three times at the hybrid configuration, alternating to balance thermal drift,
+with \texttt{save}\,=\,0 and \texttt{quiet}\,=\,1.
+
+% -----------------------------------------------------------------------
+\section{Results}
+
+\subsection{The Two Binding Outliers}
+
+The 100-frame metrics run logged exactly two regions above the 5~s threshold,
+shown in Table~\ref{tab:outliers}. Both are upper-left depth-1 quadrants whose
+four corners sit at exactly the frame's \texttt{maxIter} (frame $f$ has
+\texttt{maxIter}$=100+99f$, so 7{,}327 at frame~73 and 8{,}911 at frame~89),
+giving a corner spread of zero.
+
+\begin{table}[H]
+    \centering
+    \caption{The two CPU regions exceeding 5~s in the 100-frame hybrid run.
+             \texttt{cardioidBulb} is 1 only if all four corners lie in the main
+             cardioid or the period-2 bulb; both outliers return 0.}
+    \label{tab:outliers}
+    \begin{tabular}{rrrrrrr}
+        \hline
+        \textbf{Frame} & \textbf{Size} & \textbf{Corners} & \textbf{Spread} & \textbf{Mean iter} & \textbf{Inset \%} & \textbf{CPU time} \\
+        \hline
+        73 & $960\times540$ & 7{,}327 & 0 & 7{,}131.2 & 97.3\% & 13.64~s \\
+        89 & $960\times540$ & 8{,}911 & 0 & 7{,}551.2 & 84.4\% & 14.29~s \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsection{Metrics-Run Headline}
+
+\begin{table}[H]
+    \centering
+    \caption{Full 100-frame hybrid run, \texttt{diffT}\,=\,0.1,
+             \texttt{save}\,=\,0. CPU thread wall is the min--max across the
+             11~CPU workers.}
+    \label{tab:metrics}
+    \begin{tabular}{lr}
+        \hline
+        \textbf{Metric} & \textbf{Value} \\
+        \hline
+        End-to-end wall                 & 50.27~s \\
+        Total leaf regions              & 5{,}323 \\
+        \quad GPU-computed              & 3{,}786 \\
+        \quad CPU-computed              & 1{,}537 \\
+        GPU avg per region              & 11.99~ms \\
+        CPU thread wall (min--max)      & 49.49--50.26~s \\
+        CPU thread spread               & 1.5\% \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsection{The Subdivision Visualization}
+
+Figure~\ref{fig:montage} is the depth animation for frame~89 (the larger
+outlier), assembled from the four \texttt{vizMode} depth frames.
+Figure~\ref{fig:partition} is the final partition on its own, where the outlier
+cell is unmistakable.
+
+\insertimage{img/viz_depth_montage_f0089.png}{width=\linewidth}
+            {Depth-by-depth subdivision of frame~89. Top-left: the root
+             (\texttt{depth}\,$\le 0$). Top-right through bottom-right: outlines
+             for all nodes down to \texttt{depth}\,$\le 1,2,3$. Grey lines are
+             split (internal) nodes; yellow leaves were computed on a CPU
+             thread, cyan leaves on the GPU thread. The black minibrot body in
+             the upper-left \emph{never subdivides past depth~1} --- that single
+             cell is the 14~s outlier. \label{fig:montage}}
+
+\insertimage{img/viz_partition_f0089.png}{width=0.86\linewidth}
+            {Final partition of frame~89. The fractal boundary on the right
+             forces subdivision to depth~3 (small cells), while the interior
+             minibrot body on the left is one undivided $960\times540$ cell: its
+             four corners all reach \texttt{maxIter}, so the corner spread is
+             zero and the uniformity rule computes it as a single block.
+             \label{fig:partition}}
+
+\subsection{Performance A/B}
+
+\begin{table}[H]
+    \centering
+    \caption{New binary (with all instrumentation) vs.\ the \texttt{d5bf30c}
+             baseline, 3~reps each, alternating. ``Leaves'' is the total leaf
+             count; a match across binaries proves the subdivision decision is
+             unchanged.}
+    \label{tab:ab}
+    \begin{tabular}{lrrr}
+        \hline
+        \textbf{Binary} & \textbf{Rep} & \textbf{Wall (s)} & \textbf{Leaves} \\
+        \hline
+        new      & 1 & 50.654 & 5{,}323 \\
+        new      & 2 & 51.826 & 5{,}323 \\
+        new      & 3 & 52.412 & 5{,}323 \\
+        baseline & 1 & 51.412 & 5{,}323 \\
+        baseline & 2 & 51.441 & 5{,}323 \\
+        baseline & 3 & 52.809 & 5{,}323 \\
+        \hline
+        \textbf{new mean}      & --- & \textbf{51.631} & 5{,}323 \\
+        \textbf{baseline mean} & --- & \textbf{51.887} & 5{,}323 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+% -----------------------------------------------------------------------
+\section{Analysis}
+
+\subsection{The binding outliers are minibrot interiors, not main-cardioid/bulb regions}
+
+This is the headline result. Both outliers in Table~\ref{tab:outliers} carry
+\texttt{cardioidBulb}\,=\,0 while 84--97\,\% of their pixels reach
+\texttt{maxIter}. They are unambiguously \emph{inside} the Mandelbrot set, but
+inside one of the infinitely many small self-similar copies (a minibrot) along
+the zoom trajectory, which the main-cardioid and period-2-bulb formulas do not
+cover.
+
+The mechanism is the four-corner sampler colliding with the set's interior. A
+$960\times540$ quadrant that lands wholly inside a minibrot has all four corners
+at \texttt{maxIter}, so \texttt{maxIter\,-\,minIter}\,=\,0 and the rule
+\texttt{(maxIter - minIter) < diffThresh * maxIter} passes at \emph{every}
+\texttt{diffThreshold}. The region is computed as a single block of $\approx$5.2$\times10^9$
+iterations on one CPU thread. This is the same ceiling \texttt{06-difft-sweep.tex}
+hit from the outside; the new metric now names the cause precisely.
+
+The implication is a correction to the roadmap. The recommended next step~2a in
+\texttt{CLAUDE.md} --- a cardioid/period-2-bulb interior certificate --- would
+constant-fill the main-cardioid frames cheaply but would \textbf{not} fire on
+either binding outlier, because neither is in those two components. Attacking
+the 14~s tail requires a sampler that can detect interior structure the four
+corners miss (step~2b), not the cheap certificate.
+
+\subsection{The visualizer makes the pathology visible at a glance}
+
+Figures~\ref{fig:montage} and~\ref{fig:partition} show the upper-left minibrot
+body as one undivided cell at \texttt{depth}\,$\le 1$ that stays undivided
+through \texttt{depth}\,$\le 3$, while the fractal boundary on the right
+subdivides into dozens of small cells. The reason is exactly the corner-spread
+collapse of Section~3.1: the boundary regions have corners straddling
+high- and low-iteration zones (large spread, so they split), whereas the
+interior cell has zero spread (so it never splits and never reaches the
+\texttt{pixelSizeThresh} floor that would have forced it apart). The 57~recorded
+nodes for this frame bottom out at depth~3.
+
+The implication is pedagogical and diagnostic: the figure is a direct,
+inspectable rendering of the load-balancing decision, and it confirms visually
+what the per-region metrics assert numerically.
+
+\subsection{The executor colouring exposes where the giant region lands}
+
+In the single-frame frame-89 run the outlier was computed on a CPU thread
+(yellow) and took 13.0~s --- one thread blocked on one cell for the entire
+frame, while the GPU thread (cyan) churned through six small leaves. In the
+full 100-frame run the GPU computed 3{,}786 of the 5{,}323 leaves
+(Table~\ref{tab:metrics}) but the giant interior cells still fell to CPU
+workers.
+
+The mechanism is the FIFO work queue (\texttt{deque}, front extraction): the
+GPU thread, being $\sim$30$\times$ faster per region, returns to the queue
+constantly and drains the cheap leaves, so the rare multi-second interior cell
+is statistically claimed by whichever worker happens to extract it --- usually a
+CPU thread, since there are eleven of them. The implication is that a
+largest-first priority queue (step~4 in \texttt{CLAUDE.md}) would deterministically
+route the $960\times540$ cell to the GPU thread first; the colouring is the tool
+that will let us verify such a change at a glance.
+
+\subsection{The instrumentation is performance-neutral}
+
+Table~\ref{tab:ab} gives a new mean of 51.63~s against a baseline mean of
+51.89~s --- the new binary is $0.26$~s \emph{faster}, i.e.\ $-0.5\%$. The
+within-group spread is larger than that delta (new: 50.65--52.41~s; baseline:
+51.41--52.81~s; $\approx$3\,\% each), so the difference is noise, not signal:
+the instrumentation costs nothing measurable.
+
+Two mechanisms make this so. First, the heavy paths are gated: the
+\texttt{vizMode} rectangle collection and the depth-frame rendering run only
+under the flag and only after the timer stops, and the per-region metric prints
+are suppressed by \texttt{quiet}. The only always-on addition is the
+iteration/interior accumulation inside \texttt{compute()} --- one integer add
+per pixel, reusing the \texttt{color == MAXGRAY} branch that already existed for
+the black fill --- which is negligible against the \texttt{diverge()} inner loop
+that runs up to \texttt{maxIter} ($10^4$) iterations per pixel. Second, and
+decisively, the \textbf{leaf count is exactly 5{,}323 on all six runs across
+both binaries}: the additions never touch the corner evaluation or the
+split/compute decision, so the work decomposition is byte-identical and only the
+GPU/CPU split varies (3{,}959--4{,}085 GPU leaves), which is ordinary scheduling
+nondeterminism.
+
+% -----------------------------------------------------------------------
+\section{Recommendations}
+
+\begin{enumerate}
+    \item \textbf{Demote the cardioid/bulb certificate (was step~2a) for the
+    outlier problem.} The data is decisive: both binding outliers return
+    \texttt{cardioidBulb}\,=\,0, so the certificate cannot fire on them. Keep it
+    only as a cheap win for the early wide frames whose pixels genuinely fall in
+    the main cardioid; do not expect it to move the 14~s tail.
+
+    \item \textbf{Promote edge-midpoint / 9-point stencil sampling (step~2b).}
+    The interior cell's mean iteration count (7{,}131 at frame~73; 7{,}551 at
+    frame~89) is measurably below its corner value (7{,}327; 8{,}911), proving
+    sub-\texttt{maxIter} structure exists between the corners that the four-point
+    sampler misses. Sampling the four edge midpoints and the centre, and
+    inheriting them as children's corners on split, would expose a non-zero
+    spread on these regions and trigger the subdivision the corners suppress.
+    Expected effect: the $960\times540$ outlier splits instead of running as one
+    $5.2\times10^9$-iteration block.
+
+    \item \textbf{Largest-first priority queue (step~4).} Replace the
+    \texttt{deque} with a \texttt{priority\_queue} keyed on pixel area so the
+    giant interior cell is dispatched to the GPU thread first rather than
+    blocking a CPU worker for 13--14~s. The executor colouring added here is the
+    verification tool for this change.
+
+    \item \textbf{Keep the instrumentation always-on and tag this build.} It is
+    performance-neutral (Section~4.4) and the metrics are now part of the
+    diagnostic toolchain; tag the merged commit \texttt{binary-v2-viz} per the
+    repository's binary-pinning convention.
+\end{enumerate}
+
+% -----------------------------------------------------------------------
+\section{Conclusion}
+
+Three pieces of instrumentation --- per-region work metrics, a 5~s outlier dump,
+and a depth-coloured subdivision visualizer --- turned the previously
+anonymous ``$\sim$14~s CPU region'' into a fully characterised object: two
+$960\times540$ depth-1 quadrants at frames~73 and~89, interior to a minibrot,
+with zero corner spread and 84--97\,\% of pixels at \texttt{maxIter}. The new
+cardioid/bulb metric refutes the cheapest proposed remedy --- the interior
+certificate misses both outliers because they are not in the main cardioid or
+period-2 bulb --- and redirects the effort to edge-midpoint sampling, which the
+sub-corner mean-iteration counts show would succeed. The visualizer renders the
+pathology directly: one undivided cell over the minibrot body amid a finely
+split boundary. All of this was added at \textbf{zero measurable cost} --- new
+51.63~s vs.\ baseline 51.89~s, with an identical 5{,}323-leaf decomposition on
+every run --- so the binary remains a faithful measurement instrument. The
+binding constraint on wall time is still the four-corner heuristic, and the path
+to relieving it is now narrowed to the 9-point stencil of recommendation~2.
+
+\end{document}

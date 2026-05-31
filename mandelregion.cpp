@@ -26,6 +26,16 @@ static thread_local double cpuTotalMs     = 0.0;
 // suppressed; the printCPUSummary call at thread exit is unaffected.
 extern "C" int profileQuiet;
 
+// Defined in main.cpp.  When set, every examined region registers its pixel
+// rectangle + depth + executor with its owner frame for the subdivision
+// animation.  Gated here so the recording cost never touches a timed run.
+extern "C" int vizMode;
+
+// A computed region whose wall time exceeds this is logged in full (location,
+// corner spread, interior fraction, cardioid/bulb membership) regardless of
+// the quiet flag.  These are the load-balancing outliers worth dissecting.
+static const double OUTLIER_MS = 5000.0;
+
 // Returns elapsed milliseconds between two timespec values.
 static inline double elapsedMs(const struct timespec &t0, const struct timespec &t1)
 {
@@ -84,7 +94,7 @@ int MandelRegion::diverge (double cx, double cy)
 
 //--------------------------------------
 
-MandelRegion::MandelRegion (double uX, double uY, double lX, double lY, int iX, int iY, int pX, int pY, MandelFrame * f)
+MandelRegion::MandelRegion (double uX, double uY, double lX, double lY, int iX, int iY, int pX, int pY, MandelFrame * f, int d)
 {
   upperX = uX;
   upperY = uY;
@@ -94,8 +104,28 @@ MandelRegion::MandelRegion (double uX, double uY, double lX, double lY, int iX, 
   imageY = iY;
   pixelsX = pX;
   pixelsY = pY;
+  depth = d;
   cornersIter[0] = cornersIter[1] = cornersIter[2] = cornersIter[3] = UNKNOWN;
   ownerFrame = f;
+}
+
+//--------------------------------------
+// Interior-membership test for the two largest components of the Mandelbrot
+// set.  A point inside either is provably in the set (iteration count would
+// reach MAXITER), so a region whose corners all pass this test is a candidate
+// for a constant-fill certificate.
+bool MandelRegion::inMainCardioidOrBulb (double x, double y)
+{
+  // Main cardioid:  q = (x - 1/4)^2 + y^2 ;  q (q + (x - 1/4)) <= y^2 / 4
+  double xm = x - 0.25;
+  double q  = xm * xm + y * y;
+  if (q * (q + xm) <= 0.25 * y * y)
+    return true;
+  // Period-2 bulb:  (x + 1)^2 + y^2 <= 1/16
+  double xp = x + 1.0;
+  if (xp * xp + y * y <= 0.0625)
+    return true;
+  return false;
 }
 
 //--------------------------------------
@@ -116,16 +146,33 @@ void MandelRegion::compute (bool onGPU)
       hostFE (upperX, upperY, lowerX, lowerY, pixelsX, pixelsY, &h_res, &pitch, MAXGRAY);
       pitch /= sizeof (int);
 
-      // Copy GPU results into the Qt image buffer.
+      // Copy GPU results into the Qt image buffer, accumulating work metrics
+      // (total iterations and interior-pixel count) in the same pass.
+      long iterSum    = 0;
+      long insetCount = 0;
       for (int i = 0; i < pixelsX; i++)
         for (int j = 0; j < pixelsY; j++)
           {
             int color = h_res[j * pitch + i];
+            iterSum += color;
             if (color == MAXGRAY)
-              img->setPixel (imageX + i, imageY + j, qRgb (0, 0, 0));
+              {
+                insetCount++;
+                img->setPixel (imageX + i, imageY + j, qRgb (0, 0, 0));
+              }
             else
               img->setPixel (imageX + i, imageY + j, colormap[color]);
           }
+
+      if (!profileQuiet)
+        {
+          long npix = (long) pixelsX * pixelsY;
+          fprintf(stderr,
+                  "[GPU region metrics] frame %3d depth %d size %4dx%4d  "
+                  "meanIter %.1f  inset %.1f%%\n",
+                  ownerFrame->frameIndex, depth, pixelsX, pixelsY,
+                  (double) iterSum / npix, 100.0 * insetCount / npix);
+        }
     }
   else                          // CPU execution
     {
@@ -138,6 +185,8 @@ void MandelRegion::compute (bool onGPU)
       struct timespec t0, t1;
       clock_gettime(CLOCK_MONOTONIC, &t0);
 
+      long iterSum    = 0;
+      long insetCount = 0;
       for (int i = 0; i < pixelsX; i++)
         for (int j = 0; j < pixelsY; j++)
           {
@@ -145,8 +194,12 @@ void MandelRegion::compute (bool onGPU)
             tempx = upperX + i * stepX;
             tempy = upperY - j * stepY;
             int color = diverge (tempx, tempy);
+            iterSum += color;
             if (color == MAXGRAY)
-              img->setPixel (imageX + i, imageY + j, qRgb (0, 0, 0));
+              {
+                insetCount++;
+                img->setPixel (imageX + i, imageY + j, qRgb (0, 0, 0));
+              }
             else
               img->setPixel (imageX + i, imageY + j, colormap[color]);
           }
@@ -156,10 +209,40 @@ void MandelRegion::compute (bool onGPU)
       cpuTotalMs += ms;
       cpuRegionCount++;
 
+      long   npix      = (long) pixelsX * pixelsY;
+      double meanIter  = (double) iterSum / npix;
+      double insetFrac = 100.0 * insetCount / npix;
+
       if (!profileQuiet)
         fprintf(stderr,
-                "[CPU region %4ld] size %4dx%4d  compute %.3f ms\n",
-                cpuRegionCount, pixelsX, pixelsY, ms);
+                "[CPU region %4ld] frame %3d depth %d size %4dx%4d  "
+                "compute %.3f ms  meanIter %.1f  inset %.1f%%\n",
+                cpuRegionCount, ownerFrame->frameIndex, depth,
+                pixelsX, pixelsY, ms, meanIter, insetFrac);
+
+      // Full dump for load-balancing outliers, independent of the quiet flag.
+      if (ms > OUTLIER_MS)
+        {
+          int lo = cornersIter[0], hi = cornersIter[0];
+          for (int k = 1; k < 4; k++)
+            {
+              if (cornersIter[k] < lo) lo = cornersIter[k];
+              if (cornersIter[k] > hi) hi = cornersIter[k];
+            }
+          bool cornersInterior =
+              inMainCardioidOrBulb (upperX, upperY) &&
+              inMainCardioidOrBulb (lowerX, upperY) &&
+              inMainCardioidOrBulb (upperX, lowerY) &&
+              inMainCardioidOrBulb (lowerX, lowerY);
+          fprintf(stderr,
+                  "[OUTLIER] frame=%d depth=%d img=(%d,%d) px=%dx%d "
+                  "c=[%.6f,%.6f]..[%.6f,%.6f] corners=%d/%d/%d/%d "
+                  "spread=%d meanIter=%.1f inset=%.1f%% cardioidBulb=%d ms=%.1f\n",
+                  ownerFrame->frameIndex, depth, imageX, imageY, pixelsX, pixelsY,
+                  upperX, upperY, lowerX, lowerY,
+                  cornersIter[0], cornersIter[1], cornersIter[2], cornersIter[3],
+                  hi - lo, meanIter, insetFrac, (int) cornersInterior, ms);
+        }
 
       nvtxRangePop(); // closes "CPU region compute"
     }
@@ -214,10 +297,19 @@ void MandelRegion::examine (WorkQueue & q, bool onGPU = false)
   if (maxIter - minIter < diffThresh * maxIter || pixelsX * pixelsY < pixelSizeThresh)
     {
       compute (onGPU);
+      // Record this leaf for the subdivision animation, coloured by executor.
+      if (vizMode)
+        ownerFrame->addVizRect ({imageX, imageY, pixelsX, pixelsY,
+                                 depth, true, onGPU});
       ownerFrame->regionComplete ();
     }
   else
     {
+      // Record the internal (split) node — drawn as the subdivision skeleton.
+      if (vizMode)
+        ownerFrame->addVizRect ({imageX, imageY, pixelsX, pixelsY,
+                                 depth, false, onGPU});
+
       double midDiagX1, midDiagY1;      // data for determining the new subregions
       double midDiagX2, midDiagY2;
       int subimageX, subimageY;
@@ -229,16 +321,16 @@ void MandelRegion::examine (WorkQueue & q, bool onGPU = false)
       midDiagY2 = midDiagY1 - ownerFrame->stepY;
 
       MandelRegion *sub[4];
-      sub[UPPER_LEFT] = new MandelRegion (upperX, upperY, midDiagX1, midDiagY1, imageX, imageY, subimageX, subimageY, ownerFrame);
+      sub[UPPER_LEFT] = new MandelRegion (upperX, upperY, midDiagX1, midDiagY1, imageX, imageY, subimageX, subimageY, ownerFrame, depth + 1);
       sub[UPPER_LEFT]->cornersIter[UPPER_LEFT] = cornersIter[UPPER_LEFT];
 
-      sub[UPPER_RIGHT] = new MandelRegion (midDiagX2, upperY, lowerX, midDiagY1, imageX + subimageX, imageY, pixelsX - subimageX, subimageY, ownerFrame);
+      sub[UPPER_RIGHT] = new MandelRegion (midDiagX2, upperY, lowerX, midDiagY1, imageX + subimageX, imageY, pixelsX - subimageX, subimageY, ownerFrame, depth + 1);
       sub[UPPER_RIGHT]->cornersIter[UPPER_RIGHT] = cornersIter[UPPER_RIGHT];
 
-      sub[LOWER_LEFT] = new MandelRegion (upperX, midDiagY2, midDiagX1, lowerY, imageX, imageY + subimageY, subimageX, pixelsY - subimageY, ownerFrame);
+      sub[LOWER_LEFT] = new MandelRegion (upperX, midDiagY2, midDiagX1, lowerY, imageX, imageY + subimageY, subimageX, pixelsY - subimageY, ownerFrame, depth + 1);
       sub[LOWER_LEFT]->cornersIter[LOWER_LEFT] = cornersIter[LOWER_LEFT];
 
-      sub[LOWER_RIGHT] = new MandelRegion (midDiagX2, midDiagY2, lowerX, lowerY, imageX + subimageX, imageY + subimageY, pixelsX - subimageX, pixelsY - subimageY, ownerFrame);
+      sub[LOWER_RIGHT] = new MandelRegion (midDiagX2, midDiagY2, lowerX, lowerY, imageX + subimageX, imageY + subimageY, pixelsX - subimageX, pixelsY - subimageY, ownerFrame, depth + 1);
       sub[LOWER_RIGHT]->cornersIter[LOWER_RIGHT] = cornersIter[LOWER_RIGHT];
 
       for (int i = 0; i < 4; i++)
