@@ -82,14 +82,15 @@ Note: report `03` (bug analysis) has no corresponding `experiments/03-...` becau
 ## Branches and tags
 
 - `main` — current best version. Holds all reports and all experiment data.
-- `feat/viz-mode` — adds region work metrics, the 5 s outlier dump, and the `vizMode` subdivision animation (report `08`). Instrumentation only; the subdivision decision is unchanged (verified: byte-identical 5,323-leaf decomposition vs `d5bf30c`). Not yet merged/tagged; intended tag on merge is `binary-v2-viz`.
+- `feat/viz-mode` — **merged into `main`** (fast-forward to commit `616c147`, tag `binary-v2-viz`). Added region work metrics, the 5 s outlier dump, and the three-mode `vizMode` subdivision visualizer (`viz=1/2/3`, report `08`). Instrumentation only; the subdivision decision is unchanged (verified: byte-identical 5,323-leaf decomposition vs `d5bf30c`).
 - `examine_minmax_bugfix` — the commit that fixed the min/max reduction in `MandelRegion::examine()`. Same code state as `main` modulo subsequent reorganization commits.
 - `examine_rewrite`, `master` — original code with the min/max tracking bug intact. Kept as historical references.
 
-Tags pin the two binary versions every report ultimately points at:
+Tags pin the binary versions every report ultimately points at:
 
 - `binary-v0-buggy` → commit `0f782fd` — original code with the min/max tracking bug
 - `binary-v1-bugfix` → commit `d5bf30c` — same code with the one-line fix to `MandelRegion::examine()`'s reduction
+- `binary-v2-viz` → commit `616c147` — region metrics + outlier dump + three-mode subdivision visualizer (report `08`); instrumentation only, decomposition-identical to `binary-v1-bugfix`
 
 ## Known bug: min/max tracking in `examine()`
 
