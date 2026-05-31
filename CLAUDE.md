@@ -25,8 +25,12 @@ CUDA architecture is set to `-arch=native` (requires CUDA 11.6+). For older `nvc
 - `pixelThreshold`: pixel count (default 32768). Regions smaller than this are always computed without further splitting
 - `quiet`: `1` suppresses per-region stderr prints; per-thread and per-GPU summaries still emit
 - `save`: `0` skips PNG writes (for pure-compute timing)
-- `viz`: `1` enables visualization mode — renders one frozen interpolated frame (interpolation disabled) and emits the depth-by-depth subdivision animation `<prefix>_fNNNN_dKK.png`, one PNG per recursion depth `K`, with region outlines coloured by executor (cyan = GPU thread, yellow = CPU thread, grey = split skeleton). Default `0`. The animation is rendered after the wall-clock timer stops, so it never perturbs timing.
-- `vizFrame`: in `viz` mode, which interpolated frame index to freeze on (default `0`). Frame 0 is the wide full-set view (`maxIter=100`, cheap, no GPU participation); late frames are deep zooms with high `maxIter` where the GPU participates and the outliers live (e.g. `89`).
+- `viz`: visualization mode, `0`/`1`/`2`/`3` (default `0`). All modes colour region outlines by executor (cyan = GPU thread, yellow = CPU thread, grey = split skeleton), stroke borders 2 px thick grown inward (so adjacent GPU/CPU cells don't blend to green), and render after the wall-clock timer stops so timing is never perturbed.
+  - `1`: freeze one interpolated frame (`vizFrame`) and emit its depth-by-depth animation `<prefix>_fNNNN_dKK.png` (one PNG per recursion depth `K`).
+  - `2`: full interpolated sequence, each frame overlaid with its complete partition (`<prefix>NNNN.png`) — a movie of the whole zoom.
+  - `3`: full sequence AND the splitting process — per run frame, one image per depth (root→terminal) then advance the camera (`<prefix>NNNNN.png`, single global counter). Deterministic depth-ordered reconstruction, not a wall-clock replay.
+- `vizFrame`: in `viz=1`, which interpolated frame index to freeze on (default `0`). Frame 0 is the wide full-set view (`maxIter=100`, cheap, no GPU participation); late frames are deep zooms with high `maxIter` where the GPU participates and the outliers live (e.g. `89`).
+- `viz=2`/`viz=3` force `save=0` (the overlaid PNGs are the deliverable). Assemble to video with ffmpeg at native res, `-bf 0`, `-fps_mode passthrough` (no temporal interpolation); use `-pix_fmt yuv444p` for zero chroma blending. See `experiments/08-region-metrics-viz/` for the generated movies.
 
 Example: `./mandelHybrid spec.in 7 1`
 
@@ -142,7 +146,7 @@ Hybrid CPU+GPU Mandelbrot set renderer that uses adaptive region splitting as it
 
 **Region work metrics + outlier dump** (`mandelregion.cpp`, added on `feat/viz-mode`): `compute()` accumulates total iterations and interior-pixel count per region on both the CPU and GPU branches (one add per pixel, reusing the existing `color==MAXGRAY` branch — negligible vs the `diverge()` loop), reporting mean iterations/pixel and interior fraction. Any CPU region exceeding `OUTLIER_MS` (5000 ms) emits an `[OUTLIER]` line — frame, depth, pixel + complex rectangles, corner iters, spread, work metrics, and `inMainCardioidOrBulb` membership — regardless of `quiet`. Regions also carry a `depth` field (root = 0, children = parent+1) and frames carry a `frameIndex`.
 
-**Visualization mode** (`main.cpp` `generateDepthFrames`, `mandelframe.*`): `viz=1` (arg 8) freezes one interpolated frame (`vizFrame`, arg 9) and emits a depth-by-depth subdivision animation `<prefix>_fNNNN_dKK.png`. Every examined region registers a `VizRect` (rect, depth, leaf/split, executor) with its owner frame under a mutex; after the timer stops, each depth `K` is rendered as the finished image overlaid with all outlines of depth `≤ K` — grey for split nodes, cyan for GPU leaves, yellow for CPU leaves. Verified performance-neutral and decomposition-identical vs `d5bf30c` (report `08`).
+**Visualization mode** (`main.cpp`, `mandelframe.*`): the `viz` flag (arg 8) has three modes — `1` = single-frame depth animation (`generateDepthFrames`, frame selected by `vizFrame` arg 9), `2` = full-run partition overlay (`generateSequenceFrames`), `3` = full-run split-by-split process animation (`generateProcessFrames`). Every examined region registers a `VizRect` (rect, depth, leaf/split, executor) with its owner frame under a mutex; all three modes render after the timer stops via a shared `drawVizOverlay()` that strokes outlines 2 px inward (grey split skeleton, cyan GPU leaves, yellow CPU leaves). Verified performance-neutral and decomposition-identical vs `d5bf30c` (report `08`).
 
 To profile (example):
 ```bash

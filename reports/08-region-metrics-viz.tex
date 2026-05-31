@@ -45,8 +45,10 @@ uses them to characterise the load-balancing outlier that
 \texttt{04-postfix-profile.tex} and \texttt{06-difft-sweep.tex} identified but
 could not dissect: per-region \emph{work} metrics (mean iterations per pixel,
 interior-pixel fraction), an \texttt{[OUTLIER]} dump for any CPU region
-exceeding 5~s, and a \texttt{vizMode} that freezes one interpolated frame and
-emits a depth-by-depth subdivision animation coloured by executor. Measured on
+exceeding 5~s, and a three-mode \texttt{vizMode} that renders the adaptive
+subdivision coloured by executor --- as a depth animation of one frozen frame
+(\texttt{viz=1}), a partition overlay across the whole run (\texttt{viz=2}), or
+a full split-by-split process animation (\texttt{viz=3}). Measured on
 100~frames at $1920\times1080$ (i7-9750H + GTX~1660~Ti~Max-Q, 12~threads,
 \texttt{diffT}\,=\,0.1), the metrics located the two binding outliers ---
 frames~73 and~89, both $960\times540$ depth-1 regions costing \textbf{13.6~s
@@ -101,18 +103,40 @@ bool MandelRegion::inMainCardioidOrBulb (double x, double y)
 }
 \end{sourcecode}
 
-\paragraph{3. \texttt{vizMode} subdivision animation.} A new positional flag
-(\texttt{viz}, with an optional \texttt{vizFrame} selector) freezes the camera
-on a single interpolated frame and replaces the usual frame sequence with a
-depth animation. Every examined region registers its pixel rectangle, recursion
-depth, leaf/split status, and executor with its owner frame; after the timed
-phase, \texttt{generateDepthFrames()} writes one PNG per depth level $k$,
-overlaying the outlines of every node with depth~$\le k$. Internal (split)
-nodes are drawn as a grey skeleton; computed leaves are coloured \textbf{cyan
-for the GPU thread} and \textbf{yellow for CPU threads}, so the load-balancing
-partition is directly visible. The collection is gated on \texttt{vizMode} and
-the depth frames are emitted \emph{after} the wall-clock timer stops, so neither
-touches the measured compute phase.
+\paragraph{3. \texttt{vizMode} subdivision visualizers.} A new positional flag
+(\texttt{viz}) selects one of three rendering modes; every examined region
+registers its pixel rectangle, recursion depth, leaf/split status, and executor
+with its owner frame, and all rendering happens \emph{after} the wall-clock
+timer stops so none of it touches the measured compute phase. Across all three,
+internal (split) nodes are drawn as a grey skeleton and computed leaves are
+coloured \textbf{cyan for the GPU thread} and \textbf{yellow for CPU threads},
+so the load-balancing partition is directly visible.
+
+\begin{itemize}
+    \item \texttt{viz=1} (with a \texttt{vizFrame} selector) freezes the camera
+    on a single interpolated frame and replays its recursion as a depth
+    animation: \texttt{generateDepthFrames()} writes one PNG per depth level $k$,
+    overlaying the outlines of every node with depth~$\le k$
+    (Figure~\ref{fig:montage}).
+    \item \texttt{viz=2} renders the full interpolated sequence and overlays
+    each frame's \emph{complete} partition, producing a movie of the whole zoom
+    with the per-frame load-balancing decomposition.
+    \item \texttt{viz=3} renders the full sequence \emph{and} the splitting
+    process: for each run frame it emits one image per depth (root~$\to$
+    terminal partition) before advancing the camera, giving a
+    ``split, split, advance, split'' animation of the entire run. Because the
+    work queue is processed concurrently, this is a deterministic depth-ordered
+    reconstruction, not a wall-clock replay.
+\end{itemize}
+
+\noindent Region borders are stroked 2~px thick \emph{grown inward} from each
+cell's true boundary (an outer rectangle on the boundary plus an inner one inset
+1~px). Growing inward keeps each colour entirely within its own region, so a GPU
+(cyan) and a CPU (yellow) neighbour each show a solid band rather than two
+abutting 1~px lines, which otherwise blend to green at viewing scale (and under
+4:2:0 video chroma subsampling). The \texttt{viz=2}/\texttt{viz=3} movies are
+encoded at native resolution with no B-frames and a 1:1 frame mapping (no
+temporal interpolation), so each rendered frame is shown exactly once.
 
 \paragraph{Performance A/B.} To confirm the additions are free, the new binary
 and the \texttt{d5bf30c} baseline (built in a separate worktree) were each run
@@ -192,6 +216,14 @@ cell is unmistakable.
              four corners all reach \texttt{maxIter}, so the corner spread is
              zero and the uniformity rule computes it as a single block.
              \label{fig:partition}}
+
+Figures~\ref{fig:montage} and~\ref{fig:partition} are single-frame stills
+(\texttt{viz=1}). The run-wide modes are delivered as video in
+\texttt{experiments/08-region-metrics-viz/}: \texttt{viz\_fullrun/} holds the
+\texttt{viz=2} partition-overlay movie of the whole 100-frame zoom, and
+\texttt{viz\_process/} holds the \texttt{viz=3} split-by-split process animation
+(391 rendered frames). In both, the outlier minibrot cells recur as large
+undivided yellow (CPU) blocks sweeping past a finely subdivided boundary.
 
 \subsection{Performance A/B}
 

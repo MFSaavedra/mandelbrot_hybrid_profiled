@@ -21,14 +21,50 @@ extern "C" int profileSave  = 1;   // 0 = skip PNG saves (pure-compute timing)
 extern "C" int vizMode      = 0;   // 1 = subdivision-animation mode (see below)
 
 //************************************************************
-// vizMode: render a single frozen frame (interpolation disabled) and replay
-// the recorded subdivision tree as a depth-by-depth animation.  For each
-// recursion depth k it writes "<prefix>_dNN.png": a copy of the finished image
-// overlaid with the region outlines that exist down to depth k.  Internal
-// (split) nodes are drawn as a grey skeleton; computed leaves are coloured by
-// executor — cyan for the GPU thread, yellow for the CPU threads — so the
-// load-balancing partition is directly visible.  Runs after the wall-clock
-// timer stops, so it never perturbs the measured compute phase.
+// Draw the recorded subdivision outlines onto an image.  Internal (split)
+// nodes are drawn as a grey skeleton first; computed leaves are drawn on top
+// coloured by executor — cyan for the GPU thread, yellow for the CPU threads —
+// so the load-balancing partition is directly visible.  maxDepth < 0 draws the
+// complete partition; maxDepth >= 0 draws only nodes down to that depth.
+static void drawVizOverlay(QImage &frame, const QVector<VizRect> &rects, int maxDepth)
+{
+  const QColor colSkeleton(90, 90, 90);     // internal / split nodes
+  const QColor colGPU(0, 255, 255);         // leaves computed on the GPU thread
+  const QColor colCPU(255, 230, 0);         // leaves computed on a CPU thread
+
+  QPainter p(&frame);
+
+  // Draw each border 2px thick, grown *inward* from the region's true boundary
+  // (the outer rect marks the boundary; the inner rect, inset by 1px, thickens
+  // it).  Growing inward keeps each colour entirely within its own region, so
+  // a GPU (cyan) and a CPU (yellow) neighbour each show a solid 2px band rather
+  // than two abutting 1px lines that blend to green when viewed at scale.
+  auto strokeInward = [&](const VizRect &r) {
+    p.drawRect(r.x, r.y, r.w - 1, r.h - 1);
+    if (r.w > 3 && r.h > 3)
+      p.drawRect(r.x + 1, r.y + 1, r.w - 3, r.h - 3);
+  };
+
+  p.setPen(QPen(colSkeleton, 1));
+  for (const VizRect &r : rects)
+    if (!r.leaf && (maxDepth < 0 || r.depth <= maxDepth))
+      strokeInward(r);
+
+  for (const VizRect &r : rects)
+    if (r.leaf && (maxDepth < 0 || r.depth <= maxDepth))
+      {
+        p.setPen(QPen(r.onGPU ? colGPU : colCPU, 1));
+        strokeInward(r);
+      }
+  p.end();
+}
+
+//************************************************************
+// viz=1: render a single frozen frame (interpolation disabled) and replay the
+// recorded subdivision tree as a depth-by-depth animation.  For each recursion
+// depth k it writes "<prefix>_dNN.png": a copy of the finished image overlaid
+// with the region outlines that exist down to depth k.  Runs after the
+// wall-clock timer stops, so it never perturbs the measured compute phase.
 static void generateDepthFrames(MandelFrame *f, const char *prefix)
 {
   if (f->vizRects.isEmpty())
@@ -42,37 +78,72 @@ static void generateDepthFrames(MandelFrame *f, const char *prefix)
     if (r.depth > maxDepth)
       maxDepth = r.depth;
 
-  const QColor colSkeleton(90, 90, 90);     // internal / split nodes
-  const QColor colGPU(0, 255, 255);         // leaves computed on the GPU thread
-  const QColor colCPU(255, 230, 0);         // leaves computed on a CPU thread
-
   char outName[MAXFNAME + 16];
   for (int k = 0; k <= maxDepth; k++)
     {
       QImage frame = f->img->copy();        // detached deep copy per depth level
-      QPainter p(&frame);
-
-      // Subdivision skeleton first, so leaf colours win on shared borders.
-      p.setPen(QPen(colSkeleton, 1));
-      for (const VizRect &r : f->vizRects)
-        if (!r.leaf && r.depth <= k)
-          p.drawRect(r.x, r.y, r.w - 1, r.h - 1);
-
-      // Computed leaves on top, coloured by executor.
-      for (const VizRect &r : f->vizRects)
-        if (r.leaf && r.depth <= k)
-          {
-            p.setPen(QPen(r.onGPU ? colGPU : colCPU, 1));
-            p.drawRect(r.x, r.y, r.w - 1, r.h - 1);
-          }
-
-      p.end();
+      drawVizOverlay(frame, f->vizRects, k);
       snprintf(outName, sizeof(outName), "%s_d%02d.png", prefix, k);
       frame.save(outName, "PNG");
       fprintf(stderr, "[viz] wrote %s (outlines for depth <= %d)\n", outName, k);
     }
   fprintf(stderr, "[viz] %d subdivision nodes, max depth %d\n",
           (int) f->vizRects.size(), maxDepth);
+}
+
+//************************************************************
+// viz=2: render the full interpolated sequence (no frame frozen) and overlay
+// each frame's complete subdivision partition, coloured by executor.  Writes
+// the overlaid images under the normal "<prefix>NNNN.png" names so they can be
+// assembled into a movie of the whole run.  Runs after the timer stops.
+static void generateSequenceFrames(MandelFrame **fr, int n, const char *prefix)
+{
+  char outName[MAXFNAME + 16];
+  long totalRects = 0;
+  for (int i = 0; i < n; i++)
+    {
+      QImage frame = fr[i]->img->copy();
+      drawVizOverlay(frame, fr[i]->vizRects, -1);   // -1 = full partition
+      snprintf(outName, sizeof(outName), "%s%04d.png", prefix, i);
+      frame.save(outName, "PNG");
+      totalRects += fr[i]->vizRects.size();
+    }
+  fprintf(stderr, "[viz] wrote %d overlaid sequence frames (%ld subdivision nodes total)\n",
+          n, totalRects);
+}
+
+//************************************************************
+// viz=3: render the full interpolated sequence AND animate the splitting
+// process itself.  For each run frame it emits one image per recursion depth
+// (depth 0 = the whole frame, up to its terminal partition), then advances the
+// camera to the next frame and starts over.  The result, played in order, shows
+// "split, split, split, advance camera, split, ..." across the entire run.
+// Because the work queue is processed concurrently, this is a depth-ordered
+// reconstruction (deterministic), not a wall-clock replay.  Output PNGs are
+// numbered with a single global counter so ffmpeg can assemble them directly.
+static void generateProcessFrames(MandelFrame **fr, int n, const char *prefix)
+{
+  char outName[MAXFNAME + 24];
+  int  seq = 0;
+  long totalRects = 0;
+  for (int i = 0; i < n; i++)
+    {
+      int maxDepth = 0;
+      for (const VizRect &r : fr[i]->vizRects)
+        if (r.depth > maxDepth)
+          maxDepth = r.depth;
+
+      for (int k = 0; k <= maxDepth; k++)
+        {
+          QImage frame = fr[i]->img->copy();
+          drawVizOverlay(frame, fr[i]->vizRects, k);
+          snprintf(outName, sizeof(outName), "%s%05d.png", prefix, seq++);
+          frame.save(outName, "PNG");
+        }
+      totalRects += fr[i]->vizRects.size();
+    }
+  fprintf(stderr, "[viz] wrote %d process frames across %d run frames (%ld subdivision nodes total)\n",
+          seq, n, totalRects);
 }
 
 
@@ -117,8 +188,13 @@ void CalcThr::run ()
 //              diffThreshold pixelThreshold : optional thresholds for frame partitioning heuristics
 //              quiet : 0/1, 1 suppresses per-region stderr prints (default 0)
 //              save  : 0/1, 0 skips PNG image saves for pure-compute timing (default 1)
-//              viz   : 0/1, 1 renders one frozen frame and emits the depth-by-depth
-//                      subdivision animation <prefix>_dNN.png (default 0)
+//              viz   : 0/1/2/3 (default 0).  1 = freeze one frame (vizFrame) and emit the
+//                      depth-by-depth subdivision animation <prefix>_fNNNN_dKK.png.
+//                      2 = full interpolated sequence, each frame overlaid with its
+//                      complete subdivision partition (saved as <prefix>NNNN.png).
+//                      3 = full sequence AND the splitting process: per run frame, one
+//                      image per recursion depth (depth 0..terminal), then advance the
+//                      camera (saved as <prefix>NNNNN.png, single global counter).
 int main (int argc, char *argv[])
 {
   int numframes, resolutionX, resolutionY;
@@ -162,6 +238,11 @@ int main (int argc, char *argv[])
   if (argc > 9)
     vizFrame = atoi (argv[9]);
 
+  // viz=2/3 overlay the full sequence; the overlaid PNGs are the deliverable,
+  // so suppress the plain per-frame save done in regionComplete.
+  if (vizMode >= 2)
+    profileSave = 0;
+
   ifstream fin (argv[1]);
   fin >> numframes >> resolutionX >> resolutionY;
   fin >> imageFilePrefix;
@@ -189,14 +270,15 @@ int main (int argc, char *argv[])
   char fname[MAXFNAME];
   char vizPrefix[MAXFNAME];
 
-  // vizMode renders exactly one interpolated frame (selected by vizFrame),
+  // viz=1 renders exactly one interpolated frame (selected by vizFrame),
   // freezing the camera; the depth animation replaces the usual sequence.
+  // viz=0 and viz=2 build the full interpolated sequence.
   // The interpolation steps above are computed against the real frame count so
   // the chosen frame matches what a full run would have produced.
-  int framesToBuild = vizMode ? 1 : numframes;
+  int framesToBuild = (vizMode == 1) ? 1 : numframes;
   MandelFrame **fr = new MandelFrame *[framesToBuild];
 
-  if (vizMode)
+  if (vizMode == 1)
     {
       if (vizFrame < 0)          vizFrame = 0;
       if (vizFrame >= numframes) vizFrame = numframes - 1;
@@ -273,10 +355,14 @@ int main (int argc, char *argv[])
   // Machine-parseable line: sweep.sh greps for this exact prefix.
   fprintf(stderr, "[total_elapsed_s] %.6f\n", elapsed_s);
 
-  // Emit the subdivision animation outside the timed region so it never
-  // counts against the measured compute phase.
-  if (vizMode)
-    generateDepthFrames(fr[0], vizPrefix);
+  // Emit the visualization outside the timed region so it never counts against
+  // the measured compute phase.
+  if (vizMode == 1)
+    generateDepthFrames(fr[0], vizPrefix);       // one frame, depth animation
+  else if (vizMode == 2)
+    generateSequenceFrames(fr, numframes, imageFilePrefix);  // full run, final partition per frame
+  else if (vizMode == 3)
+    generateProcessFrames(fr, numframes, imageFilePrefix);   // full run, depth expansion per frame
 
   return 0;
 }

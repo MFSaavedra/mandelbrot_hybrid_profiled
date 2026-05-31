@@ -1,0 +1,51 @@
+[config] numThr=12 gpuEnable=1 diffT=0.100 pixT=32768 res=1920x1080 frames=100 quiet=1 save=0 viz=2 vizFrame=0
+[OUTLIER] frame=89 depth=1 img=(0,0) px=960x540 c=[-0.207537,-0.628596]..[-0.037215,-0.731805] corners=8911/8911/8911/8911 spread=0 meanIter=7551.2 inset=84.4% cardioidBulb=0 ms=18083.4
+[OUTLIER] frame=73 depth=1 img=(0,0) px=960x540 c=[-0.511800,-0.346601]..[-0.093736,-0.599931] corners=7327/7327/7327/7327 spread=0 meanIter=7131.2 inset=97.3% cardioidBulb=0 ms=18294.7
+[OUTLIER] frame=83 depth=2 img=(480,540) px=480x270 c=[-0.189886,-0.682648]..[-0.058410,-0.762252] corners=8317/8317/8317/8317 spread=0 meanIter=8317.0 inset=100.0% cardioidBulb=0 ms=5264.0
+[OUTLIER] frame=83 depth=2 img=(480,0) px=480x270 c=[-0.189886,-0.522848]..[-0.058410,-0.602452] corners=8317/8317/8317/8317 spread=0 meanIter=8317.0 inset=100.0% cardioidBulb=1 ms=5174.0
+[OUTLIER] frame=84 depth=2 img=(960,0) px=480x270 c=[-0.054619,-0.540473]..[0.069122,-0.615394] corners=8416/8416/8416/8416 spread=0 meanIter=8415.8 inset=100.0% cardioidBulb=0 ms=5175.0
+[OUTLIER] frame=88 depth=2 img=(480,540) px=480x270 c=[-0.133554,-0.723772]..[-0.040747,-0.779963] corners=8812/8812/8812/8812 spread=0 meanIter=8812.0 inset=100.0% cardioidBulb=0 ms=5450.8
+[OUTLIER] frame=91 depth=2 img=(0,270) px=480x270 c=[-0.169504,-0.706146]..[-0.099900,-0.748289] corners=9109/9109/9109/9109 spread=0 meanIter=9109.0 inset=100.0% cardioidBulb=0 ms=5418.4
+[OUTLIER] frame=90 depth=2 img=(0,270) px=480x270 c=[-0.188521,-0.693221]..[-0.111182,-0.740047] corners=9010/9010/9010/9010 spread=0 meanIter=9010.0 inset=100.0% cardioidBulb=0 ms=5761.7
+[OUTLIER] frame=86 depth=2 img=(480,540) px=480x270 c=[-0.156086,-0.707322]..[-0.047812,-0.772878] corners=8614/8614/8614/8614 spread=0 meanIter=8614.0 inset=100.0% cardioidBulb=0 ms=5433.3
+[OUTLIER] frame=91 depth=2 img=(480,540) px=480x270 c=[-0.099754,-0.748446]..[-0.030150,-0.790589] corners=9109/9109/9109/9109 spread=0 meanIter=8840.6 inset=96.9% cardioidBulb=0 ms=5701.3
+[OUTLIER] frame=89 depth=2 img=(0,540) px=480x270 c=[-0.207537,-0.731996]..[-0.122465,-0.783505] corners=8911/8911/8911/8911 spread=0 meanIter=8911.0 inset=100.0% cardioidBulb=0 ms=5719.9
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 234
+  Total compute time      : 105350.988 ms  (avg 450.218 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 205
+  Total compute time      : 105387.511 ms  (avg 514.085 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 186
+  Total compute time      : 105400.892 ms  (avg 566.671 ms/region)
+[GPU profiling summary]
+  Regions computed on GPU : 2831
+  Total kernel time       : 100907.945 ms  (avg 35.644 ms/region)
+  Total D→H memcpy time   : 229.381 ms  (avg 0.081 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 238
+  Total compute time      : 105486.979 ms  (avg 443.223 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 212
+  Total compute time      : 105543.577 ms  (avg 497.847 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 215
+  Total compute time      : 105685.633 ms  (avg 491.561 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 285
+  Total compute time      : 105905.640 ms  (avg 371.599 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 178
+  Total compute time      : 105967.936 ms  (avg 595.325 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 275
+  Total compute time      : 106000.673 ms  (avg 385.457 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 248
+  Total compute time      : 106067.425 ms  (avg 427.691 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 216
+  Total compute time      : 106493.318 ms  (avg 493.025 ms/region)
+[total_elapsed_s] 106.503770
+[viz] wrote 100 overlaid sequence frames (7064 subdivision nodes total)
