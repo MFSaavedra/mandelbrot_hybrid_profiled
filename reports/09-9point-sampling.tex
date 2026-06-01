@@ -376,6 +376,56 @@ configurations where the long tail binds, not a throughput win at this thread
 count.
 
 % -----------------------------------------------------------------------
+\section{Re-Tuning Check: \texttt{diffThreshold} on the 9-Point Binary}
+
+Because the 9-point stencil makes the heuristic split more readily, the
+performance-optimal \texttt{diffThreshold} could in principle have moved from the
+0.1 that \texttt{06-difft-sweep.tex} found best for the 4-corner sampler. To
+check, the hybrid configuration was swept across
+\texttt{diffT}\,$\in\{0.05,0.10,0.20,0.30,0.50\}$, three reps each, on the
+9-point binary (same machine, 100~frames, \texttt{pixT}\,=\,32{,}768,
+\texttt{save}\,=\,0); data in \texttt{experiments/10-difft-9point/}.
+
+\begin{table}[H]
+    \centering
+    \caption{9-point \texttt{diffThreshold} sweep, hybrid config, mean of 3~reps.
+             Leaf count is deterministic per \texttt{diffT}; wall is the mean with
+             its min--max range. Lower wall is better.}
+    \label{tab:difft}
+    \begin{tabular}{rrrr}
+        \hline
+        \textbf{\texttt{diffT}} & \textbf{Wall mean (s)} & \textbf{min--max (s)} & \textbf{Leaves} \\
+        \hline
+        0.05 & 51.08 & 49.93--52.22 & 5{,}608 \\
+        0.10 & 52.09 & 51.55--52.52 & 5{,}608 \\
+        0.20 & 51.66 & 51.45--51.78 & 5{,}605 \\
+        0.30 & 52.58 & 52.31--52.99 & 5{,}581 \\
+        0.50 & 52.69 & 52.51--52.96 & 5{,}491 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\textbf{The optimum did not move --- 0.1 remains the right default.} The leaf
+count \emph{saturates} by \texttt{diffT}\,=\,0.1: 0.05 produces the identical
+5{,}608 leaves, because the \texttt{pixelSizeThresh} floor is reached and a lower
+threshold can add no further splits. Across the saturated band
+\texttt{diffT}\,$\in\{0.05,0.10,0.20\}$ the wall times are statistically
+indistinguishable (51--52~s, with single-rep ranges that overlap and exceed the
+$\sim$1~s separation of their means); only 0.30 ($+{\sim}1$~s, 5{,}581 leaves)
+and 0.50 ($+{\sim}1.6$~s, 5{,}491 leaves) are measurably worse as splitting
+drops off. \texttt{diffT}\,=\,0.05 has the lowest mean but the widest spread
+(2.3~s) --- noisy, not reliably faster --- while 0.20 is the steadiest; 0.1 sits
+squarely in the flat optimum.
+
+This reproduces the 4-corner result of \texttt{06-difft-sweep.tex} --- a plateau
+over [0.05, 0.20] with 0.1 the predictable sweet spot --- and is exactly what
+the analysis above predicts: because the wall is throughput-bound and total
+compute is conserved, \texttt{diffThreshold} only sets partition granularity,
+which saturates at the pixel floor by $\sim$0.1 for \emph{either} sampler. The
+change from 4 to 9 sampling points does not warrant re-tuning the default.
+(Hybrid config only; CPU-only and GPU-only were not swept.)
+
+% -----------------------------------------------------------------------
 \section{Recommendations}
 
 \begin{enumerate}
@@ -384,7 +434,9 @@ count.
     per-region median $-21\%$ and max $-14\%$ (Table~\ref{tab:dist}) --- at a
     \emph{measured} cost of $+0.40$~s CPU total ($+29$~µs/\texttt{examine}, $\sim$37~ms
     wall-equivalent; Table~\ref{tab:nvtx}). It is the correct heuristic, and it
-    is effectively free.
+    is effectively free. Keep its \texttt{diffThreshold} at 0.1 --- the sweep of
+    Table~\ref{tab:difft} confirms the optimum did not move with the stencil
+    change.
 
     \item \textbf{Attack work, not balance --- this is the real lever.} The
     breakdown shows total compute is conserved under any partitioning

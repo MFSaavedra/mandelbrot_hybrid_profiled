@@ -1,0 +1,40 @@
+[config] numThr=12 gpuEnable=1 diffT=0.050 pixT=32768 res=1920x1080 frames=100 quiet=1 save=0 viz=0 vizFrame=-1
+[OUTLIER] frame=73 depth=1 img=(0,0) px=960x540 c=[-0.511800,-0.346601]..[-0.093736,-0.599931] corners=7327/7327/7327/7327 spread=0 meanIter=7131.2 inset=97.3% cardioidBulb=0 ms=14106.4
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 116
+  Total compute time      : 50203.149 ms  (avg 432.786 ms/region)
+[GPU profiling summary]
+  Regions computed on GPU : 4194
+  Total kernel time       : 46026.795 ms  (avg 10.974 ms/region)
+  Total D→H memcpy time   : 153.362 ms  (avg 0.037 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 130
+  Total compute time      : 50255.450 ms  (avg 386.580 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 135
+  Total compute time      : 50276.856 ms  (avg 372.421 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 144
+  Total compute time      : 50410.157 ms  (avg 350.071 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 107
+  Total compute time      : 50445.390 ms  (avg 471.452 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 127
+  Total compute time      : 50558.509 ms  (avg 398.098 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 104
+  Total compute time      : 50642.076 ms  (avg 486.943 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 134
+  Total compute time      : 50715.425 ms  (avg 378.473 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 126
+  Total compute time      : 50831.982 ms  (avg 403.428 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 145
+  Total compute time      : 50953.298 ms  (avg 351.402 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 146
+  Total compute time      : 51079.335 ms  (avg 349.858 ms/region)
+[total_elapsed_s] 51.094517

@@ -1,0 +1,40 @@
+[config] numThr=12 gpuEnable=1 diffT=0.500 pixT=32768 res=1920x1080 frames=100 quiet=1 save=0 viz=0 vizFrame=-1
+[OUTLIER] frame=73 depth=1 img=(0,0) px=960x540 c=[-0.511800,-0.346601]..[-0.093736,-0.599931] corners=7327/7327/7327/7327 spread=0 meanIter=7131.2 inset=97.3% cardioidBulb=0 ms=15239.7
+[GPU profiling summary]
+  Regions computed on GPU : 4124
+  Total kernel time       : 47239.962 ms  (avg 11.455 ms/region)
+  Total D→H memcpy time   : 355.605 ms  (avg 0.086 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 103
+  Total compute time      : 52284.745 ms  (avg 507.619 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 138
+  Total compute time      : 52315.428 ms  (avg 379.097 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 134
+  Total compute time      : 52522.094 ms  (avg 391.956 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 136
+  Total compute time      : 52565.536 ms  (avg 386.511 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 93
+  Total compute time      : 52569.351 ms  (avg 565.262 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 125
+  Total compute time      : 52766.978 ms  (avg 422.136 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 105
+  Total compute time      : 52782.227 ms  (avg 502.688 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 120
+  Total compute time      : 52806.322 ms  (avg 440.053 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 146
+  Total compute time      : 52810.437 ms  (avg 361.715 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 169
+  Total compute time      : 52899.645 ms  (avg 313.016 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 98
+  Total compute time      : 52947.042 ms  (avg 540.276 ms/region)
+[total_elapsed_s] 52.960016
