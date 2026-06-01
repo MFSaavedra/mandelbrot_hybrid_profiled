@@ -1,0 +1,46 @@
+[config] numThr=12 gpuEnable=1 diffT=0.100 pixT=32768 res=1920x1080 frames=100 quiet=1 save=0 viz=0 vizFrame=-1
+[OUTLIER] frame=73 depth=1 img=(0,0) px=960x540 c=[-0.511800,-0.346601]..[-0.093736,-0.599931] corners=7327/7327/7327/7327 spread=0 meanIter=7131.2 inset=97.3% cardioidBulb=0 ms=14809.2
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 127
+  Total compute time      : 51303.034 ms  (avg 403.961 ms/region)
+[GPU profiling summary]
+  Regions computed on GPU : 4247
+  Total kernel time       : 46748.961 ms  (avg 11.008 ms/region)
+  Total D→H memcpy time   : 126.153 ms  (avg 0.030 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 137
+  Total compute time      : 51300.715 ms  (avg 374.458 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 124
+  Total compute time      : 51359.078 ms  (avg 414.186 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 122
+  Total compute time      : 51553.251 ms  (avg 422.568 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 153
+  Total compute time      : 51556.410 ms  (avg 336.970 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 84
+  Total compute time      : 51822.242 ms  (avg 616.931 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 120
+  Total compute time      : 51833.568 ms  (avg 431.946 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 105
+  Total compute time      : 51879.426 ms  (avg 494.090 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 121
+  Total compute time      : 52098.468 ms  (avg 430.566 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 143
+  Total compute time      : 52123.128 ms  (avg 364.497 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 125
+  Total compute time      : 52181.986 ms  (avg 417.456 ms/region)
+[total_elapsed_s] 52.200430
+Collecting data...
+Generating '/tmp/claude-1000/nsys-report-9726.qdstrm'
+Press Ctrl-C to stop symbol files downloading
+[1/1] [0%                          ] base_prof.nsys-rep[1/1] [0%                          ] base_prof.nsys-rep[1/1] [7%                          ] base_prof.nsys-rep[1/1] [5%                          ] base_prof.nsys-rep[1/1] [9%                          ] base_prof.nsys-rep[1/1] [12%                         ] base_prof.nsys-rep[1/1] [10%                         ] base_prof.nsys-rep[1/1] [9%                          ] base_prof.nsys-rep[1/1] [8%                          ] base_prof.nsys-rep[1/1] [7%                          ] base_prof.nsys-rep[1/1] [8%                          ] base_prof.nsys-rep[1/1] [7%                          ] base_prof.nsys-rep[1/1] [10%                         ] base_prof.nsys-rep[1/1] [9%                          ] base_prof.nsys-rep[1/1] [8%                          ] base_prof.nsys-rep[1/1] [11%                         ] base_prof.nsys-rep[1/1] [12%                         ] base_prof.nsys-rep[1/1] [13%                         ] base_prof.nsys-rep[1/1] [=17%                        ] base_prof.nsys-rep[1/1] [==21%                       ] base_prof.nsys-rep[1/1] [===24%                      ] base_prof.nsys-rep[1/1] [====28%                     ] base_prof.nsys-rep[1/1] [=====31%                    ] base_prof.nsys-rep[1/1] [======34%                   ] base_prof.nsys-rep[1/1] [=======38%                  ] base_prof.nsys-rep[1/1] [========41%                 ] base_prof.nsys-rep[1/1] [=========45%                ] base_prof.nsys-rep[1/1] [==========49%               ] base_prof.nsys-rep[1/1] [===========50%              ] base_prof.nsys-rep[1/1] [===========51%              ] base_prof.nsys-rep[1/1] [===========52%              ] base_prof.nsys-rep[1/1] [===========53%              ] base_prof.nsys-rep[1/1] [============54%             ] base_prof.nsys-rep[1/1] [============55%             ] base_prof.nsys-rep[1/1] [============56%             ] base_prof.nsys-rep[1/1] [============57%             ] base_prof.nsys-rep[1/1] [=============58%            ] base_prof.nsys-rep[1/1] [=============59%            ] base_prof.nsys-rep[1/1] [=============60%            ] base_prof.nsys-rep[1/1] [==============61%           ] base_prof.nsys-rep[1/1] [==============62%           ] base_prof.nsys-rep[1/1] [==============63%           ] base_prof.nsys-rep[1/1] [==============64%           ] base_prof.nsys-rep[1/1] [===============65%          ] base_prof.nsys-rep[1/1] [===============66%          ] base_prof.nsys-rep[1/1] [===============67%          ] base_prof.nsys-rep[1/1] [================68%         ] base_prof.nsys-rep[1/1] [================69%         ] base_prof.nsys-rep[1/1] [================70%         ] base_prof.nsys-rep[1/1] [================71%         ] base_prof.nsys-rep[1/1] [=================72%        ] base_prof.nsys-rep[1/1] [=================73%        ] base_prof.nsys-rep[1/1] [=================74%        ] base_prof.nsys-rep[1/1] [==================75%       ] base_prof.nsys-rep[1/1] [==================76%       ] base_prof.nsys-rep[1/1] [==================77%       ] base_prof.nsys-rep[1/1] [==================78%       ] base_prof.nsys-rep[1/1] [===================79%      ] base_prof.nsys-rep[1/1] [===================80%      ] base_prof.nsys-rep[1/1] [===================81%      ] base_prof.nsys-rep[1/1] [===================82%      ] base_prof.nsys-rep[1/1] [====================83%     ] base_prof.nsys-rep[1/1] [====================84%     ] base_prof.nsys-rep[1/1] [====================85%     ] base_prof.nsys-rep[1/1] [=====================86%    ] base_prof.nsys-rep[1/1] [=====================87%    ] base_prof.nsys-rep[1/1] [=====================88%    ] base_prof.nsys-rep[1/1] [=====================89%    ] base_prof.nsys-rep[1/1] [======================90%   ] base_prof.nsys-rep[1/1] [======================91%   ] base_prof.nsys-rep[1/1] [======================92%   ] base_prof.nsys-rep[1/1] [=======================93%  ] base_prof.nsys-rep[1/1] [=======================94%  ] base_prof.nsys-rep[1/1] [========================100%] base_prof.nsys-rep[1/1] [========================100%] base_prof.nsys-rep
+Generated:
+	/home/lynx/box/cpp/Multicore_and_GPU_2e_code/Chapter_11_Loadbalancing/mandelbrot_hybrid_profiled/experiments/11-priority-queue/nsys/base_prof.nsys-rep

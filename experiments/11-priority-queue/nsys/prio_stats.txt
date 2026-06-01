@@ -1,0 +1,48 @@
+Generating SQLite file prio_prof.sqlite from prio_prof.nsys-rep
+Processing [prio_prof.sqlite] with [/usr/lib/nsight-systems/target-linux-x64/reports/nvtx_pushpop_sum.py]... 
+
+ ** NVTX Push/Pop Range Summary (nvtx_pushpop_sum):
+
+ Time (%)  Total Time (ns)  Instances    Avg (ns)       Med (ns)    Min (ns)     Max (ns)      StdDev (ns)          Range       
+ --------  ---------------  ---------  -------------  ------------  --------  --------------  -------------  -------------------
+     50.2  608,952,686,176      7,444   81,804,498.4   1,711,626.5       505  13,420,115,433  364,614,223.9  :examine region    
+     46.0  558,645,799,513      1,604  348,282,917.4  48,524,175.0   816,149  13,419,901,615  724,816,288.7  :CPU region compute
+      3.8   46,527,600,134      4,004   11,620,279.8   3,728,002.5    53,493     139,065,023   20,354,830.2  :GPU region compute
+
+Processing [prio_prof.sqlite] with [/usr/lib/nsight-systems/target-linux-x64/reports/cuda_api_sum.py]... 
+
+ ** CUDA API Summary (cuda_api_sum):
+
+ Time (%)  Total Time (ns)  Num Calls    Avg (ns)       Med (ns)      Min (ns)     Max (ns)    StdDev (ns)            Name         
+ --------  ---------------  ---------  -------------  -------------  -----------  -----------  ------------  ----------------------
+     99.5   46,390,051,095      4,004   11,585,926.8    3,697,766.0       21,605  139,021,194  20,351,815.9  cudaMemcpy            
+      0.3      132,467,484          1  132,467,484.0  132,467,484.0  132,467,484  132,467,484           0.0  cudaMallocPitch       
+      0.1       52,346,169     16,016        3,268.4        3,036.0        1,752      913,144       7,344.0  cudaEventRecord       
+      0.1       39,424,242      4,004        9,846.2        8,936.0        7,092       82,294       3,592.5  cudaLaunchKernel      
+      0.0       19,504,355      4,004        4,871.2        4,861.0        1,640       56,780       1,123.7  cudaEventSynchronize  
+      0.0        2,484,599          1    2,484,599.0    2,484,599.0    2,484,599    2,484,599           0.0  cudaHostAlloc         
+      0.0        1,396,295      4,004          348.7          314.0          254        7,113         184.4  cuKernelGetName       
+      0.0        1,231,106          1    1,231,106.0    1,231,106.0    1,231,106    1,231,106           0.0  cudaFreeHost          
+      0.0           73,079          1       73,079.0       73,079.0       73,079       73,079           0.0  cudaFree              
+      0.0           40,339          1       40,339.0       40,339.0       40,339       40,339           0.0  cuLibraryLoadData     
+      0.0           10,624          4        2,656.0          710.5          590        8,613       3,972.7  cudaEventCreate       
+      0.0            4,984          4        1,246.0          605.0          566        3,208       1,308.1  cudaEventDestroy      
+      0.0            1,535          1        1,535.0        1,535.0        1,535        1,535           0.0  cuModuleGetLoadingMode
+      0.0              395          1          395.0          395.0          395          395           0.0  cuLibraryGetKernel    
+
+Processing [prio_prof.sqlite] with [/usr/lib/nsight-systems/target-linux-x64/reports/cuda_gpu_kern_sum.py]... 
+
+ ** CUDA GPU Kernel Summary (cuda_gpu_kern_sum):
+
+ Time (%)  Total Time (ns)  Instances    Avg (ns)     Med (ns)    Min (ns)   Max (ns)    StdDev (ns)                                         Name                                      
+ --------  ---------------  ---------  ------------  -----------  --------  -----------  ------------  --------------------------------------------------------------------------------
+    100.0   46,304,572,332      4,004  11,564,578.5  3,677,936.5     8,192  138,966,923  20,345,559.2  mandelKernel(unsigned int *, double, double, double, double, int, int, int, int)
+
+Processing [prio_prof.sqlite] with [/usr/lib/nsight-systems/target-linux-x64/reports/cuda_gpu_mem_time_sum.py]... 
+
+ ** CUDA GPU MemOps Summary (by Time) (cuda_gpu_mem_time_sum):
+
+ Time (%)  Total Time (ns)  Count  Avg (ns)  Med (ns)  Min (ns)  Max (ns)  StdDev (ns)           Operation          
+ --------  ---------------  -----  --------  --------  --------  --------  -----------  ----------------------------
+    100.0       52,427,517  4,004  13,093.8  11,776.0    10,720    45,826      6,230.2  [CUDA memcpy Device-to-Host]
+

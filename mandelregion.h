@@ -50,13 +50,19 @@ public:
   // thread never executed a CPU region).
   static void printCPUSummary();
 
+  // Ordering for WorkQueue's priority_queue. std::priority_queue pops the
+  // element that is "greatest" under this comparator, where operator()(a,b)
+  // means "a is ordered before b" (lower priority). Returning a<b therefore
+  // makes top() the region with the MOST pixels -- largest-first (LPT)
+  // scheduling, which starts the biggest regions earliest and lets the GPU
+  // thread (the fastest extractor) claim them.
   struct Compare
   {
     bool operator () (const MandelRegion * a, const MandelRegion * b)
     {
       int Npixels4a = a->pixelsX * a->pixelsY;
       int Npixels4b = b->pixelsX * b->pixelsY;
-        return Npixels4a > Npixels4b;
+        return Npixels4a < Npixels4b;
     }
 
   };
