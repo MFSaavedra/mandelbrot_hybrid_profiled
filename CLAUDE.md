@@ -270,7 +270,8 @@ Raw measurement data, by experiment number. Per-rep `.stderr` and `.stdout` file
 | `experiments/06-difft-postfix/` | `binary-v1-bugfix` | `results.csv` + 36 stderr logs + `quiet0/` max-region logs + `difft_sweep.png` |
 | `experiments/07-difft-prefix/` | `binary-v0-buggy` | `results.csv` + 36 stderr logs + `quiet0/` max-region logs + `compare.png` |
 | `experiments/08-region-metrics-viz/` | `feat/viz-mode` atop `d5bf30c` | `viz/` depth frames + montage/GIF, `logs/` (metrics + outlier dumps), `perf/results.csv` (A/B vs `d5bf30c`) |
-| `experiments/09-9point-sampling/` | `examine/9-points-sampling` atop `binary-v2-viz` | `logs/` (9pt + 4pt metrics), `perf/results.csv` (A/B), `viz_process/` (9pt viz=3 anim), `viz/` (frame-89 figure) |
+| `experiments/09-9point-sampling/` | `examine/9-points-sampling` atop `binary-v2-viz` | `logs/` (9pt + 4pt metrics + quiet0 distributions), `nsys/` (NVTX/CUDA stats), `perf/results.csv` (A/B), `viz_process/` (9pt viz=3 anim), `viz/` (frame-89 figure) |
+| `experiments/10-difft-9point/` | `binary-v3-9point` | `results.csv` + 15 stderr logs — `diffThreshold` sweep confirming 0.1 is still optimal for the 9-point binary (report `09`, §Re-Tuning Check) |
 
 ## Conclusions
 
