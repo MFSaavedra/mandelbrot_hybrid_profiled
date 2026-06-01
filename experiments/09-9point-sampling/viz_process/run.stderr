@@ -1,0 +1,41 @@
+[config] numThr=12 gpuEnable=1 diffT=0.100 pixT=32768 res=1920x1080 frames=100 quiet=1 save=0 viz=3 vizFrame=0
+[OUTLIER] frame=73 depth=1 img=(0,0) px=960x540 c=[-0.511800,-0.346601]..[-0.093736,-0.599931] corners=7327/7327/7327/7327 spread=0 meanIter=7131.2 inset=97.3% cardioidBulb=0 ms=13363.1
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 162
+  Total compute time      : 50319.925 ms  (avg 310.617 ms/region)
+[GPU profiling summary]
+  Regions computed on GPU : 4004
+  Total kernel time       : 45847.917 ms  (avg 11.451 ms/region)
+  Total D→H memcpy time   : 295.900 ms  (avg 0.074 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 95
+  Total compute time      : 50364.436 ms  (avg 530.152 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 176
+  Total compute time      : 50462.817 ms  (avg 286.721 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 123
+  Total compute time      : 50535.035 ms  (avg 410.854 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 146
+  Total compute time      : 50658.905 ms  (avg 346.979 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 173
+  Total compute time      : 50928.047 ms  (avg 294.382 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 127
+  Total compute time      : 50931.311 ms  (avg 401.034 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 157
+  Total compute time      : 50933.412 ms  (avg 324.417 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 163
+  Total compute time      : 50935.563 ms  (avg 312.488 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 149
+  Total compute time      : 51229.175 ms  (avg 343.820 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 133
+  Total compute time      : 51291.816 ms  (avg 385.653 ms/region)
+[total_elapsed_s] 51.308294
+[viz] wrote 400 process frames across 100 run frames (7444 subdivision nodes total)

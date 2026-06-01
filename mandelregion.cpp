@@ -292,6 +292,28 @@ void MandelRegion::examine (WorkQueue & q, bool onGPU = false)
         maxIter = cornersIter[i];
     }
 
+  // 9-point stencil: extend the four corners with the four edge midpoints and
+  // the centre.  Sampling the interior catches high-iteration filaments that
+  // pass between the corners -- the failure mode behind the all-interior
+  // outliers diagnosed in report 08, whose four corners all sit at maxIter
+  // (spread 0) so the 4-corner rule never splits them.  A child inherits only
+  // its shared outer corner, never a midpoint, so these five are always fresh:
+  // each examine() adds five diverge() calls over the 4-corner version.
+  double midX = (upperX + lowerX) * 0.5;
+  double midY = (upperY + lowerY) * 0.5;
+  int extra[5] = {
+    diverge (midX,   upperY),   // top edge midpoint
+    diverge (midX,   lowerY),   // bottom edge midpoint
+    diverge (upperX, midY),     // left edge midpoint
+    diverge (lowerX, midY),     // right edge midpoint
+    diverge (midX,   midY)      // centre
+  };
+  for (int i = 0; i < 5; i++)
+    {
+      if (extra[i] < minIter) minIter = extra[i];
+      if (extra[i] > maxIter) maxIter = extra[i];
+    }
+
 
   // either compute the pixels or break the region in 4 pieces
   if (maxIter - minIter < diffThresh * maxIter || pixelsX * pixelsY < pixelSizeThresh)

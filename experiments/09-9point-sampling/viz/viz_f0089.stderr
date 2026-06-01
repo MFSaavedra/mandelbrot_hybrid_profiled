@@ -1,0 +1,14 @@
+[config] numThr=12 gpuEnable=1 diffT=0.100 pixT=32768 res=1920x1080 frames=1 quiet=1 save=0 viz=1 vizFrame=89
+[GPU profiling summary]
+  Regions computed on GPU : 57
+  Total kernel time       : 1068.687 ms  (avg 18.749 ms/region)
+  Total D→H memcpy time   : 2.233 ms  (avg 0.039 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 1
+  Total compute time      : 3847.101 ms  (avg 3847.101 ms/region)
+[total_elapsed_s] 3.848988
+[viz] wrote img_f0089_d00.png (outlines for depth <= 0)
+[viz] wrote img_f0089_d01.png (outlines for depth <= 1)
+[viz] wrote img_f0089_d02.png (outlines for depth <= 2)
+[viz] wrote img_f0089_d03.png (outlines for depth <= 3)
+[viz] 77 subdivision nodes, max depth 3

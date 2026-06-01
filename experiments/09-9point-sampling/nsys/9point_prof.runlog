@@ -1,0 +1,47 @@
+[config] numThr=12 gpuEnable=1 diffT=0.100 pixT=32768 res=1920x1080 frames=100 quiet=1 save=0 viz=0 vizFrame=-1
+[OUTLIER] frame=73 depth=1 img=(0,0) px=960x540 c=[-0.511800,-0.346601]..[-0.093736,-0.599931] corners=7327/7327/7327/7327 spread=0 meanIter=7131.2 inset=97.3% cardioidBulb=0 ms=13740.8
+[GPU profiling summary]
+  Regions computed on GPU : 4228
+  Total kernel time       : 45613.353 ms  (avg 10.788 ms/region)
+  Total D→H memcpy time   : 263.690 ms  (avg 0.062 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 159
+  Total compute time      : 50189.784 ms  (avg 315.659 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 116
+  Total compute time      : 50226.691 ms  (avg 432.989 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 129
+  Total compute time      : 50250.909 ms  (avg 389.542 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 114
+  Total compute time      : 50261.354 ms  (avg 440.889 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 108
+  Total compute time      : 50339.987 ms  (avg 466.111 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 111
+  Total compute time      : 50344.328 ms  (avg 453.553 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 81
+  Total compute time      : 50375.017 ms  (avg 621.914 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 131
+  Total compute time      : 50413.784 ms  (avg 384.838 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 137
+  Total compute time      : 50438.373 ms  (avg 368.163 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 176
+  Total compute time      : 50504.712 ms  (avg 286.959 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 118
+  Total compute time      : 50633.979 ms  (avg 429.102 ms/region)
+[total_elapsed_s] 50.650547
+Collecting data...
+Generating '/tmp/claude-1000/nsys-report-5f69.qdstrm'
+Press Ctrl-C to stop symbol files downloading
+[16/47] Downloaded symbol information for /usr/lib/libsystemd.so.0.43.0
+[1/1] [0%                          ] 9point_prof.nsys-rep[1/1] [0%                          ] 9point_prof.nsys-rep[1/1] [5%                          ] 9point_prof.nsys-rep[1/1] [9%                          ] 9point_prof.nsys-rep[1/1] [10%                         ] 9point_prof.nsys-rep[1/1] [14%                         ] 9point_prof.nsys-rep[1/1] [==18%                       ] 9point_prof.nsys-rep[1/1] [==19%                       ] 9point_prof.nsys-rep[1/1] [===23%                      ] 9point_prof.nsys-rep[1/1] [====27%                     ] 9point_prof.nsys-rep[1/1] [=====31%                    ] 9point_prof.nsys-rep[1/1] [======34%                   ] 9point_prof.nsys-rep[1/1] [=======38%                  ] 9point_prof.nsys-rep[1/1] [========42%                 ] 9point_prof.nsys-rep[1/1] [=========46%                ] 9point_prof.nsys-rep[1/1] [==========49%               ] 9point_prof.nsys-rep[1/1] [===========50%              ] 9point_prof.nsys-rep[1/1] [===========51%              ] 9point_prof.nsys-rep[1/1] [===========52%              ] 9point_prof.nsys-rep[1/1] [===========53%              ] 9point_prof.nsys-rep[1/1] [============54%             ] 9point_prof.nsys-rep[1/1] [============55%             ] 9point_prof.nsys-rep[1/1] [============56%             ] 9point_prof.nsys-rep[1/1] [============57%             ] 9point_prof.nsys-rep[1/1] [=============58%            ] 9point_prof.nsys-rep[1/1] [=============59%            ] 9point_prof.nsys-rep[1/1] [=============60%            ] 9point_prof.nsys-rep[1/1] [==============61%           ] 9point_prof.nsys-rep[1/1] [==============62%           ] 9point_prof.nsys-rep[1/1] [==============63%           ] 9point_prof.nsys-rep[1/1] [==============64%           ] 9point_prof.nsys-rep[1/1] [===============65%          ] 9point_prof.nsys-rep[1/1] [===============66%          ] 9point_prof.nsys-rep[1/1] [===============67%          ] 9point_prof.nsys-rep[1/1] [================68%         ] 9point_prof.nsys-rep[1/1] [================69%         ] 9point_prof.nsys-rep[1/1] [================70%         ] 9point_prof.nsys-rep[1/1] [================71%         ] 9point_prof.nsys-rep[1/1] [=================72%        ] 9point_prof.nsys-rep[1/1] [=================73%        ] 9point_prof.nsys-rep[1/1] [=================74%        ] 9point_prof.nsys-rep[1/1] [==================75%       ] 9point_prof.nsys-rep[1/1] [==================76%       ] 9point_prof.nsys-rep[1/1] [==================77%       ] 9point_prof.nsys-rep[1/1] [==================78%       ] 9point_prof.nsys-rep[1/1] [===================79%      ] 9point_prof.nsys-rep[1/1] [===================80%      ] 9point_prof.nsys-rep[1/1] [===================81%      ] 9point_prof.nsys-rep[1/1] [===================82%      ] 9point_prof.nsys-rep[1/1] [====================83%     ] 9point_prof.nsys-rep[1/1] [====================84%     ] 9point_prof.nsys-rep[1/1] [====================85%     ] 9point_prof.nsys-rep[1/1] [=====================86%    ] 9point_prof.nsys-rep[1/1] [=====================87%    ] 9point_prof.nsys-rep[1/1] [=====================88%    ] 9point_prof.nsys-rep[1/1] [=====================89%    ] 9point_prof.nsys-rep[1/1] [======================90%   ] 9point_prof.nsys-rep[1/1] [======================91%   ] 9point_prof.nsys-rep[1/1] [======================92%   ] 9point_prof.nsys-rep[1/1] [=======================93%  ] 9point_prof.nsys-rep[1/1] [=======================94%  ] 9point_prof.nsys-rep[1/1] [=======================95%  ] 9point_prof.nsys-rep[1/1] [========================100%] 9point_prof.nsys-rep[1/1] [========================100%] 9point_prof.nsys-rep
+Generated:
+	/home/lynx/box/cpp/Multicore_and_GPU_2e_code/Chapter_11_Loadbalancing/mandelbrot_hybrid_profiled/experiments/09-9point-sampling/nsys/9point_prof.nsys-rep

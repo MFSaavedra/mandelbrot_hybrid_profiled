@@ -83,6 +83,7 @@ Note: report `03` (bug analysis) has no corresponding `experiments/03-...` becau
 
 - `main` — current best version. Holds all reports and all experiment data.
 - `feat/viz-mode` — **merged into `main`** (fast-forward to commit `616c147`, tag `binary-v2-viz`). Added region work metrics, the 5 s outlier dump, and the three-mode `vizMode` subdivision visualizer (`viz=1/2/3`, report `08`). Instrumentation only; the subdivision decision is unchanged (verified: byte-identical 5,323-leaf decomposition vs `d5bf30c`).
+- `examine/9-points-sampling` — replaces the 4-corner uniformity test with a 9-point stencil (report `09`). Catches the frame-89 outlier but not frame 73; wall-neutral. Built on `binary-v2-viz`; intended tag on merge is `binary-v3-9point`. Not yet merged.
 - `examine_minmax_bugfix` — the commit that fixed the min/max reduction in `MandelRegion::examine()`. Same code state as `main` modulo subsequent reorganization commits.
 - `examine_rewrite`, `master` — original code with the min/max tracking bug intact. Kept as historical references.
 
@@ -240,6 +241,7 @@ Seven LaTeX reports document the work chronologically. Each report's title page 
 | `reports/06-difft-sweep.tex` | `d5bf30c` (v1) | `diffThreshold` sensitivity on the post-fix binary, sweet spot identified |
 | `reports/07-difft-compare.tex` | `0f782fd` + `d5bf30c` | Pre-fix vs.\ post-fix diffT sweep comparison (sanity check + load-balance analysis) |
 | `reports/08-region-metrics-viz.tex` | `feat/viz-mode` atop `d5bf30c` | Region work metrics + subdivision visualizer; locates the two binding outliers (frames 73, 89) and shows via the new cardioid/bulb test that they are minibrot interiors (not main cardioid/bulb); performance-neutral A/B vs `d5bf30c` |
+| `reports/09-9point-sampling.tex` | `examine/9-points-sampling` atop `binary-v2-viz` | 9-point stencil vs 4-corner sampler; catches the frame-89 outlier (84% interior) but not frame 73 (97% interior); +5.4% leaves; wall flat (+0.6%, throughput-bound) |
 
 Build any report with:
 ```bash
@@ -268,6 +270,7 @@ Raw measurement data, by experiment number. Per-rep `.stderr` and `.stdout` file
 | `experiments/06-difft-postfix/` | `binary-v1-bugfix` | `results.csv` + 36 stderr logs + `quiet0/` max-region logs + `difft_sweep.png` |
 | `experiments/07-difft-prefix/` | `binary-v0-buggy` | `results.csv` + 36 stderr logs + `quiet0/` max-region logs + `compare.png` |
 | `experiments/08-region-metrics-viz/` | `feat/viz-mode` atop `d5bf30c` | `viz/` depth frames + montage/GIF, `logs/` (metrics + outlier dumps), `perf/results.csv` (A/B vs `d5bf30c`) |
+| `experiments/09-9point-sampling/` | `examine/9-points-sampling` atop `binary-v2-viz` | `logs/` (9pt + 4pt metrics), `perf/results.csv` (A/B), `viz_process/` (9pt viz=3 anim), `viz/` (frame-89 figure) |
 
 ## Conclusions
 
@@ -282,7 +285,7 @@ In priority order:
 
 1. **Locate the worst region.** ✅ **Done — see `reports/08-region-metrics-viz.tex`.** The `[OUTLIER]` dump in `MandelRegion::compute()` (fires above 5000 ms) found exactly two binding outliers at `diffT=0.1`: frames **73** (13.6 s) and **89** (14.3 s), both `960×540` depth-1 upper-left quadrants whose four corners all sit at the frame's `maxIter` (spread 0). The new cardioid/bulb membership test reports **`cardioidBulb=0`** for both, and the interior-pixel fraction is 84–97%.
 2a. ~~**If the outlier is inside the main cardioid or the period-2 bulb**~~ **Ruled out by report 08.** The membership test (`q = (x-1/4)^2 + y^2; q*(q + (x-1/4)) <= y^2/4` for the cardioid; `(x+1)^2 + y^2 <= 1/16` for the bulb) returns 0 for both outliers — they are interior to a **minibrot**, not the main cardioid/bulb. A cardioid/bulb certificate would not fire on them, so it cannot relieve the 14 s tail. (It remains a cheap win for the early wide frames whose pixels genuinely fall in the main cardioid, but that is not the binding constraint.)
-2b. ✅ **This is the path.** Add edge-midpoint sampling (9-point stencil), inheriting the new samples as children's corners on split. Report 08 shows the outliers' mean iteration count (7,131 / 7,551) is measurably below their corner value (7,327 / 8,911), proving sub-`maxIter` structure exists between the corners that the four-point sampler misses — so a 9-point stencil would expose a non-zero spread and trigger the split the corners suppress.
+2b. ✅ **Implemented and deep-profiled (nsys + quiet=0) — see `reports/09-9point-sampling.tex` (branch `examine/9-points-sampling`).** The 9-point stencil (4 corners + 4 edge midpoints + centre) is a **partial** fix: it subdivides the frame-89 outlier (84% interior — an interior sample lands off the minibrot) but **not** frame 73 (97% interior — all 9 points still hit `maxIter`, spread 0). It exposes +5.4% leaves and shifts the CPU per-region distribution down (median 126→99 ms, max 15.5→13.4 s). **Wall is flat** (+0.6%, noise). The nsys breakdown corrects an earlier guess: the sampling overhead is **negligible** (NVTX `examine − compute` = +0.40 s CPU total, +29 µs/`examine`), and splitting **conserves total compute** (~595 s in both binaries) — it redistributes work but removes none. With load already balanced <2%, finer splitting can't help at 12 threads. **The lever is work-reduction, not subdivision:** periodicity checking in `diverge()` (exact) or a heuristic interior certificate (risks filling over thin filaments). The exact cardioid/bulb certificate doesn't apply (minibrot interior).
 3. **Async CUDA streams** in `hostFE()`: launch the kernel into a non-default stream and use `cudaStreamSynchronize` only when reading results. Recovers up to ~13 ms/region of GPU-thread idle time spent in `cudaMemcpy`. Independent of any heuristic change.
 4. **Largest-first priority queue**: replace `WorkQueue`'s `deque` with `priority_queue` using the existing `MandelRegion::Compare` functor. Routes larger regions to the GPU thread first. Modest expected upside (~1 s).
 5. **`pixelSizeThresh` sweep at `diffT=0.1`**: the decision rule is `diff_uniform OR below_pixT`, so `pixT` cannot force-split the 15 s outlier (which passes the diff test). It can tighten load balance among floor-classified regions. Quick to test.

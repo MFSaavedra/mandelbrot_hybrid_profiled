@@ -1,0 +1,47 @@
+[config] numThr=12 gpuEnable=1 diffT=0.100 pixT=32768 res=1920x1080 frames=100 quiet=1 save=0 viz=0 vizFrame=-1
+[OUTLIER] frame=73 depth=1 img=(0,0) px=960x540 c=[-0.511800,-0.346601]..[-0.093736,-0.599931] corners=7327/7327/7327/7327 spread=0 meanIter=7131.2 inset=97.3% cardioidBulb=0 ms=13326.0
+[OUTLIER] frame=89 depth=1 img=(0,0) px=960x540 c=[-0.207537,-0.628596]..[-0.037215,-0.731805] corners=8911/8911/8911/8911 spread=0 meanIter=7551.2 inset=84.4% cardioidBulb=0 ms=14124.3
+[GPU profiling summary]
+  Regions computed on GPU : 3910
+  Total kernel time       : 45515.340 ms  (avg 11.641 ms/region)
+  Total D→H memcpy time   : 152.692 ms  (avg 0.039 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 170
+  Total compute time      : 49594.634 ms  (avg 291.733 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 101
+  Total compute time      : 49634.461 ms  (avg 491.430 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 164
+  Total compute time      : 49720.935 ms  (avg 303.176 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 119
+  Total compute time      : 49838.036 ms  (avg 418.807 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 102
+  Total compute time      : 49895.638 ms  (avg 489.173 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 120
+  Total compute time      : 49967.498 ms  (avg 416.396 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 113
+  Total compute time      : 49988.936 ms  (avg 442.380 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 117
+  Total compute time      : 49998.325 ms  (avg 427.336 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 138
+  Total compute time      : 50115.655 ms  (avg 363.157 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 144
+  Total compute time      : 50164.177 ms  (avg 348.362 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 125
+  Total compute time      : 50195.989 ms  (avg 401.568 ms/region)
+[total_elapsed_s] 50.203470
+Collecting data...
+Generating '/tmp/claude-1000/nsys-report-870e.qdstrm'
+Press Ctrl-C to stop symbol files downloading
+[1/1] [0%                          ] 4point_prof.nsys-rep[1/1] [0%                          ] 4point_prof.nsys-rep[1/1] [12%                         ] 4point_prof.nsys-rep[1/1] [13%                         ] 4point_prof.nsys-rep[1/1] [8%                          ] 4point_prof.nsys-rep[1/1] [7%                          ] 4point_prof.nsys-rep[1/1] [5%                          ] 4point_prof.nsys-rep[1/1] [9%                          ] 4point_prof.nsys-rep[1/1] [7%                          ] 4point_prof.nsys-rep[1/1] [=16%                        ] 4point_prof.nsys-rep[1/1] [13%                         ] 4point_prof.nsys-rep[1/1] [11%                         ] 4point_prof.nsys-rep[1/1] [13%                         ] 4point_prof.nsys-rep[1/1] [12%                         ] 4point_prof.nsys-rep[1/1] [10%                         ] 4point_prof.nsys-rep[1/1] [9%                          ] 4point_prof.nsys-rep[1/1] [11%                         ] 4point_prof.nsys-rep[1/1] [10%                         ] 4point_prof.nsys-rep[1/1] [9%                          ] 4point_prof.nsys-rep[1/1] [13%                         ] 4point_prof.nsys-rep[1/1] [11%                         ] 4point_prof.nsys-rep[1/1] [10%                         ] 4point_prof.nsys-rep[1/1] [9%                          ] 4point_prof.nsys-rep[1/1] [11%                         ] 4point_prof.nsys-rep[1/1] [12%                         ] 4point_prof.nsys-rep[1/1] [=15%                        ] 4point_prof.nsys-rep[1/1] [==18%                       ] 4point_prof.nsys-rep[1/1] [==21%                       ] 4point_prof.nsys-rep[1/1] [===24%                      ] 4point_prof.nsys-rep[1/1] [====26%                     ] 4point_prof.nsys-rep[1/1] [=====29%                    ] 4point_prof.nsys-rep[1/1] [=====32%                    ] 4point_prof.nsys-rep[1/1] [=======36%                  ] 4point_prof.nsys-rep[1/1] [=======39%                  ] 4point_prof.nsys-rep[1/1] [========42%                 ] 4point_prof.nsys-rep[1/1] [=========45%                ] 4point_prof.nsys-rep[1/1] [==========49%               ] 4point_prof.nsys-rep[1/1] [===========50%              ] 4point_prof.nsys-rep[1/1] [===========51%              ] 4point_prof.nsys-rep[1/1] [===========52%              ] 4point_prof.nsys-rep[1/1] [===========53%              ] 4point_prof.nsys-rep[1/1] [============54%             ] 4point_prof.nsys-rep[1/1] [============55%             ] 4point_prof.nsys-rep[1/1] [============56%             ] 4point_prof.nsys-rep[1/1] [============57%             ] 4point_prof.nsys-rep[1/1] [=============58%            ] 4point_prof.nsys-rep[1/1] [=============59%            ] 4point_prof.nsys-rep[1/1] [=============60%            ] 4point_prof.nsys-rep[1/1] [==============61%           ] 4point_prof.nsys-rep[1/1] [==============62%           ] 4point_prof.nsys-rep[1/1] [==============63%           ] 4point_prof.nsys-rep[1/1] [==============64%           ] 4point_prof.nsys-rep[1/1] [===============65%          ] 4point_prof.nsys-rep[1/1] [===============66%          ] 4point_prof.nsys-rep[1/1] [===============67%          ] 4point_prof.nsys-rep[1/1] [================68%         ] 4point_prof.nsys-rep[1/1] [================69%         ] 4point_prof.nsys-rep[1/1] [================70%         ] 4point_prof.nsys-rep[1/1] [================71%         ] 4point_prof.nsys-rep[1/1] [=================72%        ] 4point_prof.nsys-rep[1/1] [=================73%        ] 4point_prof.nsys-rep[1/1] [=================74%        ] 4point_prof.nsys-rep[1/1] [==================75%       ] 4point_prof.nsys-rep[1/1] [==================76%       ] 4point_prof.nsys-rep[1/1] [==================77%       ] 4point_prof.nsys-rep[1/1] [==================78%       ] 4point_prof.nsys-rep[1/1] [===================79%      ] 4point_prof.nsys-rep[1/1] [===================80%      ] 4point_prof.nsys-rep[1/1] [===================81%      ] 4point_prof.nsys-rep[1/1] [===================82%      ] 4point_prof.nsys-rep[1/1] [====================83%     ] 4point_prof.nsys-rep[1/1] [====================84%     ] 4point_prof.nsys-rep[1/1] [====================85%     ] 4point_prof.nsys-rep[1/1] [=====================86%    ] 4point_prof.nsys-rep[1/1] [=====================87%    ] 4point_prof.nsys-rep[1/1] [=====================88%    ] 4point_prof.nsys-rep[1/1] [=====================89%    ] 4point_prof.nsys-rep[1/1] [======================90%   ] 4point_prof.nsys-rep[1/1] [======================91%   ] 4point_prof.nsys-rep[1/1] [======================92%   ] 4point_prof.nsys-rep[1/1] [=======================93%  ] 4point_prof.nsys-rep[1/1] [=======================94%  ] 4point_prof.nsys-rep[1/1] [=======================95%  ] 4point_prof.nsys-rep[1/1] [========================100%] 4point_prof.nsys-rep[1/1] [========================100%] 4point_prof.nsys-rep
+Generated:
+	/home/lynx/box/cpp/Multicore_and_GPU_2e_code/Chapter_11_Loadbalancing/mandelbrot_hybrid_profiled/experiments/09-9point-sampling/nsys/4point_prof.nsys-rep
