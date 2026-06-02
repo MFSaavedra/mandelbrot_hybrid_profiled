@@ -164,7 +164,7 @@ public:
 void CalcThr::run ()
 {
   MandelRegion *t;
-  while ((t = que->extract ()) != NULL)
+  while ((t = que->extract (isGPU)) != NULL)
     {
       t->examine (*que, isGPU);
       delete t;

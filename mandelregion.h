@@ -50,13 +50,17 @@ public:
   // thread never executed a CPU region).
   static void printCPUSummary();
 
+  // Orders regions ascending by pixel count for WorkQueue's min-max multiset:
+  // begin() is the smallest region, --end() the largest. The GPU thread pulls
+  // the largest (where it is ~30x faster on big coherent interior regions),
+  // CPU threads pull the smallest -- GPU affinity (report 11 §3.4).
   struct Compare
   {
-    bool operator () (const MandelRegion * a, const MandelRegion * b)
+    bool operator () (const MandelRegion * a, const MandelRegion * b) const
     {
       int Npixels4a = a->pixelsX * a->pixelsY;
       int Npixels4b = b->pixelsX * b->pixelsY;
-        return Npixels4a > Npixels4b;
+        return Npixels4a < Npixels4b;
     }
 
   };

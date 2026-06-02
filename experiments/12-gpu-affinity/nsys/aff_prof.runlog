@@ -1,0 +1,45 @@
+[config] numThr=12 gpuEnable=1 diffT=0.100 pixT=32768 res=1920x1080 frames=100 quiet=1 save=0 viz=0 vizFrame=-1
+[GPU profiling summary]
+  Regions computed on GPU : 3424
+  Total kernel time       : 45162.664 ms  (avg 13.190 ms/region)
+  Total D→H memcpy time   : 100.966 ms  (avg 0.029 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 216
+  Total compute time      : 49151.810 ms  (avg 227.555 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 192
+  Total compute time      : 49209.626 ms  (avg 256.300 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 190
+  Total compute time      : 49245.565 ms  (avg 259.187 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 157
+  Total compute time      : 49247.599 ms  (avg 313.679 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 179
+  Total compute time      : 49323.999 ms  (avg 275.553 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 166
+  Total compute time      : 49352.910 ms  (avg 297.307 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 187
+  Total compute time      : 49472.020 ms  (avg 264.556 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 143
+  Total compute time      : 49539.046 ms  (avg 346.427 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 254
+  Total compute time      : 49582.520 ms  (avg 195.207 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 235
+  Total compute time      : 49749.145 ms  (avg 211.698 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 265
+  Total compute time      : 49825.923 ms  (avg 188.022 ms/region)
+[total_elapsed_s] 49.843923
+Collecting data...
+Generating '/tmp/claude-1000/nsys-report-ac9e.qdstrm'
+Press Ctrl-C to stop symbol files downloading
+[1/1] [0%                          ] aff_prof.nsys-rep[1/1] [0%                          ] aff_prof.nsys-rep[1/1] [12%                         ] aff_prof.nsys-rep[1/1] [7%                          ] aff_prof.nsys-rep[1/1] [5%                          ] aff_prof.nsys-rep[1/1] [7%                          ] aff_prof.nsys-rep[1/1] [6%                          ] aff_prof.nsys-rep[1/1] [5%                          ] aff_prof.nsys-rep[1/1] [13%                         ] aff_prof.nsys-rep[1/1] [11%                         ] aff_prof.nsys-rep[1/1] [10%                         ] aff_prof.nsys-rep[1/1] [9%                          ] aff_prof.nsys-rep[1/1] [8%                          ] aff_prof.nsys-rep[1/1] [7%                          ] aff_prof.nsys-rep[1/1] [6%                          ] aff_prof.nsys-rep[1/1] [5%                          ] aff_prof.nsys-rep[1/1] [9%                          ] aff_prof.nsys-rep[1/1] [8%                          ] aff_prof.nsys-rep[1/1] [11%                         ] aff_prof.nsys-rep[1/1] [12%                         ] aff_prof.nsys-rep[1/1] [13%                         ] aff_prof.nsys-rep[1/1] [=16%                        ] aff_prof.nsys-rep[1/1] [==19%                       ] aff_prof.nsys-rep[1/1] [===22%                      ] aff_prof.nsys-rep[1/1] [====25%                     ] aff_prof.nsys-rep[1/1] [====28%                     ] aff_prof.nsys-rep[1/1] [=====31%                    ] aff_prof.nsys-rep[1/1] [======34%                   ] aff_prof.nsys-rep[1/1] [=======37%                  ] aff_prof.nsys-rep[1/1] [========40%                 ] aff_prof.nsys-rep[1/1] [=========43%                ] aff_prof.nsys-rep[1/1] [=========46%                ] aff_prof.nsys-rep[1/1] [==========49%               ] aff_prof.nsys-rep[1/1] [===========50%              ] aff_prof.nsys-rep[1/1] [===========51%              ] aff_prof.nsys-rep[1/1] [===========52%              ] aff_prof.nsys-rep[1/1] [===========53%              ] aff_prof.nsys-rep[1/1] [============54%             ] aff_prof.nsys-rep[1/1] [============55%             ] aff_prof.nsys-rep[1/1] [============56%             ] aff_prof.nsys-rep[1/1] [============57%             ] aff_prof.nsys-rep[1/1] [=============58%            ] aff_prof.nsys-rep[1/1] [=============59%            ] aff_prof.nsys-rep[1/1] [=============60%            ] aff_prof.nsys-rep[1/1] [==============61%           ] aff_prof.nsys-rep[1/1] [==============62%           ] aff_prof.nsys-rep[1/1] [==============63%           ] aff_prof.nsys-rep[1/1] [==============64%           ] aff_prof.nsys-rep[1/1] [===============65%          ] aff_prof.nsys-rep[1/1] [===============66%          ] aff_prof.nsys-rep[1/1] [===============67%          ] aff_prof.nsys-rep[1/1] [================68%         ] aff_prof.nsys-rep[1/1] [================69%         ] aff_prof.nsys-rep[1/1] [================70%         ] aff_prof.nsys-rep[1/1] [================71%         ] aff_prof.nsys-rep[1/1] [=================72%        ] aff_prof.nsys-rep[1/1] [=================73%        ] aff_prof.nsys-rep[1/1] [=================74%        ] aff_prof.nsys-rep[1/1] [==================75%       ] aff_prof.nsys-rep[1/1] [==================76%       ] aff_prof.nsys-rep[1/1] [==================77%       ] aff_prof.nsys-rep[1/1] [==================78%       ] aff_prof.nsys-rep[1/1] [===================79%      ] aff_prof.nsys-rep[1/1] [===================80%      ] aff_prof.nsys-rep[1/1] [===================81%      ] aff_prof.nsys-rep[1/1] [===================82%      ] aff_prof.nsys-rep[1/1] [====================83%     ] aff_prof.nsys-rep[1/1] [====================84%     ] aff_prof.nsys-rep[1/1] [====================85%     ] aff_prof.nsys-rep[1/1] [=====================86%    ] aff_prof.nsys-rep[1/1] [=====================87%    ] aff_prof.nsys-rep[1/1] [=====================88%    ] aff_prof.nsys-rep[1/1] [=====================89%    ] aff_prof.nsys-rep[1/1] [======================90%   ] aff_prof.nsys-rep[1/1] [======================91%   ] aff_prof.nsys-rep[1/1] [======================92%   ] aff_prof.nsys-rep[1/1] [=======================93%  ] aff_prof.nsys-rep[1/1] [=======================94%  ] aff_prof.nsys-rep[1/1] [=======================95%  ] aff_prof.nsys-rep[1/1] [========================100%] aff_prof.nsys-rep[1/1] [========================100%] aff_prof.nsys-rep
+Generated:
+	/home/lynx/box/cpp/Multicore_and_GPU_2e_code/Chapter_11_Loadbalancing/mandelbrot_hybrid_profiled/experiments/12-gpu-affinity/nsys/aff_prof.nsys-rep
