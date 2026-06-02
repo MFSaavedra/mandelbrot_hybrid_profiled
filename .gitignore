@@ -6,6 +6,7 @@ mandelHybrid
 img/
 *.png
 *.mkv
+*.mp4
 
 # Nsight profiling data (large binary files)
 *.nsys-rep

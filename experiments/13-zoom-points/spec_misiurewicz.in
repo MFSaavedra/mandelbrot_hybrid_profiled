@@ -1,0 +1,9 @@
+100 1920 1080 viz_misiurewicz/
+-1.9 0.94 1.2 -0.94 100
+-0.7756837700005765 0.1364673700003245 -0.7756837699994235 0.1364673699996755 10000
+
+// BOUNDARY (exterior-dominated): Misiurewicz spiral c = (-0.77568377, 0.13646737).
+// Self-similar spirals, heavy subdivision, both CPU+GPU saturated, no interior outlier.
+// numframes resolutionX resolutionY imageFilePrefix
+// upperCornerX upperCornerY lowerCornerX lowerCornerY maxIterations  ; first frame (full set)
+// upperCornerX upperCornerY lowerCornerX lowerCornerY maxIterations  ; last frame (deep zoom)

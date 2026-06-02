@@ -1,0 +1,8 @@
+100 1920 1080 viz_outside/
+-1.9 0.94 1.2 -0.94 100
+0.9999999999994235 1.0000000000003245 1.0000000000005765 0.9999999999996755 10000
+
+// fully OUTSIDE the set: zoom target c = (1.0, 1.0), escapes at iteration 2.
+// numframes resolutionX resolutionY imageFilePrefix
+// upperCornerX upperCornerY lowerCornerX lowerCornerY maxIterations  ; first frame (full set)
+// upperCornerX upperCornerY lowerCornerX lowerCornerY maxIterations  ; last frame (deep zoom)

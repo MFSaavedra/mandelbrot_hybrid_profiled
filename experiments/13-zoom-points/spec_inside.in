@@ -1,0 +1,9 @@
+100 1920 1080 viz_inside/
+-1.9 0.94 1.2 -0.94 100
+-0.5000000000005765 0.0000000000003245 -0.4999999999994235 -0.0000000000003245 10000
+
+// fully INSIDE the main cardioid: zoom target c = (-0.5, 0.0), period-1 attractor,
+// every deep-frame pixel iterates to maxIter (no escape). Heaviest run.
+// numframes resolutionX resolutionY imageFilePrefix
+// upperCornerX upperCornerY lowerCornerX lowerCornerY maxIterations  ; first frame (full set)
+// upperCornerX upperCornerY lowerCornerX lowerCornerY maxIterations  ; last frame (deep zoom)

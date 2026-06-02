@@ -1,0 +1,9 @@
+100 1920 1080 viz_seahorse/
+-1.9 0.94 1.2 -0.94 100
+-0.7454280000005765 0.1130090000003245 -0.7454279999994235 0.1130089999996755 10000
+
+// BOUNDARY (mixed): seahorse valley c = (-0.745428, 0.113009).
+// Filaments + deep minibrots -> should reproduce the interior-outlier pathology.
+// numframes resolutionX resolutionY imageFilePrefix
+// upperCornerX upperCornerY lowerCornerX lowerCornerY maxIterations  ; first frame (full set)
+// upperCornerX upperCornerY lowerCornerX lowerCornerY maxIterations  ; last frame (deep zoom)
