@@ -234,7 +234,7 @@ The 960×540 worst-case CPU region remains 14–15 s at every `diffT` on every b
 
 ## Reports
 
-Seven LaTeX reports document the work chronologically. Each report's title page pins the binary commit(s) that produced its measurements.
+Twelve LaTeX reports document the work chronologically (numbered 01–09, 11–13; there is no report 10). Each report's title page pins the binary commit(s) that produced its measurements.
 
 | File | Binary commit(s) | Subject |
 |---|---|---|
@@ -249,11 +249,12 @@ Seven LaTeX reports document the work chronologically. Each report's title page 
 | `reports/09-9point-sampling.tex` | `examine/9-points-sampling` atop `binary-v2-viz` | 9-point stencil vs 4-corner sampler; catches the frame-89 outlier (84% interior) but not frame 73 (97% interior); +5.4% leaves; wall flat (+0.6%, throughput-bound) |
 | `reports/11-priority-queue.tex` | `feat/priority-queue` / `binary-v4-pq` atop `binary-v3-9point` | Largest-first priority queue vs FIFO; **wall-neutral negative result** (−0.55%); outlier not routed to GPU (shared queue, 11:1 CPU:GPU extraction). §3.4 shows the outlier is GPU-friendly (coherent, ~30×) → the real lever is GPU **affinity**, not a shared queue. Code NOT merged to main (FIFO kept). |
 | `reports/12-gpu-affinity.tex` | `feat/gpu-affinity` / `binary-v5-affinity` atop `binary-v3-9point` | Min-max work queue, GPU thread pops largest / CPU smallest. **First wall win: −3.6%** (51.73→49.86 s, disjoint A/B); routes the 960×540 outlier to the GPU (460 ms vs 13.3 s on CPU), CPU outliers 1→0. Bounded by GPU near-saturation (~91%). CPU-only guard (LPT) measured a wash. Merged to main. |
+| `reports/13-zoom-points.tex` | `binary-v5-affinity` (`fc33e29`) | Load-balance characterization across **four zoom regimes** (outside / inside / Misiurewicz / seahorse), same binary, only the deep target differs. Cost spans **32×** (2.37–76.3 s) yet CPU thread spread stays **<1.4% in every regime** — dynamic balance is not the bottleneck; the binding resource shifts CPU-pool→GPU (**95–96% saturation** on heavy frames, same ceiling as report 12). Seahorse reproduces the interior outlier **8×**, all `cardioidBulb=1` main-cardioid interiors overflowing the saturated GPU — the **first measured beneficiary of the cardioid certificate** (canonical minibrot is `cardioidBulb=0`). Sets the baseline for the static-LB study. |
 
 Build any report with:
 ```bash
 scripts/build_report.sh 03-bug-analysis      # one report
-scripts/build_report.sh all                  # all seven
+scripts/build_report.sh all                  # every report
 ```
 
 ## Adding a new report
@@ -281,6 +282,7 @@ Raw measurement data, by experiment number. Per-rep `.stderr` and `.stdout` file
 | `experiments/10-difft-9point/` | `binary-v3-9point` | `results.csv` + 15 stderr logs — `diffThreshold` sweep confirming 0.1 is still optimal for the 9-point binary (report `09`, §Re-Tuning Check) |
 | `experiments/11-priority-queue/` | `binary-v4-pq` vs `binary-v3-9point` | `logs/` (metrics + quiet0 dist), `nsys/` (NVTX/CUDA stats), `perf/results.csv` (A/B) — FIFO vs largest-first priority queue (report `11`); includes the AC-power contamination note |
 | `experiments/12-gpu-affinity/` | `binary-v5-affinity` vs `binary-v3-9point` | `logs/`, `nsys/`, `perf/results.csv` (hybrid A/B, −3.6%), `cpu_only/` (CPU-only 3-way: FIFO vs smallest-first vs guarded LPT) — report `12` |
+| `experiments/13-zoom-points/` | `binary-v5-affinity` (`fc33e29`) | `spec_{outside,inside,misiurewicz,seahorse}.in`, `run.sh`, `README.md`, `logs/` (`.timing`/`.viz` `.stderr` per point) — four-regime characterization (report `13`). `viz_<pt>/` PNG frames and `anim_<pt>.mp4` animations gitignored, regenerated via `run.sh viz` + ffmpeg |
 
 ## Conclusions
 
