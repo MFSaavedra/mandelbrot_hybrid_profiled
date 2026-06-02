@@ -31,10 +31,26 @@ GPU, relieving the CPU pool. Unlike the shared largest-first priority queue
 min-max extraction reserves the big regions for the GPU. Bounded at −3.6%
 because the GPU is now ~91% utilized (near-saturation) and the CPU pool (~49.5 s)
 is the new wall — further gains need work-reduction (periodicity checking).
-Caveat: in CPU-only mode all threads pop smallest (smallest-first, suboptimal);
-the policy is hybrid-oriented. Full analysis: `reports/12-gpu-affinity.tex`.
+A CPU-only guard makes CPU threads pull the largest (LPT) when no GPU is present
+(see below; measured a wash at this scale). Full analysis: `reports/12-gpu-affinity.tex`.
 
 ## Contents
 - `logs/` — `metrics_{base,aff}.stderr`, `dist_{base,aff}.stderr`.
 - `perf/` — `results.csv` + per-rep stderr.
 - `nsys/` — `{base,aff}_stats.txt`. `.nsys-rep`/`.sqlite` gitignored.
+
+## CPU-only guard (cpu_only/)
+
+The guard makes CPU threads pull the largest region (LPT) when no GPU is present
+(instead of smallest-first). Measured head-to-head (gpu=0, 12 threads, 2 reps):
+
+| Ordering | wall mean | worst region |
+|---|---:|---:|
+| FIFO (baseline) | 156.84 s | 14.1 s |
+| smallest-first (no guard) | 157.41 s | 14.0 s |
+| largest-first / LPT (guard) | 156.88 s | 14.3 s |
+
+All within ~0.4% (noise): at 5,608 fine-grained leaves / 12 threads the tail is
+self-filling, so ordering is a wash. The feared smallest-first regression doesn't
+materialize; LPT doesn't beat FIFO. Guard kept as the principled, zero-cost
+choice (protects coarser/smaller workloads), but earns nothing measurable here.

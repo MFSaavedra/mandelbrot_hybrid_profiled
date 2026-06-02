@@ -255,6 +255,8 @@ int main (int argc, char *argv[])
   MandelRegion::initColorMapAndThrer (MAXMAXITER, diffT, pixT);
 
   WorkQueue workQ;
+  // CPU-only runs: CPU threads use largest-first (LPT) instead of smallest-first.
+  workQ.setGpuPresent (enableGPU);
 
   // generate the needed frame objects and the corresponding regions
   double uX = upperCornerX[0], uY = upperCornerY[0];

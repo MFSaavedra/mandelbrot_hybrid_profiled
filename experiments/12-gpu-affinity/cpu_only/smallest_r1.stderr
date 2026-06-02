@@ -1,0 +1,39 @@
+[config] numThr=12 gpuEnable=0 diffT=0.100 pixT=32768 res=1920x1080 frames=100 quiet=1 save=0 viz=0 vizFrame=-1
+[OUTLIER] frame=73 depth=1 img=(0,0) px=960x540 c=[-0.511800,-0.346601]..[-0.093736,-0.599931] corners=7327/7327/7327/7327 spread=0 meanIter=7131.2 inset=97.3% cardioidBulb=0 ms=13950.8
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 475
+  Total compute time      : 156235.982 ms  (avg 328.918 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 447
+  Total compute time      : 156235.536 ms  (avg 349.520 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 471
+  Total compute time      : 156237.603 ms  (avg 331.715 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 513
+  Total compute time      : 156272.843 ms  (avg 304.625 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 459
+  Total compute time      : 156413.824 ms  (avg 340.771 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 438
+  Total compute time      : 156582.423 ms  (avg 357.494 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 441
+  Total compute time      : 156738.590 ms  (avg 355.416 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 417
+  Total compute time      : 156742.772 ms  (avg 375.882 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 481
+  Total compute time      : 156774.304 ms  (avg 325.934 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 506
+  Total compute time      : 156907.318 ms  (avg 310.094 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 443
+  Total compute time      : 156928.948 ms  (avg 354.241 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 517
+  Total compute time      : 157405.939 ms  (avg 304.460 ms/region)
+[total_elapsed_s] 157.441898
