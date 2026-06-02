@@ -1,0 +1,46 @@
+[config] numThr=12 gpuEnable=1 diffT=0.100 pixT=32768 res=1920x1080 frames=100 quiet=1 save=0 viz=0 vizFrame=-1
+[OUTLIER] frame=73 depth=1 img=(0,0) px=960x540 c=[-0.511800,-0.346601]..[-0.093736,-0.599931] corners=7327/7327/7327/7327 spread=0 meanIter=7131.2 inset=97.3% cardioidBulb=0 ms=13419.9
+[GPU profiling summary]
+  Regions computed on GPU : 4004
+  Total kernel time       : 46351.277 ms  (avg 11.576 ms/region)
+  Total D→H memcpy time   : 115.155 ms  (avg 0.029 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 149
+  Total compute time      : 50496.680 ms  (avg 338.904 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 112
+  Total compute time      : 50537.889 ms  (avg 451.231 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 132
+  Total compute time      : 50551.362 ms  (avg 382.965 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 148
+  Total compute time      : 50618.631 ms  (avg 342.018 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 156
+  Total compute time      : 50648.580 ms  (avg 324.670 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 157
+  Total compute time      : 50737.427 ms  (avg 323.168 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 126
+  Total compute time      : 50844.402 ms  (avg 403.527 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 174
+  Total compute time      : 50925.856 ms  (avg 292.677 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 152
+  Total compute time      : 51041.153 ms  (avg 335.797 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 173
+  Total compute time      : 51061.739 ms  (avg 295.155 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 125
+  Total compute time      : 51180.146 ms  (avg 409.441 ms/region)
+[total_elapsed_s] 51.198778
+Collecting data...
+Generating '/tmp/claude-1000/nsys-report-f0c1.qdstrm'
+Press Ctrl-C to stop symbol files downloading
+[1/1] [0%                          ] prio_prof.nsys-rep[1/1] [0%                          ] prio_prof.nsys-rep[1/1] [0%                          ] prio_prof.nsys-rep[1/1] [7%                          ] prio_prof.nsys-rep[1/1] [8%                          ] prio_prof.nsys-rep[1/1] [7%                          ] prio_prof.nsys-rep[1/1] [5%                          ] prio_prof.nsys-rep[1/1] [7%                          ] prio_prof.nsys-rep[1/1] [6%                          ] prio_prof.nsys-rep[1/1] [13%                         ] prio_prof.nsys-rep[1/1] [11%                         ] prio_prof.nsys-rep[1/1] [10%                         ] prio_prof.nsys-rep[1/1] [9%                          ] prio_prof.nsys-rep[1/1] [8%                          ] prio_prof.nsys-rep[1/1] [10%                         ] prio_prof.nsys-rep[1/1] [9%                          ] prio_prof.nsys-rep[1/1] [8%                          ] prio_prof.nsys-rep[1/1] [7%                          ] prio_prof.nsys-rep[1/1] [11%                         ] prio_prof.nsys-rep[1/1] [10%                         ] prio_prof.nsys-rep[1/1] [9%                          ] prio_prof.nsys-rep[1/1] [8%                          ] prio_prof.nsys-rep[1/1] [11%                         ] prio_prof.nsys-rep[1/1] [12%                         ] prio_prof.nsys-rep[1/1] [=15%                        ] prio_prof.nsys-rep[1/1] [=16%                        ] prio_prof.nsys-rep[1/1] [==19%                       ] prio_prof.nsys-rep[1/1] [===22%                      ] prio_prof.nsys-rep[1/1] [====25%                     ] prio_prof.nsys-rep[1/1] [====28%                     ] prio_prof.nsys-rep[1/1] [=====31%                    ] prio_prof.nsys-rep[1/1] [======34%                   ] prio_prof.nsys-rep[1/1] [=======37%                  ] prio_prof.nsys-rep[1/1] [========40%                 ] prio_prof.nsys-rep[1/1] [=========43%                ] prio_prof.nsys-rep[1/1] [=========46%                ] prio_prof.nsys-rep[1/1] [==========49%               ] prio_prof.nsys-rep[1/1] [===========50%              ] prio_prof.nsys-rep[1/1] [===========51%              ] prio_prof.nsys-rep[1/1] [===========52%              ] prio_prof.nsys-rep[1/1] [===========53%              ] prio_prof.nsys-rep[1/1] [============54%             ] prio_prof.nsys-rep[1/1] [============55%             ] prio_prof.nsys-rep[1/1] [============56%             ] prio_prof.nsys-rep[1/1] [============57%             ] prio_prof.nsys-rep[1/1] [=============58%            ] prio_prof.nsys-rep[1/1] [=============59%            ] prio_prof.nsys-rep[1/1] [=============60%            ] prio_prof.nsys-rep[1/1] [==============61%           ] prio_prof.nsys-rep[1/1] [==============62%           ] prio_prof.nsys-rep[1/1] [==============63%           ] prio_prof.nsys-rep[1/1] [==============64%           ] prio_prof.nsys-rep[1/1] [===============65%          ] prio_prof.nsys-rep[1/1] [===============66%          ] prio_prof.nsys-rep[1/1] [===============67%          ] prio_prof.nsys-rep[1/1] [================68%         ] prio_prof.nsys-rep[1/1] [================69%         ] prio_prof.nsys-rep[1/1] [================70%         ] prio_prof.nsys-rep[1/1] [================71%         ] prio_prof.nsys-rep[1/1] [=================72%        ] prio_prof.nsys-rep[1/1] [=================73%        ] prio_prof.nsys-rep[1/1] [=================74%        ] prio_prof.nsys-rep[1/1] [==================75%       ] prio_prof.nsys-rep[1/1] [==================76%       ] prio_prof.nsys-rep[1/1] [==================77%       ] prio_prof.nsys-rep[1/1] [==================78%       ] prio_prof.nsys-rep[1/1] [===================79%      ] prio_prof.nsys-rep[1/1] [===================80%      ] prio_prof.nsys-rep[1/1] [===================81%      ] prio_prof.nsys-rep[1/1] [===================82%      ] prio_prof.nsys-rep[1/1] [====================83%     ] prio_prof.nsys-rep[1/1] [====================84%     ] prio_prof.nsys-rep[1/1] [====================85%     ] prio_prof.nsys-rep[1/1] [=====================86%    ] prio_prof.nsys-rep[1/1] [=====================87%    ] prio_prof.nsys-rep[1/1] [=====================88%    ] prio_prof.nsys-rep[1/1] [=====================89%    ] prio_prof.nsys-rep[1/1] [======================90%   ] prio_prof.nsys-rep[1/1] [======================91%   ] prio_prof.nsys-rep[1/1] [======================92%   ] prio_prof.nsys-rep[1/1] [=======================93%  ] prio_prof.nsys-rep[1/1] [=======================94%  ] prio_prof.nsys-rep[1/1] [=======================95%  ] prio_prof.nsys-rep[1/1] [========================100%] prio_prof.nsys-rep[1/1] [========================100%] prio_prof.nsys-rep
+Generated:
+	/home/lynx/box/cpp/Multicore_and_GPU_2e_code/Chapter_11_Loadbalancing/mandelbrot_hybrid_profiled/experiments/11-priority-queue/nsys/prio_prof.nsys-rep
