@@ -234,7 +234,7 @@ The 960×540 worst-case CPU region remains 14–15 s at every `diffT` on every b
 
 ## Reports
 
-Twelve LaTeX reports document the work chronologically (numbered 01–09, 11–13; there is no report 10). Each report's title page pins the binary commit(s) that produced its measurements.
+Thirteen LaTeX reports document the work chronologically (numbered 01–09, 11–14; there is no report 10). Each report's title page pins the binary commit(s) that produced its measurements. Reports 01–13 are measurement reports; report 14 is a code/architecture guide (no associated `experiments/` data).
 
 | File | Binary commit(s) | Subject |
 |---|---|---|
@@ -250,6 +250,7 @@ Twelve LaTeX reports document the work chronologically (numbered 01–09, 11–1
 | `reports/11-priority-queue.tex` | `feat/priority-queue` / `binary-v4-pq` atop `binary-v3-9point` | Largest-first priority queue vs FIFO; **wall-neutral negative result** (−0.55%); outlier not routed to GPU (shared queue, 11:1 CPU:GPU extraction). §3.4 shows the outlier is GPU-friendly (coherent, ~30×) → the real lever is GPU **affinity**, not a shared queue. Code NOT merged to main (FIFO kept). |
 | `reports/12-gpu-affinity.tex` | `feat/gpu-affinity` / `binary-v5-affinity` atop `binary-v3-9point` | Min-max work queue, GPU thread pops largest / CPU smallest. **First wall win: −3.6%** (51.73→49.86 s, disjoint A/B); routes the 960×540 outlier to the GPU (460 ms vs 13.3 s on CPU), CPU outliers 1→0. Bounded by GPU near-saturation (~91%). CPU-only guard (LPT) measured a wash. Merged to main. |
 | `reports/13-zoom-points.tex` | `binary-v5-affinity` (`fc33e29`) | Load-balance characterization across **four zoom regimes** (outside / inside / Misiurewicz / seahorse), same binary, only the deep target differs. Cost spans **32×** (2.37–76.3 s) yet CPU thread spread stays **<1.4% in every regime** — dynamic balance is not the bottleneck; the binding resource shifts CPU-pool→GPU (**95–96% saturation** on heavy frames, same ceiling as report 12). Seahorse reproduces the interior outlier **8×**, all `cardioidBulb=1` main-cardioid interiors overflowing the saturated GPU — the **first measured beneficiary of the cardioid certificate** (canonical minibrot is `cardioidBulb=0`). Sets the baseline for the static-LB study. |
+| `reports/14-architecture-guide.tex` | `binary-v5-affinity` (`fc33e29`) | **Code/architecture guide** (not a measurement). File-by-file walkthrough of the whole source with real code excerpts from every translation unit (`main.cpp`, `mandelframe`, `mandelregion`, `workqueue`, `kernel.cu`) plus the Makefile/instrumentation/viz layers — an in-depth reference for reading and extending the code. Explains how the three local decisions (task size in `examine`, task owner in `WorkQueue::extract`, completion in the atomic counter) compose into the measured behaviour. Companion to `INSTRUMENTATION.md`; attributes all numbers to reports 01–13. |
 
 Build any report with:
 ```bash

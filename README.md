@@ -9,8 +9,8 @@ This repository extends the original code with NVTX + CUDA-event
 instrumentation and end-to-end wall timing, a one-line bug fix to
 `MandelRegion::examine()`'s min/max reduction, a **9-point sampling stencil**,
 a **GPU-affinity work queue**, a three-mode **subdivision visualizer**, batch
-sweep drivers, and twelve LaTeX reports covering everything that has been
-measured.
+sweep drivers, thirteen LaTeX reports (twelve measurement reports plus a
+file-by-file code/architecture guide), and an instrumentation reference.
 
 **Current best:** `main` = tag `binary-v5-affinity` (9-point stencil + GPU
 affinity). Hybrid wall ≈ **49.9 s** (100 frames, 1920×1080, i7-9750H +
@@ -75,6 +75,7 @@ for the 9-point binary is documented in report 09 §Re-Tuning Check.)
 | 11 | priority-queue | `binary-v4-pq` | Shared largest-first queue — **negative result** (not merged) |
 | 12 | gpu-affinity | `binary-v5-affinity` | Min-max queue, GPU pops largest — **first wall win, −3.6%** |
 | 13 | zoom-points | `binary-v5-affinity` | Load-balance characterization across four zoom regimes |
+| 14 | architecture-guide | `binary-v5-affinity` | Code/architecture guide: file-by-file walkthrough of the whole source (not a measurement) |
 
 PDFs build under `reports/NN-name.pdf` via `scripts/build_report.sh`.
 
