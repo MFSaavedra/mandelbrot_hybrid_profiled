@@ -65,33 +65,26 @@ $\sim$595~s of compute) follows from the code. Companion file:
 \texttt{mandelHybrid} turns a camera path through the complex plane into a
 sequence of PNG images. The unit of work is a \textbf{region}: a rectangle of
 pixels belonging to one frame. The whole program is a producer/consumer loop over
-regions:
+regions (Figure~\ref{fig:arch}).
 
-\begin{verbatim}
-   spec.in ---> [interpolate N frames] ---> one root MandelRegion per frame
-                                                     |
-                                                     v
-                                            +------------------+
-                                            |    WorkQueue     |  (min-max multiset,
-                                            | (shared, locked) |   ordered by pixels)
-                                            +------------------+
-                                              ^   |        ^   |
-                            append 4 children |   | extract|   | extract
-                                              |   v        |   v
-                               +---------------------+   +---------------------+
-                               |  CPU worker threads |   |   GPU worker (thr 0)|
-                               |  pop SMALLEST region|   |  pop LARGEST region |
-                               +---------------------+   +---------------------+
-                                              |               |
-                                              v               v
-                                     MandelRegion::examine(): sample 9 points
-                                              |
-                                 uniform / small? --yes--> compute() --> write pixels
-                                              |                              |
-                                              no                             v
-                                              v                    frame.regionComplete()
-                                   split into 4, append to queue    (atomic; last one saves PNG)
-\end{verbatim}
+\insertimage{img/14-architecture.pdf}{width=\linewidth}
+            {The whole program as a producer/consumer cycle over regions, drawn
+             directly from the source at \texttt{fc33e29}. Read top to bottom:
+             \texttt{main.cpp} seeds the shared \texttt{WorkQueue} with one root
+             \texttt{MandelRegion} per interpolated frame, and every worker
+             thread runs the same \texttt{CalcThr::run} drain loop. The
+             load-balancing decision lives in two places the figure highlights.
+             \emph{Who} pulls a region: cyan is the single GPU thread, which pops
+             the \emph{largest} pending region (\texttt{--end()}); yellow is the
+             CPU pool, which pops the \emph{smallest} (\texttt{begin()}); the
+             dotted note is the no-GPU LPT guard. \emph{How big} the task is:
+             \texttt{examine}'s 9-point spread test. From there a region is
+             either a \textbf{leaf} (\texttt{compute}, then the atomic
+             \texttt{regionComplete} whose last $1\!\to\!0$ decrement writes the
+             PNG) or a \textbf{split} (four quadrant children re-enter the queue
+             along the dashed edge, \texttt{regionSplit} bumping the same atomic
+             counter by $+3$). Those three local decisions --- task owner, task
+             size, completion --- are the entire scheduler.\label{fig:arch}}
 
 \paragraph{Execution model.} One \texttt{CalcThr} (a \texttt{QThread} subclass)
 runs per logical worker. Thread~0 drives the GPU path; every other thread is

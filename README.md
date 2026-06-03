@@ -9,9 +9,9 @@ This repository extends the original code with NVTX + CUDA-event
 instrumentation and end-to-end wall timing, a one-line bug fix to
 `MandelRegion::examine()`'s min/max reduction, a **9-point sampling stencil**,
 a **GPU-affinity work queue**, a three-mode **subdivision visualizer**, batch
-sweep drivers, fourteen LaTeX reports (twelve measurement reports, a
-file-by-file code/architecture guide, and an async-streams reconsideration), and
-an instrumentation reference.
+sweep drivers, fifteen LaTeX reports (twelve measurement reports, a
+file-by-file code/architecture guide, an async-streams reconsideration, and a
+kernel-level Nsight Compute measurement), and an instrumentation reference.
 
 **Current best:** `main` = tag `binary-v5-affinity` (9-point stencil + GPU
 affinity). Hybrid wall ≈ **49.9 s** (100 frames, 1920×1080, i7-9750H +
@@ -78,6 +78,7 @@ for the 9-point binary is documented in report 09 §Re-Tuning Check.)
 | 13 | zoom-points | `binary-v5-affinity` | Load-balance characterization across four zoom regimes |
 | 14 | architecture-guide | `binary-v5-affinity` | Code/architecture guide: file-by-file walkthrough of the whole source (not a measurement) |
 | 15 | async-streams-analysis | `binary-v5-affinity` | Why async CUDA streams are a small lever — reconsideration, no new measurements; `cudaMemcpy` is 99.8 % kernel-wait, so the lever is sub-1 % of wall |
+| 16 | ncu-divergence | `binary-v5-affinity` | First Nsight Compute kernel measurement — coherent GPU regions are **100 % warp-efficient** and **FP64-bound at 85.6 % of peak**; divergence (down to 34 %) confined to floor-clamped boundary leaves |
 
 PDFs build under `reports/NN-name.pdf` via `scripts/build_report.sh`.
 
@@ -91,6 +92,7 @@ PDFs build under `reports/NN-name.pdf` via `scripts/build_report.sh`.
 | **GPU affinity is the first lever to move the wall** | Min-max queue (GPU pops largest, CPU smallest): −3.6 % (51.73 → 49.86 s, disjoint A/B). Routes the outlier to the GPU (460 ms vs 13.3 s on CPU); CPU outliers 1 → 0. Bounded by GPU ~91 % saturation. |
 | **A *shared* largest-first queue does not help** | Wall-neutral (−0.55 %): 11 CPU threads vs 1 GPU win the big regions 11:1, so the outlier stays on CPU. Negative result, not merged. |
 | **`cudaMemcpy` time is mostly kernel-wait, not transfer** | ~99 % kernel-wait; the actual D → H transfer is only ~95 ms total. |
+| **The GPU's coherent work is divergence-free and FP64-bound** | `ncu` (report 16): interior/exterior kernels = **100.0 % warp efficiency** and **100.0 % branch efficiency**; FP64 pipe at **85.6 % of peak** (~110/129 GFLOPS, 1:32 TU116), 98.9 % occupancy, ~0 % memory. Divergence (down to 34 %) lives only in 240×135 floor leaves, which affinity routes to the CPU. Corrects report 11's ~40 % FP64 estimate. |
 | **Cost varies 32×, but dynamic balance never binds** | Across four zoom regimes (report 13) the CPU thread spread stays <1.4 %; the binding resource is GPU saturation (95–96 %), not load imbalance. |
 
 ## Branches and tags
@@ -122,6 +124,10 @@ iterations on in-set pixels:
 1. **Periodicity checking** in `diverge()` — detect the cycle interior orbits
    settle into and bail early. Exact, no image change; directly cuts the
    in-set pixel cost that bounds the wall. *(Recommended next: `feat/periodicity-check`.)*
+   **Caveat (report 16, `ncu`):** the GPU's interior kernels are already 100 %
+   warp-efficient and FP64-bound at 85.6 % of peak, so periodicity helps the CPU
+   branch cleanly but would *introduce* divergence on the GPU and add FP64 work to
+   the bottleneck pipe — land it CPU-side first, A/B the GPU branch separately.
 2. **Heuristic interior certificate** — constant-fill a region whose samples all
    reach `maxIter`. Faster but risks filling over thin filaments. (The exact
    cardioid/bulb certificate applies only where corners are in the main

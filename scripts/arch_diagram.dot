@@ -1,0 +1,69 @@
+// mandelHybrid architecture / producer-consumer flow.
+// Source for reports/14-architecture-guide.tex "The Big Picture" figure.
+// Regenerate the figure with:
+//     dot -Tpdf scripts/arch_diagram.dot -o reports/img/14-architecture.pdf
+// (reports/img/ is gitignored; the figure is baked into the committed report PDF.)
+//
+// Hand-checked against the actual source at fc33e29 (binary-v5-affinity):
+//   main.cpp (setup + CalcThr::run), workqueue.{h,cpp} (extract/append),
+//   mandelregion.cpp (examine/compute), mandelframe.cpp (region counters),
+//   kernel.cu (hostFE).  Colours follow the viz convention: cyan = GPU, yellow = CPU.
+
+digraph architecture {
+  rankdir = TB;
+  bgcolor = "white";
+  graph [fontname = "Helvetica", nodesep = 0.45, ranksep = 0.55, splines = true];
+  node  [fontname = "Helvetica", fontsize = 11, shape = box, style = "filled",
+         fillcolor = "white", color = "#333333", margin = "0.14,0.09"];
+  edge  [fontname = "Helvetica", fontsize = 9, color = "#333333"];
+
+  // ---------------------------------------------------------------- setup
+  spec  [shape = note, fillcolor = "#ececec",
+         label = "spec.in\l(camera path -> N frames)\l"];
+  setup [fillcolor = "#ececec",
+         label = "main.cpp setup -- per interpolated frame:\l  - new MandelFrame   (remainingRegions = 1)\l  - new MandelRegion root   (depth 0, full image)\l  - workQ.append(root)\l"];
+
+  // ------------------------------------------------------------ work queue
+  wq [style = "filled,bold", fillcolor = "#d6d6d6", penwidth = 2,
+      label = "WorkQueue   (shared, QMutex-locked)\lmultiset<MandelRegion*> ordered by pixel count\lbegin() = smallest      --end() = largest\l"];
+
+  // -------------------------------------------------------------- workers
+  gpu [fillcolor = "#bfe9f7",
+       label = "GPU worker = thr 0\lCalcThr::run drain loop:\l  while ((t = extract(isGPU = true)))\l  -> pops LARGEST region  (--end())\l"];
+  cpu [fillcolor = "#fdeba0",
+       label = "CPU workers = thr 1 .. n-1\lCalcThr::run drain loop:\l  while ((t = extract(false)))\l  -> pops SMALLEST region  (begin())\l"];
+  guard [shape = note, fillcolor = "#fff6cc", fontsize = 9,
+         label = "CPU-only guard:\lif gpuPresent == false,\lCPU pops largest too (LPT)\l"];
+
+  // -------------------------------------------------------------- examine
+  examine [label = "MandelRegion::examine(q, onGPU)\l9-point stencil: 4 corners + 4 edge midpoints + centre\lspread = maxIter - minIter   (via diverge())\l"];
+  decide  [shape = diamond, fillcolor = "#ffffff",
+           label = "spread < diffThresh*maxIter\lOR  pixels < pixelSizeThresh ?\l"];
+
+  // ----------------------------------------------------------- leaf path
+  compute [label = "compute(onGPU)   -- region is a LEAF\lGPU: hostFE() -> mandelKernel + D->H copy\lCPU: diverge() per pixel\l-> write pixels into the frame image\l"];
+  complete [fillcolor = "#d9f2d9",
+            label = "ownerFrame->regionComplete()\lremainingRegions.fetchAndAddOrdered(-1)   (atomic)\llast one (1 -> 0): img->save(PNG)\l"];
+
+  // ---------------------------------------------------------- split path
+  split  [label = "split into 4 quadrant children\ldepth+1; each inherits its 1 shared outer corner\lq.append(sub[UL, UR, LL, LR])\l"];
+  rsplit [label = "ownerFrame->regionSplit()\lremainingRegions.fetchAndAddOrdered(+3)   (atomic)\l(1 region -> 4 = net +3)\l"];
+
+  // ---------------------------------------------------------------- edges
+  spec  -> setup;
+  setup -> wq      [label = "seed: 1 root / frame"];
+  wq    -> gpu     [label = "extract"];
+  wq    -> cpu     [label = "extract"];
+  gpu   -> examine [label = "onGPU = true"];
+  cpu   -> examine [label = "onGPU = false"];
+  cpu   -> guard   [style = dotted, arrowhead = none, constraint = false];
+  examine -> decide;
+  decide  -> compute [label = "yes  (leaf)"];
+  decide  -> split   [label = "no  (subdivide)"];
+  compute -> complete;
+  split   -> rsplit;
+  rsplit  -> wq [label = "4 children re-enter queue", style = dashed,
+                 constraint = false, color = "#888888", fontcolor = "#666666"];
+
+  { rank = same; gpu; cpu; }
+}
