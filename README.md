@@ -9,8 +9,9 @@ This repository extends the original code with NVTX + CUDA-event
 instrumentation and end-to-end wall timing, a one-line bug fix to
 `MandelRegion::examine()`'s min/max reduction, a **9-point sampling stencil**,
 a **GPU-affinity work queue**, a three-mode **subdivision visualizer**, batch
-sweep drivers, thirteen LaTeX reports (twelve measurement reports plus a
-file-by-file code/architecture guide), and an instrumentation reference.
+sweep drivers, fourteen LaTeX reports (twelve measurement reports, a
+file-by-file code/architecture guide, and an async-streams reconsideration), and
+an instrumentation reference.
 
 **Current best:** `main` = tag `binary-v5-affinity` (9-point stencil + GPU
 affinity). Hybrid wall ≈ **49.9 s** (100 frames, 1920×1080, i7-9750H +
@@ -76,6 +77,7 @@ for the 9-point binary is documented in report 09 §Re-Tuning Check.)
 | 12 | gpu-affinity | `binary-v5-affinity` | Min-max queue, GPU pops largest — **first wall win, −3.6%** |
 | 13 | zoom-points | `binary-v5-affinity` | Load-balance characterization across four zoom regimes |
 | 14 | architecture-guide | `binary-v5-affinity` | Code/architecture guide: file-by-file walkthrough of the whole source (not a measurement) |
+| 15 | async-streams-analysis | `binary-v5-affinity` | Why async CUDA streams are a small lever — reconsideration, no new measurements; `cudaMemcpy` is 99.8 % kernel-wait, so the lever is sub-1 % of wall |
 
 PDFs build under `reports/NN-name.pdf` via `scripts/build_report.sh`.
 
@@ -126,9 +128,11 @@ iterations on in-set pixels:
    cardioid/bulb — true for the seahorse regime of report 13, not the canonical
    minibrot outlier.)
 
-Lower-priority: async CUDA streams (small recoverable idle, needs a cross-region
-pipeline) and a `pixelSizeThresh` sweep. Full rationale: [`CLAUDE.md`](CLAUDE.md),
-*Recommended next steps*.
+Lower-priority: async CUDA streams — **priced out at sub-1 % of wall** in
+report 15 (the `cudaMemcpy` "99 %" is 99.8 % kernel-wait, ~22 µs real transfer;
+the GPU-driver stall is a busy-spun lane worth ~0.4 of a core past the SMT knee,
+and the GPU is ~91 % saturated) — and a `pixelSizeThresh` sweep. Full rationale:
+[`CLAUDE.md`](CLAUDE.md), *Recommended next steps*.
 
 ## More
 

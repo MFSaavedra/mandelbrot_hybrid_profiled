@@ -1,0 +1,365 @@
+% Template:     Reporte LaTeX
+% Documento:    Async CUDA streams -- a reconsideration.
+% Codificación: UTF-8
+
+\documentclass[
+	english,
+	letterpaper, oneside
+]{article}
+
+\def\documenttitle {Why Async CUDA Streams Are a Small Lever: Anatomy of the \texttt{cudaMemcpy} Wait}
+\def\documentsubtitle {A Reconsideration of ``the Largest Unexplored Optimisation''}
+\def\documentsubject {Profiling, GPU Scheduling, Negative Result}
+\def\documentdate {\today}
+
+\def\documentauthor {Matias Saavedra}
+\def\coursename {Multicore and GPU Programming}
+\def\coursecode {CISC 701}
+
+\def\universityname {Universidad de Chile}
+\def\universityfaculty {Facultad de Ciencias Físicas y Matemáticas}
+\def\universitydepartment {Departamento de Ciencias de la Computación}
+\def\universitydepartmentimage {departamentos/dcc}
+\def\universitylocation {Santiago de Chile}
+
+\input{template}
+
+\begin{document}
+
+\templatePagecfg
+\templateFinalcfg
+
+\inserttitle
+
+\begin{center}\small\textsf{%
+Binary: \texttt{binary-v5-affinity} (\texttt{fc33e29}), HEAD \texttt{eda2ae7}
+(docs only). \textbf{No new measurements.} This report re-derives the cost
+of async CUDA streams from data already in
+\texttt{01-initial-profile.tex}, \texttt{09-9point-sampling.tex}, and
+\texttt{12-gpu-affinity.tex}, plus one code fact (the absence of
+\texttt{cudaSetDeviceFlags}) verified on \texttt{fc33e29}.%
+}\end{center}
+
+% -----------------------------------------------------------------------
+\begin{abstract}
+This report revisits the asynchronous-CUDA-streams recommendation that five
+prior reports (\texttt{01}, \texttt{04}, \texttt{05}, \texttt{06}, \texttt{07})
+carried as ``the largest unexplored optimisation,'' and that
+\texttt{09-9point-sampling.tex} began to walk back. No new run: it re-derives
+the cost from the CUDA-event and \texttt{nsys} data already collected, the
+per-region distribution of \texttt{12-gpu-affinity.tex}, and one code fact. The
+headline: the \textbf{13.4~ms} the API trace attributes to \texttt{cudaMemcpy}
+is \textbf{99.8\,\% kernel-wait} and only \textbf{$\sim$22~\textmu s} of actual
+device-to-host transfer, so async streams have essentially no transfer latency
+to hide. What they \emph{could} reclaim is the GPU-driver thread's stall --- but
+that thread \emph{busy-spins} (no \texttt{cudaSetDeviceFlags}), the stall is
+worth at most one \textbf{8.7~ms} median CPU region, two-way SMT on the
+6-core/12-thread part discounts that to \textbf{$\sim$0.4} of a physical core,
+and the GPU is already \textbf{$\sim$91\,\%} utilised so the pipeline gap is
+under 9\,\%. Net: a sub-1\,\% wall lever, correctly ranked below
+work-reduction. The recommendation framing in reports \texttt{01}/\texttt{04} is
+retired.
+\end{abstract}
+
+% -----------------------------------------------------------------------
+\section{Setup and Provenance}
+
+This is an analysis report, not a measurement campaign --- in the same vein as
+\texttt{03-bug-analysis.tex} (pure code analysis) and
+\texttt{14-architecture-guide.tex} (no \texttt{experiments/} data). It produces
+no new numbers; it re-reads numbers already pinned to their own binaries and
+composes them into a single cost estimate for one optimisation that was never
+implemented. Every figure below is attributed to its source report.
+
+\paragraph{Hardware.} Intel Core i7-9750H --- \textbf{6 physical cores, 12
+logical threads} (2-way SMT, ``hyper-threading'') --- plus an NVIDIA GeForce GTX
+1660~Ti Max-Q. The renderer launches 12 worker threads by default (one per
+logical thread). \emph{Thread~0 is the sole GPU-driver thread}; the other 11 are
+CPU-only. This 6/12 asymmetry is central to the argument and is why the
+single GPU-driver thread is not a free core.
+
+\paragraph{Workload.} The canonical 100-frame zoom, $1920\times1080$,
+\texttt{diffT}\,=\,0.1, as in every prior report.
+
+\paragraph{Data sources.}
+\begin{itemize}
+  \item \texttt{01-initial-profile.tex} (\texttt{binary-v0-buggy}): the original
+        \texttt{nsys} API breakdown and the four-CUDA-event kernel/transfer
+        split. Source of the 13.4~ms / 99\,\% / 47.4~s figures.
+  \item \texttt{09-9point-sampling.tex} (\texttt{binary-v3-9point}): the cleanest
+        \texttt{cudaMemcpy}-vs-transfer table (Table~\ref{tab:anat} here), and
+        the $\sim$95~ms total-transfer figure.
+  \item \texttt{12-gpu-affinity.tex} (\texttt{binary-v5-affinity}, current best):
+        the per-region distribution after GPU affinity (CPU median 8.7~ms) and
+        the $\sim$91\,\% GPU-utilisation ceiling.
+  \item \texttt{kernel.cu} at \texttt{fc33e29}: the \texttt{hostFE} body
+        (Listing below) and the verified absence of any
+        \texttt{cudaSetDeviceFlags} call.
+\end{itemize}
+
+\paragraph{Limit on confidence.} Because nothing was re-run, the deltas quoted
+inherit the $\sigma$ of their source reports; no new variance is claimed. The
+one quantity that is an \emph{estimate} rather than a measurement --- the SMT
+efficiency of the second logical lane --- is flagged as such where it is used
+(\S\ref{sec:budget}).
+
+% -----------------------------------------------------------------------
+\section{Results}
+
+\subsection{The code under discussion}
+
+The listing below is the relevant slice of \texttt{hostFE} in \texttt{kernel.cu}.
+The \texttt{mandelKernel} launch is asynchronous --- it returns to the CPU
+immediately. The \texttt{cudaMemcpy} that follows runs on the \emph{default}
+stream and is \emph{blocking}: it cannot begin until \texttt{mandelKernel} has
+finished, so the calling thread (thread~0) parks inside it for the whole kernel
+runtime plus the transfer. The four \texttt{cudaEvent} stamps bracketing the two
+operations are precisely what let us separate kernel-wait from copy.
+
+\begin{sourcecode}{cuda}{kernel.cu, hostFE() -- the launch/copy the API trace mis-attributes.}
+// Record a GPU timestamp immediately before the kernel launch.
+CUDA_CHECK_RETURN(cudaEventRecord(evKernelStart));
+
+mandelKernel<<<grid, block>>>(d_res, upperX, upperY, stepX, stepY,
+                              resX, resY, ptc, MAXITER); // async: returns at once
+
+// Stamp the moment the kernel finishes (still async -- resolved below).
+CUDA_CHECK_RETURN(cudaEventRecord(evKernelStop));
+CUDA_CHECK_RETURN(cudaEventRecord(evMemcpyStart));
+
+// Default-stream, BLOCKING copy: cannot start until mandelKernel finishes,
+// so the GPU-driver thread parks here for the entire kernel runtime.
+CUDA_CHECK_RETURN(
+    cudaMemcpy(h_res, d_res, resY * ptc, cudaMemcpyDeviceToHost));
+
+CUDA_CHECK_RETURN(cudaEventRecord(evMemcpyStop));
+CUDA_CHECK_RETURN(cudaEventSynchronize(evMemcpyStop));
+
+// Two intervals: [start,stop] of the kernel, and [start,stop] of the copy.
+float kernelMs = 0.0f, memcpyMs = 0.0f;
+CUDA_CHECK_RETURN(cudaEventElapsedTime(&kernelMs, evKernelStart, evKernelStop));
+CUDA_CHECK_RETURN(cudaEventElapsedTime(&memcpyMs, evMemcpyStart, evMemcpyStop));
+\end{sourcecode}
+
+\subsection{Anatomy of one \texttt{cudaMemcpy} call}
+
+\begin{table}[H]
+    \centering
+    \caption{What the \texttt{nsys} API trace attributes to \texttt{cudaMemcpy}
+             versus what the four CUDA events show it actually is, over the
+             100-frame run (\texttt{binary-v3-9point}, report~\texttt{09}). The
+             API-trace duration is \textbf{99.8\,\% kernel-wait}; the real
+             device-to-host transfer is the last two rows. Read top-to-bottom:
+             the first block is what a naive trace reader sees; the second is
+             the truth the event timers expose.}
+    \label{tab:anat}
+    \begin{tabular}{lrl}
+        \hline
+        \textbf{Quantity} & \textbf{Value} & \textbf{Source} \\
+        \hline
+        \multicolumn{3}{l}{\emph{What the API trace reports}} \\
+        \quad \texttt{cudaMemcpy} share of CUDA API time & 99.4\,\%  & r09 \\
+        \quad \texttt{cudaMemcpy} avg per call           & 13.4~ms   & r01 \\
+        \quad \texttt{cudaMemcpy} total over run         & 45.62~s   & r09 \\
+        \hline
+        \multicolumn{3}{l}{\emph{What the four events measure}} \\
+        \quad real D\,$\to$\,H transfer, avg per call    & 22.6~\textmu s & r09 \\
+        \quad real D\,$\to$\,H transfer, total over run  & 90.7~ms   & r09 \\
+        \hline
+        \textbf{Derived kernel-wait share of \texttt{cudaMemcpy}} & \textbf{99.8\,\%} & 1$-$90.7\,ms/45.62\,s \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\subsection{The marginal-work budget}\label{sec:results-budget}
+
+\begin{table}[H]
+    \centering
+    \caption{How much useful CPU work the GPU-driver thread's per-region stall
+             could buy back on the \emph{current} binary, after each discount is
+             applied in turn. Every row except the SMT efficiency is measured;
+             that row is a stated estimate (see \S\ref{sec:budget}). The bottom
+             line is the point of the report: a 13.4~ms stall is worth, at the
+             physical-core level, well under half of one small region.}
+    \label{tab:budget}
+    \begin{tabular}{lrl}
+        \hline
+        \textbf{Step} & \textbf{Value} & \textbf{Source} \\
+        \hline
+        GPU-driver stall per GPU region ($\approx$ kernel-wait) & 13.4~ms & r01 \\
+        CPU \emph{median} region, GPU affinity                  & 8.7~ms  & r12 \\
+        \quad $\Rightarrow$ naive regions reclaimable / stall   & $\sim$1.5 & 13.4/8.7 \\
+        2nd-SMT-lane efficiency (sibling busy), \emph{estimate} & $\sim$25\,\% & assumed \\
+        \quad $\Rightarrow$ net physical-core-equiv. reclaimed  & \textbf{$\sim$0.4 region} & derived \\
+        \hline
+        Active worker threads / physical cores                  & 12 / 6  & hw \\
+        GPU utilisation (ceiling on pipeline gap)               & $\sim$91\,\% & r12 \\
+        Thread~0 time spent in \texttt{cudaMemcpy} / wall       & 47.4~s / $\sim$53~s & r01 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+% -----------------------------------------------------------------------
+\section{Analysis}
+
+\subsection{The reported 13.4~ms is 99.8\,\% kernel-wait, not data transfer}
+
+Table~\ref{tab:anat}: \texttt{nsys} attributes 99.4\,\% of all CUDA API time and
+13.4~ms per call to \texttt{cudaMemcpy}, yet the four CUDA events measure the
+actual device-to-host transfer at 22.6~\textmu s --- a factor of
+\textbf{$\sim$590} smaller. The transfer is 90.7~ms over the entire 100-frame
+run; the API trace shows 45.62~s.
+
+The mechanism is the call sequence in the listing above. A kernel launch is
+asynchronous: the \texttt{mandelKernel} launch queues the kernel and returns to
+the CPU at once. The very next blocking call, \texttt{cudaMemcpy} on the default
+stream, depends on the kernel's output and the default stream is serialised, so
+it cannot start until the kernel completes. The CPU thread
+therefore sits \emph{inside} \texttt{cudaMemcpy} for the entire kernel runtime
+and then the $\sim$22~\textmu s copy. \texttt{nsys}'s API view has no way to know
+the thread spent that time waiting on the kernel rather than moving bytes --- it
+charges the whole wall-clock span to the API call where the thread was parked.
+The reason the report-01 instrumentation exists at all is to break that span:
+\texttt{evKernelStart/Stop} bracket the compute, \texttt{evMemcpyStart/Stop}
+bracket the copy, and the difference is the artifact.
+
+The implication is decisive for streams: async streams overlap \emph{transfers}
+with compute. Here there are 90.7~ms of transfer across the run to overlap. Even
+perfect, zero-cost overlap of every transfer cannot recover more than 90.7~ms of
+a $\sim$50~s wall --- $0.18\,\%$. PCIe bandwidth was never the bottleneck.
+
+\subsection{That ``wait'' is a busy-spin, not a yield --- the core is pinned, not freed}
+
+\texttt{kernel.cu} contains no \texttt{cudaSetDeviceFlags} call (verified at
+\texttt{fc33e29}), so the device runs under the default \texttt{cudaDeviceScheduleAuto}
+policy. Its documented heuristic spins when the number of active CUDA contexts is
+less than or equal to the number of logical processors, and yields otherwise.
+Here that is \textbf{1 context vs.\ 12 logical processors}, so the condition for
+\emph{spinning} holds.
+
+The mechanism, then, is that during the 13.4~ms kernel-wait, thread~0 does not
+sleep and hand its core back to the OS scheduler; it \emph{busy-polls} the driver
+in a tight loop, keeping its logical lane near 100\,\% occupancy while producing
+no Mandelbrot pixels. This is the reason ``the thread is just waiting'' is
+subtly wrong: the thread is \emph{spending} a CPU lane to wait, not releasing it.
+Were the policy \texttt{cudaDeviceScheduleBlockingSync}, the thread would block on
+an interrupt and free the lane --- but that is not this binary.
+
+The implication is that the resource async streams (or any restructuring) could
+reclaim is concrete and bounded: one busy-spinning logical lane, for 13.4~ms per
+GPU region. The next two subsections price it.
+
+\subsection{The reclaimable work is at most one median region --- $\sim$0.4 of a core after SMT}\label{sec:budget}
+
+Table~\ref{tab:budget}: on the current affinity binary the \emph{median} CPU
+region is 8.7~ms (report~\texttt{12}), down from 88~ms under FIFO because GPU
+affinity vacuums the big coherent regions onto the GPU and leaves the CPU threads
+only small work. A 13.4~ms stall therefore spans $\sim$1.5 median regions ---
+naively, freeing thread~0 would let it finish about one-and-a-half small regions
+per GPU region.
+
+Two discounts cut that down. \textbf{First, SMT.} Thread~0 is one of 12 logical
+lanes on 6 physical cores; its sibling lane already runs one of the other 11 CPU
+workers, so the physical core thread~0 sits on is \emph{already computing
+pixels}. Reclaiming thread~0 does not add a core --- it adds the marginal
+throughput of a second SMT lane on an already-busy core, which for compute-bound
+integer work of this kind is typically $\sim$20--30\,\% (the estimate flagged in
+Table~\ref{tab:budget}; not measured here). Applying $\sim$25\,\% leaves
+$\sim$0.4 region of genuinely new physical-core work per stall. \textbf{Second,
+the SMT knee.} Aggregated over the run, thread~0 spends 47.4~s of $\sim$53~s
+inside \texttt{cudaMemcpy} (report~\texttt{01}) --- it is already $\sim$90\,\% a
+dedicated GPU feeder. Fully reclaiming it means moving the active worker count
+from 11 to 12 on 6 physical cores, where 11 threads already oversubscribe the
+cores $1.83\times$; the 12th lands on the flat part of the SMT scaling curve and
+contributes almost nothing.
+
+The implication is that the per-stall prize is not ``$\sim$1.5 regions'' but
+``$\sim$0.4 of a physical core's worth of a small region,'' added past the SMT
+saturation point of a 6-core part --- a fraction of a percent of CPU-pool
+throughput.
+
+\subsection{The GPU is $\sim$91\,\% utilised, so there is almost no gap to pipeline into}
+
+Report~\texttt{12} measured the GPU at $\sim$91\,\% utilisation under affinity
+(95--96\,\% on the heavy frames of report~\texttt{13}). A software pipeline ---
+launch region $n{+}1$'s kernel while region $n$'s copy/host-work proceeds --- only
+helps to the extent the GPU has idle gaps between kernels to fill.
+
+The mechanism is straightforward: async streams convert serial
+\texttt{launch}\,$\to$\,\texttt{wait}\,$\to$\,\texttt{launch} into overlapped
+issue, recovering the inter-kernel idle. At $\sim$91\,\% utilisation that idle is
+$\le 9\,\%$ of GPU time by construction; affinity (report~\texttt{12}) already
+spent most of the available scheduling headroom getting there. There is little
+left for a pipeline to claim.
+
+The implication is that the two independent ceilings agree: the transfer to hide
+is $0.18\,\%$ of wall (\S4.1), and the GPU idle to fill is $<9\,\%$ of an
+already-saturated device --- and the CPU-side beneficiary of either is a
+$\sim$0.4-core lane added past the SMT knee. All three bound the same lever to
+sub-1\,\% of wall.
+
+\subsection{Why five prior reports overstated it}
+
+Reports \texttt{01}, \texttt{04}, \texttt{05}, \texttt{06} and \texttt{07} each
+listed async streams as a top-tier lever; \texttt{04} called it ``still the
+largest unexplored optimisation \dots\ recover most of that 13~ms.'' The reason
+is visible in Table~\ref{tab:anat}: read literally, the \texttt{nsys} API trace
+puts 47.4~s --- nearly the whole wall --- inside \texttt{cudaMemcpy}, which looks
+like an enormous, obviously-overlappable transfer cost. The overstatement is
+exactly the kernel-wait artifact of \S4.1 propagating into a recommendation.
+
+\texttt{09-9point-sampling.tex} was the first to correct it in print, noting the
+transfer ``is only $\sim$95~ms, so async streams recover GPU-thread \emph{idle}
+around the kernel, not transfer time.'' This report completes that correction by
+pricing the idle itself (\S4.2--4.4): it is a busy-spun lane worth $\sim$0.4 of a
+physical core, against a $<9\,\%$ GPU gap. The implication is that the ranking
+should be made explicit and the stale framing retired.
+
+% -----------------------------------------------------------------------
+\section{Recommendations}
+
+\begin{enumerate}
+  \item \textbf{Keep async streams below work-reduction in priority.} The
+        combined ceiling from \S4.1--4.4 is sub-1\,\% of wall (0.18\,\% of
+        transfer to hide; $<9\,\%$ GPU idle whose CPU-side payoff is a
+        $\sim$0.4-core lane). Work-reduction --- periodicity checking in
+        \texttt{diverge()} to skip iterations on in-set pixels --- attacks the
+        $\sim$595~s of \emph{conserved} total compute that actually bounds the
+        wall (report~\texttt{09}). Trade-off: streams also demand a non-trivial
+        restructure (per-region double-buffering, deferred completion across the
+        GPU thread's region lifetime) for that sub-1\,\% return.
+  \item \textbf{If the spin cost must be confirmed before any investment, do the
+        one-line A/B first.} Add \texttt{cudaSetDeviceFlags(cudaDeviceSchedule\-BlockingSync)}
+        once in \texttt{CUDAmemSetup} and re-run the 100-frame wall. This frees
+        thread~0's lane to the OS during each kernel-wait instead of spinning;
+        the predicted result, from \S4.3, is \emph{within noise} --- the freed
+        lane lands past the SMT knee on the 6-core part. Cost: 1 line, 1 run. A
+        null result here is positive evidence that the streams restructure would
+        also be null.
+  \item \textbf{Retire the ``largest unexplored optimisation'' framing.} The
+        recommendation bullets in reports \texttt{01}, \texttt{04}, \texttt{05}
+        and \texttt{06} predate the cost decomposition above; this report
+        supersedes them. The async-streams entry in \texttt{CLAUDE.md}'s
+        ``Recommended next steps'' already ranks it lower-priority; this is the
+        quantitative backing for that ranking.
+\end{enumerate}
+
+% -----------------------------------------------------------------------
+\section{Conclusion}
+
+The 13.4~ms that the \texttt{nsys} API trace charges to \texttt{cudaMemcpy} is
+99.8\,\% kernel-wait and $\sim$22~\textmu s of real transfer --- a measurement
+artifact of timing a blocking copy that follows an asynchronous kernel launch on
+the default stream. Async CUDA streams hide transfer latency, of which this
+workload has 90.7~ms total (0.18\,\% of wall). The only other thing they could
+reclaim --- the GPU-driver thread's stall --- is a busy-spun logical lane worth
+at most one 8.7~ms median region per GPU region, discounted by two-way SMT on the
+6-core/12-thread part to $\sim$0.4 of a physical core and added past the SMT
+saturation knee, while the GPU it feeds is already $\sim$91\,\% utilised. Three
+independent ceilings put the same lever under 1\,\% of wall. What was carried
+through five reports as ``the largest unexplored optimisation'' is, once the
+kernel-wait is separated from the transfer, one of the smallest. The binding
+constraint remains the $\sim$595~s of conserved compute; the next lever is
+work-reduction, not overlap.
+
+\end{document}
