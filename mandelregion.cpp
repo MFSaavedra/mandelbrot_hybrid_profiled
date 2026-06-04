@@ -316,7 +316,12 @@ void MandelRegion::examine (WorkQueue & q, bool onGPU = false)
 
 
   // either compute the pixels or break the region in 4 pieces
-  if (maxIter - minIter < diffThresh * maxIter || pixelsX * pixelsY < pixelSizeThresh)
+  // EXPERIMENT (examine/maxiter-split): replace the diffThresh corner-spread
+  // test with a binary "all samples in-set" rule -- compute only if every one of
+  // the 9 stencil points reached MAXITER (minIter == frame MAXITER), else split.
+  // The pixel floor is retained so boundary regions still terminate. diffThresh
+  // is now unused. Tests the hypothesis that diffT=0.1 ~ "don't split interior".
+  if (minIter == ownerFrame->MAXITER || pixelsX * pixelsY < pixelSizeThresh)
     {
       compute (onGPU);
       // Record this leaf for the subdivision animation, coloured by executor.
