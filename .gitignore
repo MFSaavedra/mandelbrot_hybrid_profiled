@@ -34,3 +34,6 @@ img/
 # ncu raw per-kernel dumps (regenerate via ncu --import from the .ncu-rep)
 experiments/16-ncu-divergence/analysis/*_full.csv
 experiments/16-ncu-divergence/analysis/*_warp.csv
+
+experiments/17-ncu-zoom-points/analysis/*_full.csv
+experiments/17-ncu-zoom-points/analysis/*_warp.csv

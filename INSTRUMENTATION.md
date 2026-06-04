@@ -142,6 +142,37 @@ The GPU thread (thread 0) prints nothing from `printCPUSummary()` because its
 regions are counted inside `hostFE()` and summarised in `CUDAmemCleanup()`
 (the per-thread `cpuRegionCount` is 0, so the function returns early).
 
+#### Why three timers (and not one)
+
+CPU regions use `clock_gettime`, GPU regions use CUDA events (§2), and NVTX (§1)
+labels both for Nsight Systems. Three tools by design — each measures a different
+thing and is consumed differently:
+
+- **`clock_gettime` (CPU compute)** is *self-contained and always on*: it emits
+  the machine-parseable stderr summaries with **no profiler attached and
+  near-zero overhead** (`thread_local` counters). It is the source of truth for
+  every number in the reports — the per-thread totals, the conditional
+  `[OUTLIER]` dump (application logic a passive trace cannot do: "fire when a
+  region exceeds 5 s and print its geometry/`cardioidBulb`/inset"), and the
+  `[total_elapsed_s]` wall that `sweep_fig1115.sh` greps across 21+ batch runs.
+  Those sweeps could not run under a profiler.
+- **CUDA events (GPU compute)** are required *because the GPU is asynchronous*: a
+  host clock around the launch would time the driver/queue, not the kernel. The
+  events are stamped on the GPU's own hardware counter.
+- **NVTX (labels)** measures *nothing on its own* — `nvtxRangePush/Pop` are
+  near-no-ops until Nsight Systems attaches. They give the one thing scalars
+  cannot: the **timeline** — per-thread lanes, examine/compute/GPU overlap, GPU
+  idle at the tail, and correlation with the CUDA API/kernel rows on a shared
+  clock.
+
+So `clock_gettime` answers *how long / how many* from any plain run; NVTX answers
+*when / where / overlapping with what*, but only under `nsys`. Using NVTX alone
+would couple every measurement to a profiling session (and lose the conditional
+outlier dump and the directly-greppable wall); using `clock_gettime` alone would
+lose the cross-thread timeline and the automatic CUDA correlation. Complementary,
+not redundant — and `ncu` (kernel deep-dive, below) adds a fourth layer:
+*in-kernel* hardware counters neither of the others can reach.
+
 ### 4. Region work metrics  (`mandelregion.cpp`)
 
 Both compute branches accumulate two work metrics in the same pass that copies
@@ -355,25 +386,41 @@ What to look for in the timeline:
 
 ### Nsight Compute (kernel deep-dive)
 
+`ncu` reads *in-kernel* hardware counters — warp execution efficiency, FP64 pipe
+utilisation, the compute/memory roofline, occupancy, warp stall reasons — that
+`nsys` (a timeline tracer) cannot see. These counters are **admin-restricted**
+(`ERR_NVGPUCTRPERM` for a normal user), so **capture** must run as root;
+**parsing** a saved report does not. That split is wired up in
+`experiments/16-ncu-divergence/`:
+
 ```bash
-ncu --set full -o kernel_report ./mandelHybrid spec.in 1 1
-ncu-ui kernel_report.ncu-rep
+sudo experiments/16-ncu-divergence/capture.sh                    # capture (root) -> ncu/*.ncu-rep
+ncu --import experiments/16-ncu-divergence/ncu/interior_full.ncu-rep \
+    --page raw --csv                                             # parse (unprivileged)
 ```
 
-Limit to 1 thread and 1 frame on the first pass: `ncu` replays each kernel
-launch multiple times to collect all hardware counter sets, so a full run
-with many regions is very slow.
+`capture.sh` runs the binary **GPU-only** (`numThreads=1`) so the single GPU
+thread is forced to process *every* region type — in a normal hybrid run the
+affinity queue routes boundary regions to the CPU, so the GPU never sees the
+divergent ones; to *measure* divergence they must be forced onto it. `ncu`
+replays each kernel once per counter group, so cap the kernel count with
+`--launch-count N` — a full run is otherwise very slow.
 
-What to look for:
+What report 16 measured (`reports/16-ncu-divergence.tex`):
 
-- Occupancy — the 16×16 thread block gives 256 threads per launch; check
-  whether the warp scheduler is fully utilised.
-- Memory throughput — `mandelKernel` is compute-bound (no global reads after
-  the kernel starts), but the D→H memcpy bandwidth is visible here.
-- Warp stall reasons — long-divergence regions near the Mandelbrot boundary
-  cause branch divergence; `ncu` flags this. (FP64 runs at 1:32 throughput on
-  the consumer-Turing GTX 1660 Ti, which is why coherent interior regions —
-  not boundary regions — are the GPU's strength.)
+- **Warp execution efficiency** — coherent interior/exterior regions run at
+  *exactly* 100 % (zero divergence); divergence (down to 34 %) appears only in
+  the 240×135 **pixel-floor** boundary leaves, which affinity keeps on the CPU.
+  The uniformity test doubles as a coherence filter, so the GPU's actual work is
+  divergence-free — **divergence is a non-lever**.
+- **FP64 ceiling** — the kernel is FP64-bound at **85.6 % of peak** (~110 of
+  129 GFLOPS at 1.34 GHz; FP64 is 1:32 of FP32 on the consumer-Turing TU116),
+  at ~99 % occupancy with ~0 % memory traffic. This corrects report 11's ~40 %
+  estimate; it is why coherent interior regions are the GPU's strength.
+- **Stall reason** — `long_scoreboard` dominates (~95 %) in *every* regime,
+  uniform across content: the serial `z²+c` recurrence's latency (each iterate
+  depends on the previous), not memory and not divergence. The 15 % gap below
+  the FP64 peak is that recurrence latency, not occupancy.
 
 ---
 
@@ -406,8 +453,9 @@ What to look for:
 | `experiments/11-priority-queue/`  | `binary-v4-pq` (`37676d5`) | FIFO vs shared largest-first queue; logs, nsys, A/B (negative result) |
 | `experiments/12-gpu-affinity/`    | `binary-v5-affinity` (`fc33e29`) | hybrid A/B (−3.6 %), nsys, CPU-only 3-way ordering study |
 | `experiments/13-zoom-points/`     | `binary-v5-affinity` (`fc33e29`) | four-regime characterization (outside/inside/Misiurewicz/seahorse), per-point logs |
+| `experiments/16-ncu-divergence/`  | `binary-v5-affinity` (`fc33e29`) vs ncu 2026.2 | Nsight **Compute** kernel measurement — warp efficiency / FP64 / roofline across four content regimes; `capture.sh` (sudo), `specs/`, `analysis/summary.csv` (report 16) |
 
-`*.nsys-rep`, `*.sqlite`, `*.png`, and plain `*.log` files are gitignored;
+`*.nsys-rep`, `*.ncu-rep`, `*.sqlite`, `*.png`, and plain `*.log` files are gitignored;
 per-rep `*.stderr`/`*.stdout` files are tracked so the reports' numbers can be
 re-derived without rerunning. Each report file (`reports/NN-name.tex`) names the
 experiment directory it draws from. (There is no report 10; experiment 10's

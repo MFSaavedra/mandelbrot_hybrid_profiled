@@ -1,0 +1,5 @@
+regime,full_kernels,warpEff,branchEff,fp64_pipe_pct,compute_SOL_pct,occupancy_pct,L2_hit_pct,clk_GHz,floor_warpEff_mean,floor_pct_lt70,big_warpEff_mean
+outside,40,99.99,100.0,84.93,81.89,91.49,99.14,1.33,91.0,8.0,100.0
+inside,40,99.67,100.0,85.54,84.13,95.35,94.28,1.34,88.9,14.0,99.7
+misiurewicz,40,99.71,100.0,85.54,84.28,95.2,99.88,1.34,89.0,11.0,99.9
+seahorse,40,99.64,100.0,85.54,84.35,94.97,92.59,1.34,88.7,14.0,99.9
