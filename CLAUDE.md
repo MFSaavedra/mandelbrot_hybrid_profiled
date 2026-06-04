@@ -86,7 +86,7 @@ Note: report `03` (bug analysis) has no corresponding `experiments/03-...` becau
 - `examine/9-points-sampling` — **merged into `main`** (tag `binary-v3-9point`). Replaces the 4-corner uniformity test with a 9-point stencil (report `09`). Catches the frame-89 outlier but not frame 73; wall-neutral.
 - `feat/priority-queue` — **NOT merged** (tag `binary-v4-pq`). Largest-first shared `priority_queue`; wall-neutral negative result (report `11`) — a shared queue can't route big regions to the GPU (11:1 CPU:GPU extraction). Code deliberately kept off `main` (FIFO retained until superseded by GPU affinity).
 - `feat/gpu-affinity` — **merged into `main`** (tag `binary-v5-affinity`). Min-max work queue with GPU affinity + CPU-only LPT guard (report `12`). First wall win: −3.6%; routes the interior outlier to the GPU. Supersedes the FIFO queue.
-- `examine/maxiter-split` — **NOT merged** (atop `binary-v5-affinity`). Replaces the `diffThresh` relative-spread test with a parameter-free binary rule: compute iff all 9 stencil samples reached MAXITER, else split (report `18`). **Byte-identical decomposition** to `diffT=0.1` on the production zoom (5608 leaves) and on inside/Misiurewicz/seahorse; differs only on uniform-exterior `outside` (+22% leaves, flat wall). A characterization — shows `diffT=0.1` *is* an interior certificate — not an optimization; kept off `main`.
+- `examine/maxiter-split` — **NOT merged** (tag `binary-maxiter-split`, commit `d572c78`, atop `binary-v5-affinity`). Replaces the `diffThresh` relative-spread test with a parameter-free binary rule: compute iff all 9 stencil samples reached MAXITER, else split (report `18`). **Byte-identical decomposition** to `diffT=0.1` on the production zoom (5608 leaves) and on inside/Misiurewicz/seahorse; differs only on uniform-exterior `outside` (+22% leaves, flat wall). A characterization — shows `diffT=0.1` *is* an interior certificate — not an optimization; kept off `main`.
 - `examine_minmax_bugfix` — the commit that fixed the min/max reduction in `MandelRegion::examine()`. Same code state as `main` modulo subsequent reorganization commits.
 - `examine_rewrite`, `master` — original code with the min/max tracking bug intact. Kept as historical references.
 
@@ -98,6 +98,7 @@ Tags pin the binary versions every report ultimately points at:
 - `binary-v3-9point` → commit `ab47540` — 9-point stencil uniformity test (report `09`); on `main`
 - `binary-v4-pq` → commit `37676d5` — largest-first shared priority queue (report `11`); **not on `main`** (negative result)
 - `binary-v5-affinity` → commit `fc33e29` — min-max queue with GPU affinity + CPU-only guard (report `12`); on `main`. Current best.
+- `binary-maxiter-split` → commit `d572c78` — parameter-free all-MAXITER split rule (report `18`); **not on `main`** (characterization, byte-identical decomposition to `diffT=0.1` on realistic content)
 
 ## Known bug: min/max tracking in `examine()`
 
