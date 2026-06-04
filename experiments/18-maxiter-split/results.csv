@@ -1,0 +1,6 @@
+spec,diffT0.1_leaves,maxiter_split_leaves,delta,delta_pct
+canonical,5608,5608,0,0.0
+outside,1206,1470,264,21.9
+inside,969,969,0,0.0
+misiurewicz,1050,1050,0,0.0
+seahorse,942,942,0,0.0
