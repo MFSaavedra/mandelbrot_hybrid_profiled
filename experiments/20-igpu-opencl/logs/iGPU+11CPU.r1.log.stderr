@@ -1,0 +1,43 @@
+[config] numThr=12 gpuMode=2 (CUDA=0 iGPU=1) diffT=0.100 pixT=32768 res=1920x1080 frames=100 quiet=1 save=1 viz=0 vizFrame=-1
+[iGPU] enumerating OpenCL GPU devices:
+         platform 0 device 0: Intel(R) UHD Graphics 630 [Intel(R) Corporation]
+         platform 1 device 0: NVIDIA GeForce GTX 1660 Ti with Max-Q Design [NVIDIA Corporation]
+[iGPU] selected device: Intel(R) UHD Graphics 630
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 224
+  Total compute time      : 80016.236 ms  (avg 357.215 ms/region)
+[iGPU profiling summary]
+  Regions computed on iGPU : 2960
+  Total kernel time        : 65838.106 ms  (avg 22.243 ms/region)
+  Total D->H read time     : 32.680 ms  (avg 0.011 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 241
+  Total compute time      : 81499.486 ms  (avg 338.172 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 227
+  Total compute time      : 81468.744 ms  (avg 358.893 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 235
+  Total compute time      : 81175.331 ms  (avg 345.427 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 280
+  Total compute time      : 81448.096 ms  (avg 290.886 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 274
+  Total compute time      : 81762.268 ms  (avg 298.402 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 218
+  Total compute time      : 81389.042 ms  (avg 373.344 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 260
+  Total compute time      : 81604.898 ms  (avg 313.865 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 244
+  Total compute time      : 81847.076 ms  (avg 335.439 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 210
+  Total compute time      : 80970.143 ms  (avg 385.572 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 235
+  Total compute time      : 81091.307 ms  (avg 345.069 ms/region)
+[total_elapsed_s] 82.751430

@@ -10,6 +10,12 @@
 
 using namespace std;
 
+// Which executor runs a region.  The work queue only distinguishes GPU-class
+// (largest-first affinity) from CPU (smallest-first); compute() additionally
+// dispatches the GPU class to the right backend — CUDA on the discrete GPU,
+// OpenCL on the integrated GPU.
+enum ExecKind { EXEC_CPU = 0, EXEC_CUDA = 1, EXEC_IGPU = 2 };
+
 const int UNKNOWN     = -1;
 const int UPPER_RIGHT =  0;   // was UPPPER_RIGHT (triple-P typo) — mismatched with mandelregion.cpp
 const int UPPER_LEFT  =  1;   // was UPPPER_LEFT  (triple-P typo) — mismatched with mandelregion.cpp
@@ -23,6 +29,10 @@ class MandelRegion
 {
 private:
   int diverge (double cx, double cy);
+  // Copy a GPU/iGPU result buffer into the frame image and accumulate the
+  // work metrics, shared by both GPU backends (CUDA, OpenCL).  pitchInts is the
+  // row stride in ints; backend labels the stderr metrics line ("GPU"/"iGPU").
+  void commitGPUResult (unsigned int *h_res, int pitchInts, const char *backend);
 
   double upperX, upperY, lowerX, lowerY;
   int imageX, imageY, pixelsX, pixelsY;
@@ -35,8 +45,8 @@ private:
 
 public:
     MandelRegion (double, double, double, double, int, int, int, int, MandelFrame *, int depth = 0);
-  void compute (bool onGPU);
-  void examine (WorkQueue &, bool onGPU);
+  void compute (ExecKind kind);
+  void examine (WorkQueue &, ExecKind kind);
   void print ();
   bool operator< (const MandelRegion & a);
   static void initColorMapAndThrer (int, double, int);

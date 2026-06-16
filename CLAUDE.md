@@ -16,11 +16,11 @@ CUDA architecture is set to `-arch=native` (requires CUDA 11.6+). For older `nvc
 ## Run
 
 ```bash
-./mandelHybrid spec.in <numThreads> <gpuEnable> [diffThreshold] [pixelThreshold] [quiet] [save] [viz] [vizFrame]
+./mandelHybrid spec.in <numThreads> <gpuMode> [diffThreshold] [pixelThreshold] [quiet] [save] [viz] [vizFrame]
 ```
 
 - `numThreads`: total CPU+GPU worker threads (defaults to CPU core count)
-- `gpuEnable`: `1` enables GPU (default), `0` CPU-only
+- `gpuMode`: backend bitmask (default `1`). `0` = CPU only, `1` = discrete GPU (CUDA), `2` = integrated GPU (OpenCL, `feat/igpu-opencl`), `3` = both GPUs. Bit0 = dGPU/CUDA, bit1 = iGPU/OpenCL. The historical `0`/`1` meanings are preserved. The iGPU runs on its own `CalcThr` (thread 1 in dual mode) and needs the Intel OpenCL runtime installed; without it the run aborts with install guidance.
 - `diffThreshold`: fraction (default 0.5; **recommended new default: 0.1** — see Sensitivity studies). Region is uniform enough to compute if `(maxCornerIter - minCornerIter) < diffThresh * maxCornerIter`
 - `pixelThreshold`: pixel count (default 32768). Regions smaller than this are always computed without further splitting
 - `quiet`: `1` suppresses per-region stderr prints; per-thread and per-GPU summaries still emit
@@ -87,6 +87,7 @@ Note: report `03` (bug analysis) has no corresponding `experiments/03-...` becau
 - `feat/priority-queue` — **NOT merged** (tag `binary-v4-pq`). Largest-first shared `priority_queue`; wall-neutral negative result (report `11`) — a shared queue can't route big regions to the GPU (11:1 CPU:GPU extraction). Code deliberately kept off `main` (FIFO retained until superseded by GPU affinity).
 - `feat/gpu-affinity` — **merged into `main`** (tag `binary-v5-affinity`). Min-max work queue with GPU affinity + CPU-only LPT guard (report `12`). First wall win: −3.6%; routes the interior outlier to the GPU. Supersedes the FIFO queue.
 - `examine/maxiter-split` — **NOT merged** (tag `binary-maxiter-split`, commit `d572c78`, atop `binary-v5-affinity`). Replaces the `diffThresh` relative-spread test with a parameter-free binary rule: compute iff all 9 stencil samples reached MAXITER, else split (report `18`). **Byte-identical decomposition** to `diffT=0.1` on the production zoom (5608 leaves) and on inside/Misiurewicz/seahorse; differs only on uniform-exterior `outside` (+22% leaves, flat wall). A characterization — shows `diffT=0.1` *is* an interior certificate — not an optimization; kept off `main`.
+- `feat/igpu-opencl` — **NOT merged** (no tag yet). Adds a **third executor**: an OpenCL backend (`oclkernel.cpp/.h`) that runs the FP64 Mandelbrot kernel on the **integrated GPU** (Intel UHD 630). `arg3` becomes a backend bitmask (`gpuMode`: 0=CPU, 1=dGPU/CUDA, 2=iGPU/OpenCL, 3=both); the iGPU runs on its own `CalcThr` with the same GPU affinity as the dGPU (pulls largest). `compute()` dispatches by `ExecKind {EXEC_CPU, EXEC_CUDA, EXEC_IGPU}` and shares a `commitGPUResult()` copy/metrics helper between both GPU backends. Output is **byte-identical to the CUDA path** (0 pixel diff; both differ from the CPU only by pre-existing FP-rounding). **Measured a wall win, not the predicted wash** (experiment 20, headline A/B, diffT=0.1, save=1, full spec, 3 reps): `dGPU+iGPU+10CPU` **44.32 s vs `dGPU+11CPU` 57.72 s = −23.2%** (and −72.6% vs CPU12's 161.6 s), winning *while giving up a CPU worker*. The earlier "marginal-to-negative, CPU pool is the binding wall" prediction was wrong: the co-binding constraint is the **serial tail of big coherent interior regions only a GPU runs fast** — a second accelerator pulling from the largest end parallelizes that tail (mode-3 split: dGPU 2915 / iGPU 1422 regions). iGPU-alone (mode 2) 81.7 s still ≈halves the CPU floor. **Needs the legacy Intel runtime** — modern `intel-compute-runtime` (NEO ≥24.x) dropped Gen9.5; UHD 630 (`8086:3e9b`) needs `intel-compute-runtime-legacy1` (AUR). Next: report 19 + tag; consider strict dGPU-priority-on-largest (both GPUs currently race for the biggest region).
 - `examine_minmax_bugfix` — the commit that fixed the min/max reduction in `MandelRegion::examine()`. Same code state as `main` modulo subsequent reorganization commits.
 - `examine_rewrite`, `master` — original code with the min/max tracking bug intact. Kept as historical references.
 

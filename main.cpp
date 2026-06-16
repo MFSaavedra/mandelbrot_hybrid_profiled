@@ -12,6 +12,7 @@
 #include "mandelframe.h"
 #include "mandelregion.h"
 #include "kernel.h"
+#include "oclkernel.h"
 
 // Profiling flags consulted by kernel.cu, mandelregion.cpp and mandelframe.cpp.
 // Defined here so a single command-line switch controls them.  C linkage keeps
@@ -152,10 +153,12 @@ class CalcThr:public QThread
 {
 private:
   WorkQueue * que;
-  bool isGPU;
+  ExecKind kind;
+  int resX, resY;               // frame size; used only to size the iGPU buffers
 
 public:
-    CalcThr (WorkQueue * q, bool gpu):que (q), isGPU (gpu)
+    CalcThr (WorkQueue * q, ExecKind k, int rx = 0, int ry = 0)
+      : que (q), kind (k), resX (rx), resY (ry)
   {
   }
   void run ();
@@ -163,16 +166,28 @@ public:
 
 void CalcThr::run ()
 {
+  // The integrated-GPU worker owns its OpenCL context/queue/buffers for its
+  // entire lifetime, so it builds them here on its own thread.  (The discrete-
+  // GPU worker's CUDA setup is done by main() around thr[0].)
+  if (kind == EXEC_IGPU)
+    OCLmemSetup (resX, resY);
+
+  // GPU-class workers (CUDA or iGPU) pull the largest pending region; CPU
+  // workers pull the smallest -- the affinity rule in WorkQueue::extract.
+  bool isGPU = (kind != EXEC_CPU);
   MandelRegion *t;
   while ((t = que->extract (isGPU)) != NULL)
     {
-      t->examine (*que, isGPU);
+      t->examine (*que, kind);
       delete t;
     }
   // Work queue is empty: print the accumulated CPU timing for this thread.
-  // The GPU thread prints nothing here because its regions are counted inside
-  // hostFE() and summarised in CUDAmemCleanup().
+  // GPU-class threads print nothing here -- CUDA regions are summarised in
+  // CUDAmemCleanup(), iGPU regions in OCLmemCleanup().
   MandelRegion::printCPUSummary();
+
+  if (kind == EXEC_IGPU)
+    OCLmemCleanup ();
 }
 
 //************************************************************
@@ -184,7 +199,9 @@ void CalcThr::run ()
 // Command-line parameters:  spec_file numThr GPUenable diffThreshold pixelThreshold quiet save
 //              spec_file : the file holding the parameters mentioned above
 //              numThr : number of threads (optional, defaults to the number of cores)
-//              GPUenable : 0/1, 1(default) enables the GPU code (optional)
+//              GPUenable : backend mode (optional, default 1):
+//                          0 = CPU only, 1 = discrete GPU (CUDA),
+//                          2 = integrated GPU (OpenCL), 3 = both GPUs.
 //              diffThreshold pixelThreshold : optional thresholds for frame partitioning heuristics
 //              quiet : 0/1, 1 suppresses per-region stderr prints (default 0)
 //              save  : 0/1, 0 skips PNG image saves for pure-compute timing (default 1)
@@ -208,7 +225,9 @@ int main (int argc, char *argv[])
   if (argc < 2)
     {
       cerr << "Usage : " << argv[0]
-           << " spec_file [numThr] [GPUenable] [diffT] [pixT] [quiet] [save] [viz] [vizFrame]\n";
+           << " spec_file [numThr] [gpuMode] [diffT] [pixT] [quiet] [save] [viz] [vizFrame]\n"
+           << "        gpuMode: 0=CPU only  1=discrete GPU (CUDA)  "
+              "2=integrated GPU (OpenCL)  3=both GPUs\n";
       exit (1);
     }
 
@@ -216,9 +235,25 @@ int main (int argc, char *argv[])
   if (argc > 2)
     numThreads = atoi (argv[2]);
 
-  bool enableGPU = true;
+  // arg 3 is a backend mode (bitmask): bit0 = discrete GPU (CUDA), bit1 =
+  // integrated GPU (OpenCL).  0 = CPU only, 1 = dGPU (historical default),
+  // 2 = iGPU only, 3 = both.  The old 0/1 meanings are preserved.
+  int gpuMode = 1;
   if (argc > 3)
-    enableGPU = (bool) atoi (argv[3]);
+    gpuMode = atoi (argv[3]);
+  bool useCUDA = (gpuMode & 1) != 0;
+  bool useIGPU = (gpuMode & 2) != 0;
+  // In dual-GPU mode the iGPU runs on worker thread 1; without a spare thread
+  // drop it rather than starve the CUDA path.
+  bool igpuOnWorker = useCUDA && useIGPU;
+  if (igpuOnWorker && numThreads < 2)
+    {
+      cerr << "[config] both GPUs requested but numThr<2; dropping iGPU "
+              "(no spare worker thread)\n";
+      igpuOnWorker = false;
+      useIGPU = false;
+    }
+  bool anyGPU = useCUDA || useIGPU;
 
   if (argc > 4)
     diffT = atof (argv[4]);
@@ -256,7 +291,7 @@ int main (int argc, char *argv[])
 
   WorkQueue workQ;
   // CPU-only runs: CPU threads use largest-first (LPT) instead of smallest-first.
-  workQ.setGpuPresent (enableGPU);
+  workQ.setGpuPresent (anyGPU);
 
   // generate the needed frame objects and the corresponding regions
   double uX = upperCornerX[0], uY = upperCornerY[0];
@@ -315,18 +350,23 @@ int main (int argc, char *argv[])
 
   // Self-describing banner so each run's log file identifies its configuration.
   fprintf(stderr,
-          "[config] numThr=%d gpuEnable=%d diffT=%.3f pixT=%d res=%dx%d "
-          "frames=%d quiet=%d save=%d viz=%d vizFrame=%d\n",
-          numThreads, (int)enableGPU, diffT, pixT,
+          "[config] numThr=%d gpuMode=%d (CUDA=%d iGPU=%d) diffT=%.3f pixT=%d "
+          "res=%dx%d frames=%d quiet=%d save=%d viz=%d vizFrame=%d\n",
+          numThreads, gpuMode, (int)useCUDA, (int)useIGPU, diffT, pixT,
           resolutionX, resolutionY, framesToBuild, profileQuiet, profileSave,
           vizMode, vizMode ? vizFrame : -1);
 
-  // generate the threads that will process the workload
+  // generate the threads that will process the workload.  Thread 0 runs on the
+  // main thread below; it drives the discrete GPU (CUDA) when requested, else
+  // the integrated GPU, else CPU.  When both GPUs are active, thread 0 is CUDA
+  // and the iGPU runs on worker thread 1; all remaining threads are CPU.
+  ExecKind kind0 = useCUDA ? EXEC_CUDA : (useIGPU ? EXEC_IGPU : EXEC_CPU);
   CalcThr **thr = new CalcThr *[numThreads];
-  thr[0] = new CalcThr (&workQ, enableGPU);
+  thr[0] = new CalcThr (&workQ, kind0, resolutionX, resolutionY);
   for (int i = 1; i < numThreads; i++)
     {
-      thr[i] = new CalcThr (&workQ, false);
+      ExecKind k = (igpuOnWorker && i == 1) ? EXEC_IGPU : EXEC_CPU;
+      thr[i] = new CalcThr (&workQ, k, resolutionX, resolutionY);
       thr[i]->start ();
     }
 
@@ -338,8 +378,10 @@ int main (int argc, char *argv[])
   struct timespec t0, t1;
   clock_gettime(CLOCK_MONOTONIC, &t0);
 
-  // use the main thread to run one of the workers
-  if (enableGPU)
+  // use the main thread to run one of the workers.  Only the CUDA path needs
+  // its setup/cleanup wrapped here; an iGPU thread-0 (gpuMode 2) builds and
+  // tears down its own OpenCL state inside run().
+  if (kind0 == EXEC_CUDA)
     {
       CUDAmemSetup (resolutionX, resolutionY);
       thr[0]->run ();

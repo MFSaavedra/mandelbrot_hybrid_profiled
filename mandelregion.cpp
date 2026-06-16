@@ -1,6 +1,7 @@
 #include "mandelregion.h"
 #include "workqueue.h"
 #include "kernel.h"
+#include "oclkernel.h"
 #include <QColor>
 #include <QAtomicInt>
 
@@ -129,50 +130,67 @@ bool MandelRegion::inMainCardioidOrBulb (double x, double y)
 }
 
 //--------------------------------------
+// Copy a finished GPU/iGPU result buffer into the frame image and accumulate
+// the work metrics (mean iterations, interior fraction).  Shared verbatim by
+// both GPU backends so the discrete (CUDA) and integrated (OpenCL) paths emit
+// identical pixels and identically-shaped metrics, differing only in the label.
+void MandelRegion::commitGPUResult (unsigned int *h_res, int pitchInts,
+                                    const char *backend)
+{
+  QImage *img = ownerFrame->img;
+  int MAXGRAY = ownerFrame->MAXITER;
 
-void MandelRegion::compute (bool onGPU)
+  long iterSum    = 0;
+  long insetCount = 0;
+  for (int i = 0; i < pixelsX; i++)
+    for (int j = 0; j < pixelsY; j++)
+      {
+        int color = h_res[j * pitchInts + i];
+        iterSum += color;
+        if (color == MAXGRAY)
+          {
+            insetCount++;
+            img->setPixel (imageX + i, imageY + j, qRgb (0, 0, 0));
+          }
+        else
+          img->setPixel (imageX + i, imageY + j, colormap[color]);
+      }
+
+  if (!profileQuiet)
+    {
+      long npix = (long) pixelsX * pixelsY;
+      fprintf(stderr,
+              "[%s region metrics] frame %3d depth %d size %4dx%4d  "
+              "meanIter %.1f  inset %.1f%%\n",
+              backend, ownerFrame->frameIndex, depth, pixelsX, pixelsY,
+              (double) iterSum / npix, 100.0 * insetCount / npix);
+    }
+}
+
+//--------------------------------------
+
+void MandelRegion::compute (ExecKind kind)
 {
   double stepX = ownerFrame->stepX;
   double stepY = ownerFrame->stepY;
   QImage *img = ownerFrame->img;
   int MAXGRAY = ownerFrame->MAXITER;
 
-  if (onGPU)
+  if (kind != EXEC_CPU)
     {
-      // hostFE() has its own NVTX range and CUDA event timing; nothing extra needed here.
+      // The front-end (hostFE / oclFE) has its own NVTX range and event timing;
+      // it returns the result buffer + byte pitch, which commitGPUResult copies
+      // into the image.  CUDA -> discrete GPU, OpenCL -> integrated GPU.
       unsigned int *h_res;
       int pitch;
 
-      hostFE (upperX, upperY, lowerX, lowerY, pixelsX, pixelsY, &h_res, &pitch, MAXGRAY);
-      pitch /= sizeof (int);
+      if (kind == EXEC_CUDA)
+        hostFE (upperX, upperY, lowerX, lowerY, pixelsX, pixelsY, &h_res, &pitch, MAXGRAY);
+      else                      // EXEC_IGPU
+        oclFE  (upperX, upperY, lowerX, lowerY, pixelsX, pixelsY, &h_res, &pitch, MAXGRAY);
 
-      // Copy GPU results into the Qt image buffer, accumulating work metrics
-      // (total iterations and interior-pixel count) in the same pass.
-      long iterSum    = 0;
-      long insetCount = 0;
-      for (int i = 0; i < pixelsX; i++)
-        for (int j = 0; j < pixelsY; j++)
-          {
-            int color = h_res[j * pitch + i];
-            iterSum += color;
-            if (color == MAXGRAY)
-              {
-                insetCount++;
-                img->setPixel (imageX + i, imageY + j, qRgb (0, 0, 0));
-              }
-            else
-              img->setPixel (imageX + i, imageY + j, colormap[color]);
-          }
-
-      if (!profileQuiet)
-        {
-          long npix = (long) pixelsX * pixelsY;
-          fprintf(stderr,
-                  "[GPU region metrics] frame %3d depth %d size %4dx%4d  "
-                  "meanIter %.1f  inset %.1f%%\n",
-                  ownerFrame->frameIndex, depth, pixelsX, pixelsY,
-                  (double) iterSum / npix, 100.0 * insetCount / npix);
-        }
+      commitGPUResult (h_res, pitch / sizeof (int),
+                       kind == EXEC_CUDA ? "GPU" : "iGPU");
     }
   else                          // CPU execution
     {
@@ -250,7 +268,7 @@ void MandelRegion::compute (bool onGPU)
 
 //--------------------------------------
 // if the region is small enough, process it, or split it in 4 regions
-void MandelRegion::examine (WorkQueue & q, bool onGPU = false)
+void MandelRegion::examine (WorkQueue & q, ExecKind kind = EXEC_CPU)
 {
   // NVTX range that wraps the full decision cycle for one region: corner
   // evaluation + either compute() or a four-way split back onto the queue.
@@ -258,6 +276,10 @@ void MandelRegion::examine (WorkQueue & q, bool onGPU = false)
   // visually count how many examine() calls each thread handles and compare
   // the depth/duration distribution between CPU and GPU workers.
   nvtxRangePush("examine region");
+
+  // Viz colours leaves by executor class (cyan = either GPU, yellow = CPU);
+  // the discrete/integrated distinction is not drawn separately.
+  bool onGPU = (kind != EXEC_CPU);
 
   int minIter = INT_MAX, maxIter = 0;
 
@@ -318,7 +340,7 @@ void MandelRegion::examine (WorkQueue & q, bool onGPU = false)
   // either compute the pixels or break the region in 4 pieces
   if (maxIter - minIter < diffThresh * maxIter || pixelsX * pixelsY < pixelSizeThresh)
     {
-      compute (onGPU);
+      compute (kind);
       // Record this leaf for the subdivision animation, coloured by executor.
       if (vizMode)
         ownerFrame->addVizRect ({imageX, imageY, pixelsX, pixelsY,

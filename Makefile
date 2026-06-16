@@ -28,14 +28,16 @@ CC_COMPILE_FLAGS = -O2 -I$(CUDAINST)/include $(QT_CFLAGS) -fPIC
 # NVTX3 (CUDA 11+) is header-only: it dlopen()s the profiler's runtime library
 # when Nsight Systems is active, so no -lnvToolsExt is needed.  -ldl provides
 # the dlopen symbol that the NVTX3 headers use internally.
-CC_LINK_FLAGS    = -lm -lstdc++ $(QT_LIBS) -lpthread -ldl
+# -lOpenCL is the ICD loader for the integrated-GPU backend (oclkernel.cpp);
+# its CL/*.h headers come from $(CUDAINST)/include via CC_COMPILE_FLAGS.
+CC_LINK_FLAGS    = -lm -lstdc++ $(QT_LIBS) -lpthread -ldl -lOpenCL
 
-HEADERS = kernel.h mandelframe.h mandelregion.h workqueue.h
+HEADERS = kernel.h oclkernel.h mandelframe.h mandelregion.h workqueue.h
 
 # ---------------------------------------------------------------------------
 all: mandelHybrid
 
-mandelHybrid: main.o mandelframe.o mandelregion.o workqueue.o kernel.o
+mandelHybrid: main.o mandelframe.o mandelregion.o workqueue.o kernel.o oclkernel.o
 	$(NVCC) $(CUDA_LINK_FLAGS) $^ $(CC_LINK_FLAGS) -o $@
 
 main.o: main.cpp $(HEADERS)
@@ -52,6 +54,9 @@ workqueue.o: workqueue.cpp $(HEADERS)
 
 kernel.o: kernel.cu kernel.h
 	$(NVCC) $(CUDA_COMPILE_FLAGS) -c kernel.cu -o $@
+
+oclkernel.o: oclkernel.cpp oclkernel.h
+	$(CC) $(CC_COMPILE_FLAGS) -c oclkernel.cpp
 
 clean:
 	rm -f *.o mandelHybrid
