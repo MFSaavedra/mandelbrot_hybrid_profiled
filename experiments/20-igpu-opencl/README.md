@@ -78,3 +78,21 @@ every accelerated mode vs 4 in CPU12). The dGPU is the stronger single accelerat
 Open question for a fuller sweep: both GPUs pull from the largest end, so the weak
 iGPU can grab the single biggest outlier the fast dGPU would clear sooner — a strict
 dGPU-priority-on-largest refinement might widen the win.
+
+## save=0 cross-check (`ab_save0.csv`)
+
+The headline table above uses `save=1` (PNG writes, Fig-11.15 methodology), which
+raises absolute times ~5 s vs the `save=0` numbers in report 12. To confirm the win
+is not a `save`/thermal artifact and to reconcile with report 12's 49.86 s, a clean
+`save=0` A/B (alternating mode 1 / mode 3, 3 reps, diffT=0.1, 12 threads, on AC):
+
+| config (save=0) | mean (s) | range |
+|---|---|---|
+| dGPU+11CPU (mode 1) | 49.24 | 48.09–50.11 |
+| dGPU+iGPU+10CPU (mode 3) | 38.19 | 37.94–38.54 |
+| Δ | **−11.05 (−22.4%)** | disjoint |
+
+Mode 1 at `save=0` (49.24 s) reproduces report 12's 49.86 s (same binary's CUDA
+path) — so report 20's higher 57.72 s baseline is `save=1` + thermal, not a code
+regression. The iGPU win holds at `save=0` (−22.4%, vs −23.2% at `save=1`), and
+mode 3's 38.19 s is a new best, −23.4% below report 12's prior best.

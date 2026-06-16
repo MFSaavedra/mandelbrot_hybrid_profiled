@@ -171,7 +171,15 @@ double-precision kernel builds.
 
 \paragraph{Measurement.} A four-config wall A/B at 12~threads, 3~reps each, all on
 one binary in one thermal state so the comparison is disjoint (the discrete-GPU
-baseline is re-measured here, not reused from reports~05/12). Raw data:
+baseline is re-measured here, not reused from reports~05/12).\footnote{The \texttt{save=1} PNG writes raise the
+absolute wall $\sim$5~s above the \texttt{save=0} numbers of reports~08--13, so the
+57.72~s baseline here is \emph{not} comparable to report~12's 49.86~s. A separate
+\texttt{save=0} cross-check (\texttt{experiments/20-igpu-opencl/ab\_save0.csv};
+alternating mode~1/mode~3, 3~reps) confirms the gap is \texttt{save}\,+\,thermal, not
+a regression: it reproduces report~12's \texttt{save=0} baseline at mode~1
+(\textbf{49.24~s} vs.\ 49.86~s) and gives mode~3 at \textbf{38.19~s} ($-22.4\%$, a new
+best, $-23.4\%$ below report~12). The win is identical in both regimes; the CUDA path
+is byte-identical to \texttt{binary-v5-affinity}.} Raw data:
 \texttt{experiments/20-igpu-opencl/}.
 
 % -----------------------------------------------------------------------
