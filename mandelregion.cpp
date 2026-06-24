@@ -3,6 +3,10 @@
 #include "kernel.h"
 #include <QColor>
 #include <QAtomicInt>
+#include <random>        // mt19937, random_device — interior random sampling
+#include <thread>        // thread::id, for the per-thread RNG seed
+#include <functional>    // std::hash
+#include <cstdlib>       // getenv, atoi
 
 // nvToolsExt — NVTX CPU-side annotation API (same header used in kernel.cu).
 // Including it in a plain C++ translation unit is fine; it links against
@@ -46,12 +50,26 @@ static inline double elapsedMs(const struct timespec &t0, const struct timespec 
 QRgb *MandelRegion::colormap;
 double MandelRegion::diffThresh;
 int MandelRegion::pixelSizeThresh;
+int MandelRegion::sampleN;
 //--------------------------------------
 void MandelRegion::initColorMapAndThrer (int maxV, double diffT=0.3, int pixT=2048)
 {
   colormap = new QRgb[maxV];
   diffThresh = diffT;
   pixelSizeThresh = pixT;
+
+  // Number of random interior points each examine() draws (in place of the
+  // fixed 5-point stencil). Configured out-of-band via $SAMPLE_N so the
+  // positional argument order stays compatible with every other binary
+  // version. Default 5 matches the 9-point stencil's five extra samples, so
+  // SAMPLE_N unset reproduces the same sampling budget (4 corners + 5).
+  sampleN = 5;
+  if (const char *env = getenv ("SAMPLE_N"))
+    {
+      int n = atoi (env);
+      if (n >= 0)
+        sampleN = n;
+    }
   
   for (int i = 0; i < maxV; i++)
     {
@@ -292,26 +310,35 @@ void MandelRegion::examine (WorkQueue & q, bool onGPU = false)
         maxIter = cornersIter[i];
     }
 
-  // 9-point stencil: extend the four corners with the four edge midpoints and
-  // the centre.  Sampling the interior catches high-iteration filaments that
-  // pass between the corners -- the failure mode behind the all-interior
-  // outliers diagnosed in report 08, whose four corners all sit at maxIter
-  // (spread 0) so the 4-corner rule never splits them.  A child inherits only
-  // its shared outer corner, never a midpoint, so these five are always fresh:
-  // each examine() adds five diverge() calls over the 4-corner version.
-  double midX = (upperX + lowerX) * 0.5;
-  double midY = (upperY + lowerY) * 0.5;
-  int extra[5] = {
-    diverge (midX,   upperY),   // top edge midpoint
-    diverge (midX,   lowerY),   // bottom edge midpoint
-    diverge (upperX, midY),     // left edge midpoint
-    diverge (lowerX, midY),     // right edge midpoint
-    diverge (midX,   midY)      // centre
-  };
-  for (int i = 0; i < 5; i++)
+  // Random interior sampling: in place of the 9-point stencil's four fixed
+  // edge midpoints + centre, draw sampleN points uniformly from this region's
+  // complex-plane rectangle and fold them into the corner min/max spread.
+  // Purpose is the same as the stencil -- catch high-iteration filaments that
+  // pass between the corners (report 08's all-interior outliers, whose four
+  // corners all sit at maxIter so the 4-corner rule never splits them) -- but
+  // the sample locations vary per region and per run, so the decomposition is
+  // no longer fixed. The four corners stay in the test as fixed anchors and are
+  // still needed for child-corner inheritance; only the interior probes change.
+  //
+  // The RNG is thread_local and seeded nondeterministically (random_device,
+  // mixed with the thread id so two workers never collide even if the entropy
+  // source repeats), so each run draws a fresh decomposition -- the variance
+  // this introduces is exactly what this branch sets out to measure.
+  static thread_local std::mt19937 rng (
+      std::random_device{}() ^
+      (unsigned) std::hash<std::thread::id>{}(std::this_thread::get_id()));
+  for (int i = 0; i < sampleN; i++)
     {
-      if (extra[i] < minIter) minIter = extra[i];
-      if (extra[i] > maxIter) maxIter = extra[i];
+      // mt19937 yields a 32-bit word; divide by 2^32 for u,v in [0,1).
+      double u = rng () / 4294967296.0;
+      double v = rng () / 4294967296.0;
+      // upperX/lowerX (and upperY/lowerY) are the rectangle's two bounds in
+      // each axis; lerping by u,v in [0,1) samples the interior regardless of
+      // which bound is numerically larger.
+      int s = diverge (upperX + (lowerX - upperX) * u,
+                       lowerY + (upperY - lowerY) * v);
+      if (s < minIter) minIter = s;
+      if (s > maxIter) maxIter = s;
     }
 
 

@@ -315,9 +315,9 @@ int main (int argc, char *argv[])
 
   // Self-describing banner so each run's log file identifies its configuration.
   fprintf(stderr,
-          "[config] numThr=%d gpuEnable=%d diffT=%.3f pixT=%d res=%dx%d "
+          "[config] numThr=%d gpuEnable=%d diffT=%.3f pixT=%d sampleN=%d res=%dx%d "
           "frames=%d quiet=%d save=%d viz=%d vizFrame=%d\n",
-          numThreads, (int)enableGPU, diffT, pixT,
+          numThreads, (int)enableGPU, diffT, pixT, MandelRegion::getSampleN(),
           resolutionX, resolutionY, framesToBuild, profileQuiet, profileSave,
           vizMode, vizMode ? vizFrame : -1);
 
