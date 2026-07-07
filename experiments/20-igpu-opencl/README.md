@@ -73,7 +73,9 @@ second accelerator**. Mode-3 region split (rep 1): dGPU 2915 regions / 34.4 s ke
 Secondary findings: the iGPU *alone* as the accelerator (mode 2) still nearly halves
 the CPU-only floor (161.6→81.7 s), absorbing the interior outliers (0 CPU outliers in
 every accelerated mode vs 4 in CPU12). The dGPU is the stronger single accelerator
-(57.7 vs 81.7 s). Output is byte-identical to the CUDA path (verified separately).
+(57.7 vs 81.7 s). Output equivalence to the CUDA path is verified below (§Output
+verification): equivalent to within ±1-iteration FP rounding, **not** byte-identical
+on deep frames.
 
 Open question for a fuller sweep: both GPUs pull from the largest end, so the weak
 iGPU can grab the single biggest outlier the fast dGPU would clear sooner — a strict
@@ -96,3 +98,29 @@ Mode 1 at `save=0` (49.24 s) reproduces report 12's 49.86 s (same binary's CUDA
 path) — so report 20's higher 57.72 s baseline is `save=1` + thermal, not a code
 regression. The iGPU win holds at `save=0` (−22.4%, vs −23.2% at `save=1`), and
 mode 3's 38.19 s is a new best, −23.4% below report 12's prior best.
+
+## Output verification (`verify_output.sh` / `verify_output.csv`)
+
+Full-run output-identity check, 2026-07-07 (correctness only — power state is
+irrelevant, run on battery): the whole 100-frame spec rendered three times, every
+pixel computed by exactly one backend per render (`mode 1`/1 thread = all-CUDA,
+`mode 2`/1 thread = all-OpenCL, `mode 0` = all-CPU), then compared per frame
+(`cmp` for byte identity, ImageMagick `AE` for differing-pixel counts). This
+**corrects the earlier single-frame check**, which had been overgeneralised to
+"byte-identical":
+
+| comparison | result |
+|---|---|
+| dGPU vs iGPU, byte-identical frames | **2**/100 (frames 0–1 only) |
+| dGPU vs iGPU, differing px | 104,355 = **0.050%** of 207.36M; grows 2 px (f2) → **3,089 px = 0.149%** (f88) |
+| dGPU vs CPU, differing px | 16,731,040 = **8.07%** (up to 19.7% on f98) |
+| iGPU vs CPU, differing px | 16,730,971 — tracks dGPU-vs-CPU within a few px/frame |
+
+The GPU–GPU disagreement grows monotonically with zoom depth (`maxIter`) — the
+signature of the two kernel compilers making different FMA-contraction choices,
+flipping `diverge()` ±1 iteration for orbits near the escape threshold. Both GPUs
+sit on the same side of the much larger (~8%) GPU-vs-CPU contraction gap (host
+`g++ -O2` emits no FMA). So: **the iGPU path is exactly as correct as the CUDA
+path** (same ±1-iteration rounding class, no iGPU-specific artifact), but bytewise
+GPU–GPU identity holds only on shallow frames. Re-run: `verify_output.sh [workdir]`
+(renders ~20 min; `RENDER=0` re-runs just the comparison).

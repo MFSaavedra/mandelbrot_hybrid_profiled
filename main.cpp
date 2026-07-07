@@ -241,6 +241,15 @@ int main (int argc, char *argv[])
   int gpuMode = 1;
   if (argc > 3)
     gpuMode = atoi (argv[3]);
+  // Only bits 0/1 are defined; anything else (e.g. a typo like "4") would
+  // otherwise silently degrade to CPU-only.
+  if (gpuMode & ~3)
+    {
+      cerr << "[config] gpuMode=" << gpuMode << " has undefined bits set "
+              "(valid: 0=CPU 1=dGPU 2=iGPU 3=both); using gpuMode="
+           << (gpuMode & 3) << "\n";
+      gpuMode &= 3;
+    }
   bool useCUDA = (gpuMode & 1) != 0;
   bool useIGPU = (gpuMode & 2) != 0;
   // In dual-GPU mode the iGPU runs on worker thread 1; without a spare thread
