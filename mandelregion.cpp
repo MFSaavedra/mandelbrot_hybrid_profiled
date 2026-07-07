@@ -81,6 +81,17 @@ int MandelRegion::diverge (double cx, double cy)
   int MAXITER = ownerFrame->MAXITER;
   int iter = 0;
   double vx = cx, vy = cy, tx, ty;
+  // Brent-style periodicity check.  Interior orbits settle into an attracting
+  // cycle; once the FP state exactly revisits a saved state the (deterministic)
+  // iteration can never escape, so returning MAXITER now is *exact* -- the
+  // plain loop would have ground to MAXITER and returned the same value.
+  // Exact equality (no epsilon) is what guarantees a byte-identical image:
+  // an escaping orbit can never exactly repeat, so exterior pixels are
+  // untouched.  The saved point is refreshed at doubling intervals so a cycle
+  // of period p entered after a transient of t iterations is caught within
+  // O(max(p, t)) instead of running to MAXITER.
+  double sx = vx, sy = vy;
+  int nextSave = 8;
   while (iter < MAXITER && (vx * vx + vy * vy) < 4)
     {
       tx = vx * vx - vy * vy + cx;
@@ -88,6 +99,14 @@ int MandelRegion::diverge (double cx, double cy)
       vx = tx;
       vy = ty;
       iter++;
+      if (vx == sx && vy == sy)
+        return MAXITER;
+      if (iter == nextSave)
+        {
+          sx = vx;
+          sy = vy;
+          nextSave *= 2;
+        }
     }
   return iter;
 }
