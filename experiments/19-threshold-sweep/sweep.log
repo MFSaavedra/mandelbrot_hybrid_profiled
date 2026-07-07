@@ -1,0 +1,21 @@
+spec=/home/lynx/box/cpp/Multicore_and_GPU_2e_code/Chapter_11_Loadbalancing/mandelbrot_hybrid_profiled/spec.in  threads=12 gpu=1  grid=5x5  reps=3  (75 runs)
+[  1/ 75] rep 1  diffT=0.05  pixT=2048    -> 51.570414s
+[  2/ 75] rep 1  diffT=0.05  pixT=8192    -> 52.520302s
+[  3/ 75] rep 1  diffT=0.05  pixT=32768   -> 58.821685s
+[  4/ 75] rep 1  diffT=0.05  pixT=131072  -> 80.313259s
+[  5/ 75] rep 1  diffT=0.05  pixT=524288  -> 54.769093s
+[  6/ 75] rep 1  diffT=0.1   pixT=2048    -> 52.212521s
+[  7/ 75] rep 1  diffT=0.1   pixT=8192    -> 52.082337s
+[  8/ 75] rep 1  diffT=0.1   pixT=32768   -> 50.311172s
+[  9/ 75] rep 1  diffT=0.1   pixT=131072  -> 48.905040s
+[ 10/ 75] rep 1  diffT=0.1   pixT=524288  -> 56.543452s
+[ 11/ 75] rep 1  diffT=0.2   pixT=2048    -> 52.872625s
+[ 12/ 75] rep 1  diffT=0.2   pixT=8192    -> 53.421129s
+[ 13/ 75] rep 1  diffT=0.2   pixT=32768   -> 51.402927s
+[ 14/ 75] rep 1  diffT=0.2   pixT=131072  -> 49.457337s
+[ 15/ 75] rep 1  diffT=0.2   pixT=524288  -> 56.635502s
+[ 16/ 75] rep 1  diffT=0.3   pixT=2048    -> 53.534826s
+[ 17/ 75] rep 1  diffT=0.3   pixT=8192    -> 53.057054s
+[ 18/ 75] rep 1  diffT=0.3   pixT=32768   -> 51.205625s
+[ 19/ 75] rep 1  diffT=0.3   pixT=131072  -> 49.815330s
+[ 20/ 75] rep 1  diffT=0.3   pixT=524288  -> 57.336319s

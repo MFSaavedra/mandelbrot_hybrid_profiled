@@ -34,9 +34,24 @@ experiments/19-threshold-sweep/analyze.py               # mean grid + optimum + 
 `sweep.sh` sweeps the whole grid once per rep (rep outer, grid inner) so thermal
 drift spreads across cells rather than piling on one. AC power is checked.
 
+## Status: PARTIAL — 20/75 runs (rep 1, diffT ≤ 0.3; the diffT=0.5 row and
+## reps 2–3 are missing). No conclusions yet; no report 19 exists.
+
+Two things in the rep-1 data to watch when the remaining 55 runs land:
+
+- **(0.05, 131072) = 80.3 s** is wildly off its neighbours ((0.1, 131072) = 48.9 s,
+  (0.05, 524288) = 54.8 s). Real pathology (aggressive splitting shredding the
+  big GPU-friendly interiors into 480×270 floor leaves?) or a one-off thermal
+  event — indistinguishable at n=1; needs the reps before any interpretation.
+- **(0.1, 131072) = 48.9 s** is the preliminary grid optimum and *beats the
+  current operating point* (0.1, 32768) = 50.3 s by ~3%. If it survives the
+  reps, the recommended `pixT` moves from 32768 to 131072 (floor 240×135 →
+  480×270).
+
 ## Files
 
 - `sweep.sh` — the 2-D sweep driver.
 - `analyze.py` — mean-wall grid, optimal pair, `heatmap.png`.
 - `results.csv` — raw per-run wall times (`diffT,pixT,rep,wall_s`).
+- `sweep.log` — console record of the runs so far.
 - `heatmap.png` — gitignored (regenerate via `analyze.py`).
