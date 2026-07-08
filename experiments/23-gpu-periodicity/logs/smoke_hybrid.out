@@ -1,0 +1,6 @@
+[hybrid] base: 27.928714 s
+[base]  Regions computed on GPU : 925
+[base]  Total kernel time       : 24281.320 ms  (avg 26.250 ms/region)
+[hybrid] gp: 22.435933 s
+[gp]  Regions computed on GPU : 3098
+[gp]  Total kernel time       : 10274.914 ms  (avg 3.317 ms/region)

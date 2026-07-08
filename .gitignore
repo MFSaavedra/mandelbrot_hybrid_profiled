@@ -30,6 +30,8 @@ experiments/*/viz_*/ff*.log
 *.blg
 *.toc
 *.out
+# ... but captured console outputs in experiments stay tracked
+!experiments/**/*.out
 *.fls
 *.fdb_latexmk
 *.synctex.gz
@@ -43,3 +45,6 @@ experiments/16-ncu-divergence/analysis/*_warp.csv
 
 experiments/17-ncu-zoom-points/analysis/*_full.csv
 experiments/17-ncu-zoom-points/analysis/*_warp.csv
+
+experiments/24-ncu-gpu-periodicity/analysis/*_full.csv
+experiments/24-ncu-gpu-periodicity/analysis/*_warp.csv

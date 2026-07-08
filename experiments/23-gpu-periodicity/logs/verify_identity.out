@@ -1,0 +1,8 @@
+Preparing worktree (checking out 'main')
+[setup] baseline built from main (c4744c0)
+[identity] rendering base (GPU-only, 1 thread) ...
+[identity] base wall: 76.283340 s
+[identity] rendering gp (GPU-only, 1 thread) ...
+[identity] gp wall: 39.571171 s
+[identity] 100 / 100 frames byte-identical
+[identity] PASS
