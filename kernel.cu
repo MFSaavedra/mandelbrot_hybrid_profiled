@@ -54,12 +54,34 @@ static long   totalRegions  = 0;
 __device__ int diverge(double cx, double cy, int MAXITER) {
   int iter = 0;
   double vx = cx, vy = cy, tx, ty;
+  // Brent-style periodicity check, mirroring the CPU diverge() in
+  // mandelregion.cpp.  Interior orbits settle into an attracting cycle; once
+  // the FP state exactly revisits a saved state the (deterministic) iteration
+  // can never escape, so returning MAXITER now is *exact* with respect to
+  // this kernel's own (FMA-contracted) arithmetic -- the plain loop would
+  // have ground to MAXITER and returned the same value.  Exact equality (no
+  // epsilon) keeps exterior pixels untouched: an escaping orbit never exactly
+  // repeats.  The saved point is refreshed at doubling intervals so a cycle
+  // of period p entered after a transient of t is caught in O(max(p, t)).
+  // A lane that detects a cycle exits and sits masked while the rest of the
+  // warp finishes: the warp's time drops from MAXITER to the *slowest* lane's
+  // detection latency.  Warp execution efficiency on interior regions falls
+  // below the 100% of report 16, but wall time is what the check buys.
+  double sx = vx, sy = vy;
+  int nextSave = 8;
   while (iter < MAXITER && (vx * vx + vy * vy) < 4) {
     tx = vx * vx - vy * vy + cx;
     ty = 2 * vx * vy + cy;
     vx = tx;
     vy = ty;
     iter++;
+    if (vx == sx && vy == sy)
+      return MAXITER;
+    if (iter == nextSave) {
+      sx = vx;
+      sy = vy;
+      nextSave *= 2;
+    }
   }
   return iter;
 }
