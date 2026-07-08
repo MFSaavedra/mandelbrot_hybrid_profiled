@@ -1,0 +1,77 @@
+Collecting data...
+Generating '/tmp/nsys-report-87b1.qdstrm'
+Press Ctrl-C to stop symbol files downloading
+[1/85] Downloaded symbol information for /usr/lib/libkrb5.so.3.3
+[3/85] Downloaded symbol information for /usr/lib/libicui18n.so.78.3
+[5/85] Downloaded symbol information for /usr/lib/libbrotlidec.so.1.2.0
+[7/85] Downloaded symbol information for /usr/lib/libjpeg.so.8.3.2
+[8/85] Downloaded symbol information for /usr/lib/libcurl.so.4.8.0
+[9/85] Downloaded symbol information for /usr/lib/libQt5Svg.so.5.15.19
+[10/85] Downloaded symbol information for /usr/lib/libssl.so.3
+[11/85] Downloaded symbol information for /usr/lib/qt/plugins/imageformats/libqjpeg.so
+[12/85] Downloaded symbol information for /usr/lib/libharfbuzz.so.0.61420.0
+[13/85] Downloaded symbol information for /usr/lib/qt/plugins/imageformats/libqico.so
+[14/85] Downloaded symbol information for /usr/lib/libidn2.so.0.4.0
+[16/85] Downloaded symbol information for /usr/lib/libcrypto.so.3
+[17/85] Downloaded symbol information for /usr/lib/libgmodule-2.0.so.0.8800.1
+[20/85] Downloaded symbol information for /usr/lib/libxcb.so.1.1.0
+[21/85] Downloaded symbol information for /usr/lib/libbz2.so.1.0.8
+[22/85] Downloaded symbol information for /usr/lib/libmount.so.1.1.0
+[23/85] Downloaded symbol information for /usr/lib/libX11.so.6.4.0
+[24/85] Downloaded symbol information for /usr/lib/libgraphite2.so.3.2.1
+[25/85] Downloaded symbol information for /usr/lib/libQt5Gui.so.5.15.19
+[26/85] Downloaded symbol information for /usr/lib/libfreetype.so.6.20.6
+[28/85] Downloaded symbol information for /usr/lib/libQt5Network.so.5.15.19
+[29/85] Downloaded symbol information for /usr/lib/libproxy.so.0.5.12
+[30/85] Downloaded symbol information for /usr/lib/libpcre2-8.so.0.15.0
+[31/85] Downloaded symbol information for /usr/lib/libXdmcp.so.6.0.0
+[32/85] Downloaded symbol information for /usr/lib/libbrotlicommon.so.1.2.0
+[33/85] Downloaded symbol information for /usr/lib/libdouble-conversion.so.3.4.0
+[35/85] Downloaded symbol information for /usr/lib/libicuuc.so.78.3
+[36/85] Downloaded symbol information for /usr/lib/libpcre2-16.so.0.15.0
+[37/85] Downloaded symbol information for /usr/lib/libunistring.so.5.2.1
+[38/85] Downloaded symbol information for /usr/lib/qt/plugins/imageformats/libqsvg.so
+[39/85] Downloaded symbol information for /usr/lib/libk5crypto.so.3.1
+[40/85] Downloaded symbol information for /usr/lib/libbrotlienc.so.1.2.0
+[41/85] Downloaded symbol information for /usr/lib/libblkid.so.1.1.0
+[42/85] Downloaded symbol information for /usr/lib/libnghttp2.so.14.29.4
+[43/85] Downloaded symbol information for /usr/lib/libQt5Widgets.so.5.15.19
+[44/85] Downloaded symbol information for /usr/lib/libpthread.so.0
+[45/85] Downloaded symbol information for /usr/lib/libXau.so.6.0.0
+[46/85] Downloaded symbol information for /usr/lib/libffi.so.8.2.0
+[47/85] Downloaded symbol information for /usr/lib/libkrb5support.so.0.1
+[48/85] Downloaded symbol information for /usr/lib/libgobject-2.0.so.0.8800.1
+[49/85] Downloaded symbol information for /usr/lib/libproxy/libpxbackend-1.0.so
+[50/85] Downloaded symbol information for /usr/lib/libresolv.so.2
+[51/85] Downloaded symbol information for /usr/lib/libssh2.so.1.0.1
+[52/85] Downloaded symbol information for /usr/lib/libduktape.so.207.20700
+[53/85] Downloaded symbol information for /usr/lib/libstdc++.so.6.0.35
+[54/85] Downloaded symbol information for /usr/lib/libc.so.6
+[55/85] Downloaded symbol information for /usr/lib/libzstd.so.1.5.7
+[56/85] Downloaded symbol information for /usr/lib/libgio-2.0.so.0.8800.1
+[57/85] Downloaded symbol information for /usr/lib/libngtcp2.so.16.8.1
+[58/85] Downloaded symbol information for /usr/lib/libglib-2.0.so.0.8800.1
+[59/85] Downloaded symbol information for /usr/lib/libGL.so.1.7.0
+[60/85] Downloaded symbol information for /usr/lib/libnghttp3.so.9.6.1
+[61/85] Downloaded symbol information for /usr/lib/libpsl.so.5.3.5
+[62/85] Downloaded symbol information for /usr/lib/libngtcp2_crypto_ossl.so.0.2.0
+[63/85] Downloaded symbol information for /usr/lib/libmd4c.so.0.5.3
+[64/85] Downloaded symbol information for /usr/lib/libutil.so.1
+[65/85] Downloaded symbol information for /usr/lib/libGLX.so.0.0.0
+[66/85] Downloaded symbol information for /usr/lib/librt.so.1
+[67/85] Downloaded symbol information for /usr/lib/libsystemd.so.0.43.0
+[68/85] Downloaded symbol information for /usr/lib/libgssapi_krb5.so.2.2
+[69/85] Downloaded symbol information for /usr/lib/libdl.so.2
+[70/85] Downloaded symbol information for /usr/lib/libGLdispatch.so.0.0.0
+[72/85] Downloaded symbol information for /usr/lib/libcom_err.so.2.1
+[73/85] Downloaded symbol information for /usr/lib/libm.so.6
+[76/85] Downloaded symbol information for /usr/lib/ld-linux-x86-64.so.2
+[77/85] Downloaded symbol information for /usr/lib/libz.so.1.3.2
+[80/85] Downloaded symbol information for /usr/lib/libQt5Core.so.5.15.19
+[81/85] Downloaded symbol information for /usr/lib/qt/plugins/imageformats/libqgif.so
+[83/85] Downloaded symbol information for /usr/lib/libpng16.so.16.58.0
+[84/85] Downloaded symbol information for /usr/lib/libkeyutils.so.1.10
+[85/85] Downloaded symbol information for /usr/lib/libgcc_s.so.1
+[1/1] [0%                          ] report.nsys-rep[1/1] [0%                          ] report.nsys-rep[1/1] [0%                          ] report.nsys-rep[1/1] [8%                          ] report.nsys-rep[1/1] [7%                          ] report.nsys-rep[1/1] [6%                          ] report.nsys-rep[1/1] [5%                          ] report.nsys-rep[1/1] [9%                          ] report.nsys-rep[1/1] [8%                          ] report.nsys-rep[1/1] [7%                          ] report.nsys-rep[1/1] [11%                         ] report.nsys-rep[1/1] [=15%                        ] report.nsys-rep[1/1] [==19%                       ] report.nsys-rep[1/1] [==20%                       ] report.nsys-rep[1/1] [===24%                      ] report.nsys-rep[1/1] [====27%                     ] report.nsys-rep[1/1] [=====31%                    ] report.nsys-rep[1/1] [======35%                   ] report.nsys-rep[1/1] [=======38%                  ] report.nsys-rep[1/1] [========42%                 ] report.nsys-rep[1/1] [=========45%                ] report.nsys-rep[1/1] [=========46%                ] report.nsys-rep[1/1] [==========47%               ] report.nsys-rep[1/1] [==========48%               ] report.nsys-rep[1/1] [==========49%               ] report.nsys-rep[1/1] [===========50%              ] report.nsys-rep[1/1] [===========51%              ] report.nsys-rep[1/1] [===========52%              ] report.nsys-rep[1/1] [===========53%              ] report.nsys-rep[1/1] [============54%             ] report.nsys-rep[1/1] [============55%             ] report.nsys-rep[1/1] [============56%             ] report.nsys-rep[1/1] [============57%             ] report.nsys-rep[1/1] [=============58%            ] report.nsys-rep[1/1] [=============59%            ] report.nsys-rep[1/1] [=============60%            ] report.nsys-rep[1/1] [==============61%           ] report.nsys-rep[1/1] [==============62%           ] report.nsys-rep[1/1] [==============63%           ] report.nsys-rep[1/1] [==============64%           ] report.nsys-rep[1/1] [===============65%          ] report.nsys-rep[1/1] [===============66%          ] report.nsys-rep[1/1] [===============67%          ] report.nsys-rep[1/1] [================68%         ] report.nsys-rep[1/1] [================69%         ] report.nsys-rep[1/1] [================70%         ] report.nsys-rep[1/1] [================71%         ] report.nsys-rep[1/1] [=================72%        ] report.nsys-rep[1/1] [=================73%        ] report.nsys-rep[1/1] [=================74%        ] report.nsys-rep[1/1] [==================75%       ] report.nsys-rep[1/1] [==================76%       ] report.nsys-rep[1/1] [==================77%       ] report.nsys-rep[1/1] [==================78%       ] report.nsys-rep[1/1] [===================79%      ] report.nsys-rep[1/1] [===================80%      ] report.nsys-rep[1/1] [===================81%      ] report.nsys-rep[1/1] [===================82%      ] report.nsys-rep[1/1] [====================83%     ] report.nsys-rep[1/1] [====================84%     ] report.nsys-rep[1/1] [====================85%     ] report.nsys-rep[1/1] [=====================86%    ] report.nsys-rep[1/1] [=====================87%    ] report.nsys-rep[1/1] [=====================88%    ] report.nsys-rep[1/1] [=====================89%    ] report.nsys-rep[1/1] [======================90%   ] report.nsys-rep[1/1] [======================91%   ] report.nsys-rep[1/1] [======================92%   ] report.nsys-rep[1/1] [=======================93%  ] report.nsys-rep[1/1] [=======================94%  ] report.nsys-rep[1/1] [=======================95%  ] report.nsys-rep[1/1] [========================100%] report.nsys-rep[1/1] [========================100%] report.nsys-rep
+Generated:
+	/home/lynx/box/cpp/Multicore_and_GPU_2e_code/Chapter_11_Loadbalancing/mandelbrot_hybrid_profiled/second_run/report.nsys-rep

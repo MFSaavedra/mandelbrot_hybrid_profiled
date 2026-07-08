@@ -1,0 +1,13 @@
+binary,config,numThreads,gpuMode,rep,elapsed_s
+base,cpu12,12,0,1,162.826915
+pc,cpu12,12,0,1,35.205058
+base,hybrid,12,1,1,57.193029
+pc,hybrid,12,1,1,30.301758
+base,cpu12,12,0,2,163.645968
+pc,cpu12,12,0,2,35.044068
+base,hybrid,12,1,2,57.630316
+pc,hybrid,12,1,2,31.192452
+base,cpu12,12,0,3,166.807567
+pc,cpu12,12,0,3,35.389408
+base,hybrid,12,1,3,58.100783
+pc,hybrid,12,1,3,31.332187

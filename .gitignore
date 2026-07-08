@@ -20,6 +20,12 @@ img/
 # LaTeX intermediates
 *.aux
 *.log
+# ... but *.log above must not swallow raw experiment run records (it had been
+# silently untracking exp-04's stderr/stdout, exp-06/07's quiet0/ region logs
+# and exp-19's sweep.log, all documented as tracked contents in CLAUDE.md)
+!experiments/**/*.log
+# ffmpeg encode logs are regenerated together with the (gitignored) videos
+experiments/*/viz_*/ff*.log
 *.bbl
 *.blg
 *.toc
