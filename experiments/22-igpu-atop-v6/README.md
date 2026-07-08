@@ -95,3 +95,35 @@ or extra-worker scheme first requires the lanes to actually yield
 (`cudaDeviceScheduleBlockingSync` one-liner, report 15) — and even then the
 ceiling is one recovered worker ≈ −7–9%, on a pool that exp-22 shows binding
 in every config.
+
+## Probe 2: BlockingSync (`cudaDeviceScheduleBlockingSync`) + re-run
+
+One-liner added at the top of `CUDAmemSetup()` (kernel.cu): the driver now
+sleeps the dGPU lane on synchronous waits instead of busy-spinning — the
+cheap confirmation report 15 called for. `probe_blocking.sh`, 3 configs
+alternated, 2 reps:
+
+| config | reps (s) | mean | pre-BlockingSync same-day |
+|---|---|---|---|
+| mode 1, 12 thr (control) | 24.33, 27.04 | 25.69 | 27.36 |
+| mode 1, 13 thr (12 CPU + sleeping lane) | 26.30, 26.52 | 26.41 | — |
+| mode 3, 13 thr (11 CPU + both lanes) | 28.63, 26.87 | 27.75 | 29.38 |
+
+- **BlockingSync is safe and ~neutral-to-mildly-positive** (means shifted
+  ~−1.6 s vs the pre-BS batch, but first-of-batch cold runs of 24.3–25.5 s
+  put that inside the thermal confound). Confirms report 15's ceiling
+  analysis; no reason to revert it.
+- **The recovered worker is a wash** (m1 t13 26.41 vs m1 t12 25.69,
+  overlapping spreads). Mechanism: per-region CPU cost rises 53→57 ms at 13
+  threads — the 12th worker shares a physical core (SMT), adding only the
+  ~0.3–0.4-core past-the-knee capacity report 15 priced, while the spinning
+  lane it replaced was already SMT-friendly (PAUSE loop). The naive "free a
+  logical CPU → −8%" does not materialize.
+- **Mode 3 still loses everywhere** (27.75 vs 25.69/26.41): the iGPU fails
+  to pay under all three schemes tried — worker swap (12 thr), spin
+  oversubscription (13 thr), blocking oversubscription (13 thr + BS). The
+  OpenCL lane's wait behaviour is unchanged and both lanes still carry the
+  host-side commit; the iGPU also shares package power with the pool.
+- **Implication for the single-thread dual-GPU multiplexer**: its entire
+  prize is the recovered worker just measured at ≈ noise. Not worth the
+  restructure on this machine; closes the idea alongside report 15.

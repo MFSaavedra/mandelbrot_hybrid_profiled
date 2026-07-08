@@ -114,6 +114,10 @@ extern "C" void CUDAmemCleanup() {
 
 //************************************************************
 extern "C" unsigned int *CUDAmemSetup(int maxResX, int maxResY) {
+  // Make the driver sleep the calling thread on synchronous waits instead of
+  // busy-spinning (default ScheduleAuto spins when contexts < cores). Must be
+  // set before the first context-creating runtime call below.
+  CUDA_CHECK_RETURN(cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync));
   CUDA_CHECK_RETURN(cudaMallocPitch((void **)&d_res, (size_t *)&pitch,
                                     maxResX * sizeof(unsigned), maxResY));
   CUDA_CHECK_RETURN(
