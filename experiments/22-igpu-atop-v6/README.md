@@ -74,3 +74,24 @@ mode 2 (`iGPU+11CPU`) as a budget config on machines without the dGPU.
 - `results.csv` — `config,numThreads,gpuMode,rep,elapsed_s`
 - `logs/m{1,3}.r{1..3}.{stdout,stderr}` — per-run thread/GPU summaries +
   `[total_elapsed_s]`
+
+## Probe: recover the worker by oversubscribing (13 threads = 11 CPU + 2 lanes)
+
+`probe_t13.sh`, 2 alternated reps vs the 12-thread mode-1 control, same day:
+
+| config | reps (s) | mean |
+|---|---|---|
+| mode 1, 12 thr (control) | 26.28, 28.43 | 27.36 |
+| mode 3, 13 thr | 29.58, 29.18 | **29.38 (+7.4%)** |
+
+Worse than *both* 12-thread configs. The GPU lanes do not sleep while the
+kernels run — the CUDA wait busy-spins (report 15) and both lanes do the
+host-side commit — so 13 runnable threads on 12 logical CPUs just timeshare:
+the pool's busiest thread rises 26.5–27.9 → 28.2–29.0 s and pool busy time
+inflates 265 → ~305 s (descheduled time counts against the wall-clock
+per-thread timers). The 11th worker's nominal ~27 s of capacity is consumed
+by the contention it creates. Implication: any "one thread drives both GPUs"
+or extra-worker scheme first requires the lanes to actually yield
+(`cudaDeviceScheduleBlockingSync` one-liner, report 15) — and even then the
+ceiling is one recovered worker ≈ −7–9%, on a pool that exp-22 shows binding
+in every config.
