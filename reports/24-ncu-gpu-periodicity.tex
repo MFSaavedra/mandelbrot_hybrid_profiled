@@ -1,0 +1,334 @@
+% Template:     Reporte LaTeX
+% Documento:    ncu re-baseline after the GPU-side periodicity check.
+% Codificación: UTF-8
+
+\documentclass[
+	english,
+	letterpaper, oneside
+]{article}
+
+\def\documenttitle {The Price of the Early Exit: ncu After GPU Periodicity}
+\def\documentsubtitle {Re-Baselining the Warp Metrics on \texttt{binary-v7} --- Interior $100 \to 96.3\%$, Kernels $9.9\times$, Isolated Overhead $+12\%$}
+\def\documentsubject {GPU Microarchitecture, Warp Divergence, Nsight Compute, Work Reduction}
+\def\documentdate {\today}
+
+\def\documentauthor {Matias Saavedra}
+\def\coursename {Multicore and GPU Programming}
+\def\coursecode {CISC 701}
+
+\def\universityname {Universidad de Chile}
+\def\universityfaculty {Facultad de Ciencias Físicas y Matemáticas}
+\def\universitydepartment {Departamento de Ciencias de la Computación}
+\def\universitydepartmentimage {departamentos/dcc}
+\def\universitylocation {Santiago de Chile}
+
+\input{template}
+
+\begin{document}
+
+\templatePagecfg
+\templateFinalcfg
+
+\inserttitle
+
+\begin{center}\small\textsf{%
+Binary: \texttt{binary-v7-gpu-periodicity} (\texttt{2abc909}, on \texttt{main}
+since \texttt{41b6c2e}), captured with Nsight Compute 2026.2. Baseline:
+experiment 16's tracked capture of \texttt{binary-v5-affinity}
+(\texttt{fc33e29}) --- the device \texttt{diverge()} is unchanged
+v5$\to$v6, so that capture is the immediately-pre-check kernel. Raw data:
+\texttt{experiments/24-ncu-gpu-periodicity/}.%
+}\end{center}
+
+% -----------------------------------------------------------------------
+\begin{abstract}
+Reports 16/17 pinned this kernel at exactly 100.0\% warp execution
+efficiency on interior content, and report 21 cited that number to defer
+the GPU-side periodicity check (``expect a loss''). Report 23 falsified the
+conclusion at the wall ($-20.5\%$ hybrid); this report replaces the stale
+counters. Same method as experiment 16 (same four content-regime specs,
+same kernel caps, same metrics; aggregation validated to reproduce
+experiment 16's summary exactly; clocks match within 1\%, so durations
+compare). The price of the early exit is small and precisely locatable:
+interior warp efficiency falls only $\mathbf{100.0 \to 96.3\%}$ (minimum
+kernel 95.0\%) while interior kernels get $\mathbf{9.9\times}$ faster;
+the isolated overhead --- pure-exterior content, where the check never
+fires --- is $\mathbf{+12.4\%}$, half the 25--30\% estimate, because
+\texttt{nvcc} short-circuits the two anchor compares into one
+always-executed \texttt{DSETP}. The cost concentrates on boundary content
+($+23\%$, kernels production routes to the CPU anyway); the production mix
+nets $9.4\times$ per kernel. The FP64 pipe stays at $\sim$85\% of peak in
+every regime, before and after: the kernel remains FP64-bound, and every
+metric that ``degraded'' --- warp efficiency, achieved occupancy --- reads
+worse precisely because the work now ends early.
+\end{abstract}
+
+% -----------------------------------------------------------------------
+\section{Motivation: replace the number the wrong prediction leaned on}
+\label{sec:motivation}
+
+Report 16 measured interior kernels at exactly 100.0\% warp execution
+efficiency and 85.6\% of FP64 peak; report 17 reproduced both on the four
+zoom-point geometries. Those were correct measurements read as health:
+report 21's recommendation 6 cited them to predict the GPU-side
+periodicity check would lose. Report 23 measured the check instead ---
+mix-controlled kernel $2.34\times$, hybrid $29.83 \to 23.72$~s, output
+byte-identical --- and identified the misreading: on interior content,
+``100\% efficiency, zero early exits'' \emph{is} the waste (every lane of
+every warp grinding provably-useless iterations to \texttt{MAXITER} in
+perfect lockstep). What report 23 could not say is what the counters look
+like now: how much warp efficiency the early exit actually spends, where
+the two-compares-per-iteration overhead lands, and whether the FP64
+roofline moved. Without a measured replacement, the 100.0\% baseline
+stays on record as a target someone could ``restore'' by deleting the
+check. This experiment re-baselines all of it.
+
+% -----------------------------------------------------------------------
+\section{Methodology}
+\label{sec:method}
+
+Identical to experiment 16, on the merged v7 binary: the same four
+content-regime specs reused verbatim (\emph{interior} = main cardioid,
+$\texttt{maxIter}$ 2000--3000; \emph{exterior} = fast escape;
+\emph{boundary} = seahorse valley; \emph{canonical} = the production
+zoom), GPU-only runs (\texttt{1 1 0.1 32768 1 0} --- the single GPU thread
+sees every region class), \texttt{--set full} on 6/6/60/60 kernels plus a
+cheap warp/branch \texttt{--metrics} pass on 6/6/300/300. Counters are
+admin-gated; capture ran via \texttt{sudo capture.sh}, analysis
+unprivileged via \texttt{analyze.py}.
+
+\textbf{Baseline.} Experiment 16's tracked \texttt{analysis/summary.csv}.
+The device \texttt{diverge()} is unchanged between \texttt{binary-v5-affinity}
+(which experiment 16 captured) and v6 (a CPU-only change), so no
+re-capture of the old kernel is needed. \texttt{analyze.py} reproduces
+experiment 16's aggregation exactly --- validated in-session against its
+tracked summary on all four regimes (simple mean over captured kernels of
+the same raw-page columns). One slip found in the reference: experiment
+16's \emph{exterior} \texttt{dur\_ms} is recorded in \textmu s (614.869);
+corrected to 0.615~ms here.
+
+\textbf{Comparability.} Warp/branch efficiency, pipe and SOL percentages,
+and occupancy are clock-independent ratios. Durations normally carry a
+thermal caveat across sessions, but the recorded GPC clocks match within
+1\% (v6: 1.317--1.345~GHz; v7: 1.322--1.342~GHz), so the duration ratios
+are quoted as measured. The decomposition is deterministic and identical
+in both binaries (report 23), so capture $N$ sees the same $N$ regions.
+
+% -----------------------------------------------------------------------
+\section{Results}
+\label{sec:results}
+
+\begin{table}[H]
+\centering
+\caption{Full-set captures, v6 baseline (experiment 16) vs v7 (this
+capture); each cell is v6 $\to$ v7. Read row-wise: the check's entire
+metric cost is the interior warp-efficiency drop, the $+12$--23\% on
+content that never cycles, and 6 registers; the FP64 pipe does not move.}
+\label{tab:summary}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrr}
+\toprule
+metric & interior & exterior & boundary & canonical \\
+\midrule
+warp exec.\ eff.\ (\%) & $100.0 \to \mathbf{96.3}$ & $100.0 \to 100.0$ & $92.6 \to 92.4$ & $94.4 \to 91.9$ \\
+branch eff.\ (\%)      & $100.0 \to 99.7$ & $100.0 \to 100.0$ & $99.6 \to 99.8$ & $96.4 \to 97.8$ \\
+FP64 pipe (\% peak)    & $85.6 \to 85.3$ & $85.6 \to 84.9$ & $85.3 \to 85.1$ & $84.1 \to 84.0$ \\
+compute SOL (\%)       & $85.5 \to 85.1$ & $85.4 \to 84.6$ & $78.1 \to 77.9$ & $69.4 \to 66.6$ \\
+achieved occup.\ (\%)  & $98.9 \to 89.5$ & $94.0 \to 91.5$ & $84.3 \to 84.6$ & $79.1 \to 77.4$ \\
+mean kernel (ms)       & $726.4 \to \mathbf{73.5}$ & $0.615 \to 0.691$ & $16.8 \to 20.7$ & $30.7 \to \mathbf{3.25}$ \\
+duration ratio         & $\mathbf{9.9\times}$ & $+12.4\%$ & $+23.3\%$ & $\mathbf{9.4\times}$ \\
+registers/thread       & $22 \to 28$ & $22 \to 28$ & $22 \to 28$ & $22 \to 28$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\insertimage{img/ncu24_warpeff.png}{width=0.88\linewidth}
+            {Full-set warp execution efficiency by regime. The check's
+             entire efficiency cost on the full-set captures is the 3.7-point
+             interior drop (and 2.6 on the production mix); exterior ---
+             where no orbit ever cycles --- is untouched at 100.0\%, and
+             boundary's structural floor-leaf divergence (report 16) is
+             unchanged. \label{fig:warpeff}}
+
+\insertimage{img/ncu24_duration.png}{width=0.88\linewidth}
+            {Mean kernel duration per regime, log scale (GPC clocks match
+             within 1\% between the sessions). The win lands where the
+             cycles are (interior $9.9\times$, production mix $9.4\times$);
+             the cost lands where they aren't (exterior $+12.4\%$, boundary
+             $+23.3\%$). Production affinity routes boundary floor leaves to
+             the CPU pool, so the $+23\%$ barely prices into the production
+             config that report 23 measured at $-20.5\%$ wall.
+             \label{fig:duration}}
+
+\begin{table}[H]
+\centering
+\caption{Per-kernel warp-efficiency distribution from the large
+\texttt{\_warp} captures (both binaries reduced identically). Boundary is
+statistically unchanged --- the floor-leaf divergence is a property of
+region size, not of the check --- while canonical's distribution shifts
+down: its big interior kernels now contain the early exits, by design.}
+\label{tab:dist}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+regime & kernels & mean (\%) & min (\%) & below 70\% \\
+\midrule
+boundary v6  & 276 & 70.7 & 28.6 & 47.1\% \\
+boundary v7  & 276 & 70.2 & 28.5 & 47.5\% \\
+\midrule
+canonical v6 & 300 & 87.6 & 22.2 & 12.7\% \\
+canonical v7 & 300 & \textbf{78.1} & 18.7 & \textbf{32.0\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\insertimage{img/ncu24_dist.png}{width=\linewidth}
+            {The same distributions as Table~\ref{tab:dist}. Left: boundary
+             histograms lie on top of each other --- the check neither adds
+             to nor removes the structural divergence of the $240\times135$
+             floor leaves. Right: canonical's mass moves out of the
+             95--100\% bin into the 40--90\% range: the interior kernels
+             that used to run in wasteful lockstep now retire lanes as they
+             detect their cycles. \label{fig:dist}}
+
+% -----------------------------------------------------------------------
+\section{Analysis}
+\label{sec:analysis}
+
+\subsection{Interior pays 3.7 points because detection is synchronized
+within a warp}
+
+The feared divergence catastrophe is a 3.7-point drop: interior kernels
+average 96.3\% warp efficiency (minimum 95.0\%, nothing below 90\% in any
+capture) while running $9.9\times$ faster. The reason detection is so
+coherent: a warp's 32 lanes are contiguous pixels of the same interior
+region converging to the same attracting cycle, and every lane refreshes
+its Brent anchor at the \emph{same} iteration numbers (8, 16, 32, \ldots\
+--- the schedule is iteration-indexed, not state-indexed). Neighbouring
+orbits therefore satisfy the exact-revisit test at nearly the same
+iteration, and the masked-idle tail between the first and last detection
+in a warp is short relative to even the shortened kernel. The duration
+ratio quantifies the effective latency: $9.9\times$ at
+\texttt{maxIter} 2000--3000 and $+12.4\%$ per-iteration overhead implies
+the slowest lane detects at $\sim$225 iterations on main-cardioid content
+--- between report 21's 67 (period-3 bulb) and $\sim$900 (deep minibrot),
+as expected for the period-1 cardioid interior with a slow transient.
+
+\subsection{The isolated overhead is $+12.4\%$, not 25--30\%: \texttt{nvcc}
+short-circuits the compare pair}
+
+Exterior content prices the check's overhead with zero benefit mixed in:
+no escaping orbit ever revisits a state, so the branch never fires, and
+the regime stays at exactly 100.0\% warp efficiency --- the $+12.4\%$
+duration is pure per-iteration cost. Reports 21/23 estimated 25--30\% by
+counting two FP64 compares against a $\sim$7-instruction recurrence; the
+SASS shows why the measured cost is half that: the compiler compiles
+\texttt{vx == sx \&\& vy == sy} as one always-executed
+\texttt{DSETP.NEU} on \texttt{vx}, with the \texttt{vy} compare
+(\texttt{DSETP.EQ}) predicated behind it --- it almost never issues on
+non-cycling orbits. One extra FP64-pipe instruction on a loop body of
+$\sim$8 predicts $+12.5\%$; measured, $+12.4\%$. Consistently, the FP64
+pipe stays at $\sim$85\% of peak in every regime: the check did not move
+the roofline, it added one slot to the iteration.
+
+\subsection{Boundary pays the most ($+23\%$) and produces nothing --- and
+production doesn't care}
+
+Boundary kernels slow $16.8 \to 20.7$~ms with a warp-efficiency
+distribution that is statistically identical (mean $70.7 \to 70.2$, 47\%
+below 70\% in both, minimum $\sim$28.5\%): seahorse-valley content
+iterates long but either escapes or fails to \emph{exactly} cycle within
+the anchor schedule, so it pays the compare on every iteration and the
+early exit almost never fires. The $+23\%$ exceeding the $+12.5\%$
+static floor is the one number these counters do not fully attribute
+(candidates: the predicated second compare firing on near-cyclic orbits,
+and thinner warps hiding the recurrence latency less well); it is also the
+least consequential --- report 16 showed these are the $240\times135$
+pixel-floor leaves, and in the production hybrid the affinity queue routes
+them to the CPU pool. The production mix (canonical) nets $9.4\times$ per
+kernel regardless.
+
+\subsection{The occupancy drop is the early exit's signature, not register
+pressure}
+
+Registers rise $22 \to 28$ (the two anchor doubles and the schedule
+counter live across the loop), which moves the register occupancy limit
+from 10 to 8 blocks/SM --- both far above the 4-block warp limit that
+actually binds ($4 \times 256 = 1024$ threads/SM), so \emph{theoretical}
+occupancy is unchanged. The achieved drop ($98.9 \to 89.5\%$ on interior)
+is the same phenomenon as the warp-efficiency drop seen one level up:
+warps retire as their lanes detect cycles, blocks drain, and the SM
+spends a larger fraction of a much shorter kernel partially full. Like
+warp efficiency, achieved occupancy now reads ``worse'' \emph{because}
+the kernel stops doing useless work.
+
+\subsection{The counters reconcile with report 23's $2.34\times$, and the
+metrics' role changes}
+
+Report 23 measured the mix-controlled kernel total at $2.34\times$ over
+all 5{,}608 regions; these captures show interior-type content at
+$\sim$$9.9\times$ and never-cycling content at $\sim$$1.2\times$ slower.
+The blend $s/9.9 + (1-s)\times1.2 = 1/2.34$ solves to $s \approx 0.70$:
+seventy percent of the v6 kernel time was interior grind --- the
+GPU-side echo of the leaf-purity census that motivated report 21. The
+practical conclusion for the metric suite: on this kernel, warp execution
+efficiency and achieved occupancy are no longer health indicators; they
+are the accounting of eliminated work. The FP64 pipe percentage
+($\sim$85\%, invariant) remains the real health line --- it says the
+kernel is still FP64-bound, so the next kernel-side lever (if one is ever
+needed) is still arithmetic, not scheduling.
+
+% -----------------------------------------------------------------------
+\section{Recommendations}
+\label{sec:recommendations}
+
+\begin{enumerate}
+  \item \textbf{Adopt these numbers as the healthy baselines}: interior
+        96.3\% warp / 99.7\% branch efficiency, canonical distribution
+        mean 78.1\% with 32\% of kernels below 70\%, achieved occupancy
+        89.5\%, FP64 pipe 85\%. Reports 16/17's 100.0\% figures are
+        superseded by design; a future capture that reads 100.0\% on
+        interior content means the check was removed and $\sim$$10\times$
+        kernel time came back.
+  \item \textbf{Do not pursue $k$-strided compare amortization.} The
+        motivation (reports 21/23's 25--30\% overhead estimate) is gone:
+        the short-circuited compare costs $+12.4\%$, and striding the
+        anchor compare to every $k$-th iteration would delay detection by
+        up to $k-1$ iterations on a $\sim$225-iteration prize to recover
+        part of one instruction in eight. The measured ceiling is not
+        worth the exactness-argument complication.
+  \item \textbf{Proceed to the \texttt{scanLine} commit path} (report 23,
+        recommendation 2). The kernel side is done: $9.4\times$ on the
+        production mix with the pipe still 85\% saturated leaves the GPU
+        thread's host side (12.8~s vs 10.7~s kernel at steady state) as
+        the only lane cost that has not been attacked.
+  \item \textbf{Port the check to \texttt{oclkernel.cpp} before the third
+        iGPU repricing} (report 23, recommendation 4) --- unchanged, with
+        one addition from this data: expect the iGPU's kernel-side gain to
+        be content-identical ($\sim$$10\times$ on interior) but its warp
+        (subgroup) metrics to shift the same way; budget the same
+        identity-gate-against-itself validation.
+\end{enumerate}
+
+% -----------------------------------------------------------------------
+\section{Conclusion}
+
+The GPU-side periodicity check's microarchitectural price is measured and
+small: interior warp execution efficiency $100.0 \to 96.3\%$ (minimum
+95.0\%), achieved occupancy $98.9 \to 89.5\%$, six extra registers with
+the theoretical occupancy limit untouched, and $+12.4\%$ per-iteration
+overhead where no cycle exists --- half the pre-measurement estimate,
+because \texttt{nvcc} short-circuits the anchor compares. The prize the
+metrics paid for: interior kernels $9.9\times$, the production mix
+$9.4\times$ per kernel, reconciling to report 23's mix-controlled
+$2.34\times$ via a 70/30 interior/other time split. Boundary floor leaves
+pay $+23\%$ and remain exactly as divergent as report 16 found them ---
+structural, size-bound, and routed to the CPU in production. The FP64
+pipe stays at $\sim$85\% of peak in every regime: the kernel is still
+FP64-bound, the roofline did not move, and the metrics that ``got worse''
+are the ledger of the work that no longer happens. Reports 16/17's
+100.0\% baselines are hereby replaced; the queued levers are unchanged:
+\texttt{scanLine} host-side commit, then the iGPU port and repricing.
+
+\end{document}

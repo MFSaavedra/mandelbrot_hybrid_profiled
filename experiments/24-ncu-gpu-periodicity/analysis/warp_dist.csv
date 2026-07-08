@@ -1,0 +1,5 @@
+regime,kernels,warpEff_mean,warpEff_min,pct_below_70,pct_below_90
+interior,6,96.344,95.0,0.0,0.0
+exterior,6,100.0,100.0,0.0,0.0
+boundary,276,70.165,28.531,47.5,55.8
+canonical,300,78.11,18.719,32.0,52.3
