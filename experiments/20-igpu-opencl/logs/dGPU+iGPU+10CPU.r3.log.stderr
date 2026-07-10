@@ -1,0 +1,44 @@
+[config] numThr=12 gpuMode=3 (CUDA=1 iGPU=1) diffT=0.100 pixT=32768 res=1920x1080 frames=100 quiet=1 save=1 viz=0 vizFrame=-1
+[iGPU] enumerating OpenCL GPU devices:
+         platform 0 device 0: Intel(R) UHD Graphics 630 [Intel(R) Corporation]
+         platform 1 device 0: NVIDIA GeForce GTX 1660 Ti with Max-Q Design [NVIDIA Corporation]
+[iGPU] selected device: Intel(R) UHD Graphics 630
+[iGPU profiling summary]
+  Regions computed on iGPU : 1456
+  Total kernel time        : 31019.507 ms  (avg 21.305 ms/region)
+  Total D->H read time     : 17.277 ms  (avg 0.012 ms/region)
+[GPU profiling summary]
+  Regions computed on GPU : 2904
+  Total kernel time       : 34267.616 ms  (avg 11.800 ms/region)
+  Total D→H memcpy time   : 195.338 ms  (avg 0.067 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 106
+  Total compute time      : 43552.416 ms  (avg 410.872 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 121
+  Total compute time      : 43316.980 ms  (avg 357.992 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 113
+  Total compute time      : 42424.567 ms  (avg 375.439 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 161
+  Total compute time      : 43189.523 ms  (avg 268.258 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 151
+  Total compute time      : 43342.272 ms  (avg 287.035 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 101
+  Total compute time      : 43532.525 ms  (avg 431.015 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 107
+  Total compute time      : 42813.465 ms  (avg 400.126 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 141
+  Total compute time      : 43130.605 ms  (avg 305.891 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 121
+  Total compute time      : 43690.844 ms  (avg 361.081 ms/region)
+[CPU profiling summary - this thread]
+  Regions computed on CPU : 126
+  Total compute time      : 44082.645 ms  (avg 349.862 ms/region)
+[total_elapsed_s] 44.192497

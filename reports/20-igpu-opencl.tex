@@ -1,0 +1,409 @@
+% Template:     Reporte LaTeX
+% Documento:    Integrated-GPU OpenCL backend as a third executor.
+% Codificación: UTF-8
+
+\documentclass[
+	english,
+	letterpaper, oneside
+]{article}
+
+\def\documenttitle {A Third Executor: Tapping the Integrated GPU via OpenCL}
+\def\documentsubtitle {Adding the Intel UHD 630 to \texttt{mandelHybrid} --- a $-23.2\%$ Wall Win that Refutes the ``Marginal-to-Negative'' Prediction}
+\def\documentsubject {Load Balancing, Heterogeneous Scheduling, OpenCL}
+\def\documentdate {\today}
+
+\def\documentauthor {Matias Saavedra}
+\def\coursename {Multicore and GPU Programming}
+\def\coursecode {CISC 701}
+
+\def\universityname {Universidad de Chile}
+\def\universityfaculty {Facultad de Ciencias Físicas y Matemáticas}
+\def\universitydepartment {Departamento de Ciencias de la Computación}
+\def\universitydepartmentimage {departamentos/dcc}
+\def\universitylocation {Santiago de Chile}
+
+\input{template}
+
+\begin{document}
+
+\templatePagecfg
+\templateFinalcfg
+
+\inserttitle
+
+\begin{center}\small\textsf{%
+Binary: branch \texttt{feat/igpu-opencl} (intended tag \texttt{binary-v6-igpu})
+built on top of \texttt{binary-v5-affinity} (\texttt{fc33e29}). New translation
+unit \texttt{oclkernel.cpp/.h}; the CUDA and CPU paths are unchanged. Baseline is
+the same binary in \texttt{gpuMode}\,=\,1 (discrete GPU only).%
+}\end{center}
+
+% -----------------------------------------------------------------------
+\begin{abstract}
+The renderer used two executor classes --- the discrete GPU (CUDA) and a pool of
+CPU worker threads. This report adds a \textbf{third}: an OpenCL backend
+(\texttt{oclkernel.cpp}) that runs the FP64 Mandelbrot kernel on the
+\emph{integrated} GPU (Intel UHD~630, on the i7-9750H die). \texttt{compute()}
+now dispatches by an \texttt{ExecKind} enum, both GPU backends share a result-copy
+helper, and the iGPU runs on its own \texttt{CalcThr} with the same largest-first
+affinity as the dGPU. Output is \textbf{equivalent to the CUDA path to within FP
+rounding} (identical on shallow frames; at most 0.149\% of pixels per frame differ
+on deep frames, 0.050\% over the run --- full-run verification in \S2.3).
+The headline A/B (100~frames, $1920\times1080$, \texttt{diffT}\,=\,0.1,
+\texttt{save}\,=\,1, 12~threads, 3~reps, on AC) measured a \textbf{wall win, not
+the predicted wash}: \textbf{\texttt{dGPU+iGPU+10CPU} 44.32~s vs.\
+\texttt{dGPU+11CPU} 57.72~s, $-23.2\%$} (disjoint ranges; $-72.6\%$ vs.\ the
+161.6~s CPU floor) --- and it wins \emph{while surrendering a CPU worker}.
+The mechanism is not the predicted ``GPU saturated'': the binding lane is the CPU
+pool (busiest thread $\approx$ wall in every config), and the second GPU strips
+total CPU compute from 622~s to 435~s ($-30\%$), faster than removing a CPU thread
+raises per-thread load. The two GPUs self-balance (34.4~vs.\ 30.4~s kernel).
+\end{abstract}
+
+% -----------------------------------------------------------------------
+\section{Setup and the Change Measured}
+
+\paragraph{Workload and machine.} As in reports~12 and~13: the same
+\texttt{spec.in} (100~frames, $1920\times1080$, zoom to
+\texttt{maxIterations}\,=\,10{,}000), i7-9750H (6c/12t) + GTX~1660~Ti~Max-Q
+(\emph{discrete} GPU, CUDA) + Intel UHD~630 (\emph{integrated} GPU, OpenCL),
+12~threads, \texttt{diffThreshold}\,=\,0.1, \texttt{pixelSizeThresh}\,=\,32{,}768,
+\texttt{save}\,=\,1, on AC power. The decomposition is unchanged from
+\texttt{binary-v5-affinity}: \textbf{5{,}608 leaves} in every configuration ---
+only \emph{which} processor computes each leaf differs.
+
+\paragraph{Three executors, one dispatch point.} The worker model was binary
+(GPU thread vs.\ CPU thread). It becomes a three-way \texttt{ExecKind}; the work
+queue still distinguishes only GPU-class (largest-first) from CPU
+(smallest-first), so \texttt{WorkQueue} is untouched. The branch lives entirely
+in \texttt{compute()}'s dispatch and the new translation unit:
+
+\begin{sourcecode}{cpp}{mandelregion.cpp:187--193 --- compute() picks a front-end by executor kind.}
+if (kind == EXEC_CUDA)
+  hostFE (upperX, upperY, lowerX, lowerY, pixelsX, pixelsY, &h_res, &pitch, MAXGRAY);
+else                      // EXEC_IGPU
+  oclFE  (upperX, upperY, lowerX, lowerY, pixelsX, pixelsY, &h_res, &pitch, MAXGRAY);
+
+commitGPUResult (h_res, pitch / sizeof (int),
+                 kind == EXEC_CUDA ? "GPU" : "iGPU");
+\end{sourcecode}
+
+\texttt{oclFE} mirrors the CUDA \texttt{hostFE} signature exactly, so the only
+difference between the two GPU paths is the function called. Both then run the
+identical copy-and-metrics loop, factored out of the old CUDA branch into
+\texttt{commitGPUResult} (so the discrete path is byte-for-byte the same
+operations it was, only relabelled):
+
+\begin{sourcecode}{cpp}{mandelregion.cpp:137--160 --- the shared GPU result-copy, used by both backends.}
+void MandelRegion::commitGPUResult (unsigned int *h_res, int pitchInts,
+                                    const char *backend) {
+  // ... for each pixel: read h_res[j*pitchInts + i], accumulate iter/inset
+  //     metrics, write colormap[color] (or black for in-set) into the QImage.
+  //     Identical to the previous inline CUDA copy; only the label differs.
+}
+\end{sourcecode}
+
+\paragraph{The OpenCL backend (\texttt{oclkernel.cpp}).} Compiled by \texttt{g++}
+(not \texttt{nvcc}) against CUDA's bundled CL headers and linked through the ICD
+loader (\texttt{-lOpenCL}). It exposes three calls that parallel
+\texttt{kernel.cu}: \texttt{OCLmemSetup} / \texttt{oclFE} / \texttt{OCLmemCleanup}.
+The kernel is a line-for-line port of \texttt{mandelKernel}, embedded as a string
+so there is no \texttt{.cl} file to locate at runtime:
+
+\begin{sourcecode}{opencl}{oclkernel.cpp:62--85 --- the FP64 Mandelbrot kernel, embedded.}
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+int diverge(double cx, double cy, int MAXITER) {
+  int iter = 0; double vx = cx, vy = cy, tx, ty;
+  while (iter < MAXITER && (vx*vx + vy*vy) < 4.0) {
+    tx = vx*vx - vy*vy + cx;  ty = 2.0*vx*vy + cy;  vx = tx; vy = ty; iter++;
+  }
+  return iter;
+}
+__kernel void mandelKernel(__global unsigned int *out, double upperX, double upperY,
+                           double stepX, double stepY, int resX, int resY, int MAXITER) {
+  int myX = get_global_id(0), myY = get_global_id(1);
+  if (myX >= resX || myY >= resY) return;
+  out[myY*resX + myX] = (unsigned)diverge(upperX + myX*stepX, upperY - myY*stepY, MAXITER);
+}
+\end{sourcecode}
+
+\texttt{oclFE} sets the kernel arguments, launches a 2D NDRange rounded up to
+whole $16\times16$ work-groups (the in-kernel bounds check drops the overhang,
+exactly as the CUDA grid/block guard does), reads the region back, and times the
+kernel and the read with OpenCL profiling events --- the direct analogue of the
+CUDA-event timing in \texttt{hostFE}:
+
+\begin{sourcecode}{cpp}{oclkernel.cpp:264--271 --- launch + readback, device-timed by events.}
+clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global, local, 0, NULL, &evKernel);
+clEnqueueReadBuffer(queue, d_res, CL_TRUE, 0, resX*resY*4, h_res, 0, NULL, &evRead);
+// CL_PROFILING_COMMAND_START/END on evKernel, evRead -> per-region kernel/read ms
+\end{sourcecode}
+
+\paragraph{Device selection and the per-thread context.} \texttt{OCLmemSetup}
+enumerates every OpenCL GPU device and picks the \emph{integrated} one: it prefers
+an Intel-vendor GPU, accepts any non-NVIDIA GPU as a fallback (the discrete card
+is already driven through CUDA --- running OpenCL on it too would be pointless
+contention), honours a \texttt{MANDEL\_OCL\_DEVICE} override, and aborts with
+install guidance if none is found. Because an OpenCL context is best used from one
+thread, the iGPU worker builds and tears down its own context, queue, program and
+buffers \emph{inside its own \texttt{run()}} --- file-scope state touched by
+exactly one thread, the same single-thread assumption \texttt{kernel.cu} makes:
+
+\begin{sourcecode}{cpp}{main.cpp:172--189 --- the iGPU worker owns its OpenCL state for its lifetime.}
+if (kind == EXEC_IGPU) OCLmemSetup (resX, resY);     // build context on this thread
+bool isGPU = (kind != EXEC_CPU);                     // both GPU classes pull largest
+while ((t = que->extract (isGPU)) != NULL) { t->examine (*que, kind); delete t; }
+MandelRegion::printCPUSummary();
+if (kind == EXEC_IGPU) OCLmemCleanup ();
+\end{sourcecode}
+
+\paragraph{The CLI.} \texttt{arg3} becomes a backend bitmask, \texttt{gpuMode}:
+bit~0 = discrete GPU (CUDA), bit~1 = integrated GPU (OpenCL). So \texttt{0}\,=\,CPU
+only, \texttt{1}\,=\,dGPU (the historical default, preserved), \texttt{2}\,=\,iGPU,
+\texttt{3}\,=\,both. In dual mode thread~0 is the dGPU (main thread, wrapped by
+\texttt{CUDAmemSetup}/\texttt{Cleanup}) and the iGPU runs on worker thread~1.
+
+\paragraph{The runtime gotcha.} The UHD~630 (Coffee Lake, \emph{Gen9.5},
+\texttt{8086:3e9b}) is \emph{not} served by the current
+\texttt{intel-compute-runtime} (NEO~$\geq$24.x dropped Gen8--Gen11; it loads but
+prints \texttt{FATAL: Unknown device}). The Gen9.5 part needs the \emph{legacy}
+runtime (\texttt{intel-compute-runtime-legacy1} on Arch). With it installed,
+\texttt{clinfo} reports the device with \texttt{cl\_khr\_fp64} present, so the
+double-precision kernel builds.
+
+\paragraph{Measurement.} A four-config wall A/B at 12~threads, 3~reps each, all on
+one binary in one thermal state so the comparison is disjoint (the discrete-GPU
+baseline is re-measured here, not reused from reports~05/12).\footnote{The \texttt{save=1} PNG writes raise the
+absolute wall $\sim$5~s above the \texttt{save=0} numbers of reports~08--13, so the
+57.72~s baseline here is \emph{not} comparable to report~12's 49.86~s. A separate
+\texttt{save=0} cross-check (\texttt{experiments/20-igpu-opencl/ab\_save0.csv};
+alternating mode~1/mode~3, 3~reps) confirms the gap is \texttt{save}\,+\,thermal, not
+a regression: it reproduces report~12's \texttt{save=0} baseline at mode~1
+(\textbf{49.24~s} vs.\ 49.86~s) and gives mode~3 at \textbf{38.19~s} ($-22.4\%$, a new
+best, $-23.4\%$ below report~12). The win is identical in both regimes; the CUDA path
+is byte-identical to \texttt{binary-v5-affinity}.} Raw data:
+\texttt{experiments/20-igpu-opencl/}.
+
+% -----------------------------------------------------------------------
+\section{Results}
+
+\subsection{Wall Time --- The Win}
+
+\begin{table}[H]
+    \centering
+    \caption{Wall time by backend mode (12~threads, \texttt{diffT}\,=\,0.1,
+             \texttt{save}\,=\,1, 3~reps). $\Delta$ is relative to
+             \texttt{dGPU+11CPU}, the prior best. The mode-1 and mode-3 ranges are
+             \emph{disjoint} (every mode-3 rep beats every mode-1 rep), so $-23.2\%$
+             is signal, not noise.}
+    \label{tab:wall}
+    \begin{tabular}{lrrrr}
+        \hline
+        \textbf{Config} & \textbf{Mode} & \textbf{Wall mean (s)} & \textbf{Range (s)} & \textbf{$\Delta$ vs.\ mode 1} \\
+        \hline
+        CPU12            & 0 & 161.64 & 159.87--163.03 & $+103.92$ ($+180\%$) \\
+        iGPU+11CPU       & 2 & 81.72  & 81.06--82.75   & $+24.00$ ($+41.6\%$) \\
+        dGPU+11CPU       & 1 & 57.72  & 57.34--58.01   & --- (baseline) \\
+        \textbf{dGPU+iGPU+10CPU} & \textbf{3} & \textbf{44.32} & \textbf{44.14--44.62} & \textbf{$-13.40$ ($-23.2\%$)} \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\insertimage{img/igpu_wall.png}{width=\linewidth}
+            {End-to-end wall by backend mode (bars, left axis; red line = \% of the
+             \texttt{dGPU+11CPU} baseline, right axis). The green bar is the new
+             configuration: adding the iGPU drops the wall to 76.8\,\% of the
+             current best. Error bars are min/max over 3~reps --- invisibly small.
+             Note the iGPU \emph{alone} (mode~2) already halves the CPU floor.
+             \label{fig:wall}}
+
+\subsection{Where the 5{,}608 Leaves Ran}
+
+\begin{table}[H]
+    \centering
+    \caption{Per-executor breakdown (rep~1; the reps agree to $<1\%$). Leaves sum
+             to 5{,}608 in every row (decomposition-identical). ``CPU/thread'' is
+             total CPU compute over the CPU-thread count; it tracks the wall to
+             $\sim$98\,\%, identifying the CPU pool as the binding lane.}
+    \label{tab:breakdown}
+    \begin{tabular}{lrrrrrr}
+        \hline
+        \textbf{Config} & \textbf{dGPU} & \textbf{iGPU} & \textbf{CPU} & \textbf{CPU} & \textbf{CPU/thr} & \textbf{out-} \\
+                        & \textbf{(reg/s)} & \textbf{(reg/s)} & \textbf{reg} & \textbf{thr$\cdot$s} & \textbf{(s)} & \textbf{liers} \\
+        \hline
+        CPU12           & 0      & 0      & 5{,}608 & 1{,}898 & 158.2 & 4 \\
+        iGPU+11CPU      & 0      & 2{,}960 / 65.8 & 2{,}648 & 898 & 81.6 & 0 \\
+        dGPU+11CPU      & 3{,}447 / 42.9 & 0 & 2{,}161 & 622 & 56.6 & 0 \\
+        dGPU+iGPU+10CPU & 2{,}915 / 34.4 & 1{,}422 / 30.4 & 1{,}271 & 435 & 43.5 & 0 \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\insertimage{img/igpu_work.png}{width=\linewidth}
+            {The 5{,}608 leaves split by executor class. Every bar reaches the same
+             dashed total (the decomposition never changes); only the assignment
+             shifts. In the winning mode~3 the CPU pool (orange) is squeezed to
+             1{,}271 leaves --- the two GPUs between them absorb 4{,}337 --- and the
+             iGPU (green) claims 1{,}422, a third of the GPU work.
+             \label{fig:work}}
+
+\subsection{Correctness}
+
+A full-run verification --- all 100 frames rendered three times, every pixel by
+the CUDA path (\texttt{mode 1}, 1 thread), every pixel by the OpenCL path
+(\texttt{mode 2}, 1 thread), and every pixel by the CPU path; script and per-frame
+data in \texttt{experiments/20-igpu-opencl/verify\_output.\{sh,csv\}} ---
+\emph{corrects} an earlier single-frame check that had overgeneralised: the two GPU
+backends are \textbf{not byte-identical in general}. They agree exactly on the two
+cheap wide frames (0--1) and differ on every deeper frame by a small,
+depth-growing set of pixels: \textbf{104{,}355~px over the whole run (0.050\%} of
+207.36M), rising monotonically from 2~px (frame~2) to a peak of 3{,}089~px
+(\textbf{0.149\%}, frame~88). Monotonic growth with \texttt{maxIter} is the
+signature of accumulated rounding divergence --- the two kernel compilers make
+different FMA-contraction choices in the iteration recurrence, flipping
+\texttt{diverge()} by $\pm1$ for orbits near the escape threshold.
+
+Both GPUs differ from the \emph{CPU} render two orders of magnitude more ---
+\textbf{16.73M~px (8.07\%} of the run, up to 19.7\% on the deepest frame) --- and
+they do so near-identically: their vs-CPU counts track within a few pixels per
+frame (69~px summed over the run). The host build (\texttt{g++ -O2}, no FMA
+without \texttt{-mfma}) sits on one side of the contraction gap; both GPUs sit on
+the other. The practical statement: \textbf{the iGPU path is exactly as correct as
+the CUDA path} --- the same $\pm1$-iteration rounding class, no iGPU-specific
+artifact --- but bytewise GPU--GPU identity holds only on shallow frames.
+
+% -----------------------------------------------------------------------
+\section{Analysis}
+
+\subsection{The win is real, large, and disjoint}
+
+The mode-1 and mode-3 ranges do not overlap (Table~\ref{tab:wall}: 57.34--58.01~s
+vs.\ 44.14--44.62~s, a $\sim$13~s gap), and the within-config spread is under
+0.5~s. The $-23.2\%$ is therefore unambiguous signal. It is the largest single-step
+wall improvement in the series --- GPU affinity (\texttt{12-gpu-affinity.tex}) moved
+the wall $-3.6\%$; this moves it $-23.2\%$ --- and it is achieved while the
+configuration \emph{gives up a CPU worker} (10 vs.\ 11), so the integrated GPU is
+worth far more than the eleventh CPU thread it displaces.
+
+\subsection{The mechanism: the CPU pool is the binding lane, and the iGPU shrinks its work}
+
+\paragraph{The wall is the busiest CPU thread.} In every accelerated config the
+CPU pool is tightly balanced and each CPU thread is busy for essentially the whole
+run: total CPU compute over the CPU-thread count equals the wall to $\sim$98\,\%
+(Table~\ref{tab:breakdown}, ``CPU/thr'' vs.\ Table~\ref{tab:wall}: $56.6$ vs.\
+$57.7$~s; $43.5$ vs.\ $44.3$~s; $81.6$ vs.\ $81.7$~s). So to first order
+$\text{wall} \approx (\text{total CPU compute}) / (\text{\#CPU threads})$.
+
+\paragraph{Adding the iGPU lowers the numerator faster than the denominator.}
+Mode~3 removes one CPU thread ($11\to10$, which alone would \emph{raise}
+per-thread load by $10\%$) but the two GPUs together strip total CPU compute from
+\textbf{622~s to 435~s} ($-30\%$, $-187$~s) by absorbing 1{,}166 more leaves off
+the pool (CPU leaves $2{,}161\to1{,}271$, Fig.~\ref{fig:work}). Net per-thread CPU
+load falls $56.6\to43.5$~s ($-23\%$), and the wall follows. This is why the
+prediction failed (next subsection): the lever is CPU-work \emph{removal}, and a
+second GPU removes more of it than a single GPU could.
+
+\paragraph{Why one GPU could not do this alone.} Not because the dGPU declines
+work: \texttt{WorkQueue::extract} has no size threshold --- a GPU-class thread
+unconditionally takes the largest pending region whenever it is free, and with all
+100 frame roots queued up-front the queue is non-empty until the very tail. The
+limit is that a GPU worker is a \emph{serial lane}: each region occupies the thread
+for the kernel \emph{plus} its host-side stages --- \texttt{examine()}'s stencil
+sampling, the synchronous copy, \texttt{commitGPUResult}'s per-pixel
+\texttt{setPixel} walk over the region (the dGPU commits the large-region majority
+of all $\sim$207~M pixels), and its share of the \texttt{save=1} PNG encodes. The
+42.9~s of mode-1 kernel time is only the \emph{device-side} part of that lane; the
+other $\sim$15~s of the 57.7~s wall is host-side lane work, not idleness. One lane's
+end-to-end throughput therefore caps how many leaves the GPU class can absorb
+within the wall. Mode~3 adds a \emph{second} serial lane, nearly doubling GPU-class
+throughput, and it is that added capacity --- not any change in scheduling policy
+--- that strips the extra 187~s off the CPU pool.
+
+\subsection{The prediction was wrong --- and why}
+
+The pre-measurement call (recorded on the branch) was ``marginal-to-negative:
+FP64-weak iGPU thermally coupled to the CPU pool, which is the binding wall.'' The
+direction was right about \emph{what} binds (the CPU pool) but wrong about the
+\emph{consequence}. The error was assuming a third executor can only \emph{rebalance}
+a binding CPU pool (which cannot help a balanced pool --- the lesson of
+\texttt{11-priority-queue.tex}). In fact the iGPU does not rebalance the CPU pool;
+it \emph{removes work from it}, which is exactly the work-reduction lever that
+reports~09 and~12 named as the only way past the post-affinity floor. The feared
+thermal/bandwidth contention is real but second-order here: the dGPU is discrete
+silicon (uncoupled), and the iGPU's contention with the CPU pool is dwarfed by the
+187~s of CPU compute it offloads.
+
+\subsection{The two GPUs self-balance; the iGPU alone already halves the floor}
+
+Under largest-first affinity the two GPUs end mode~3 with \textbf{34.4~s (dGPU)}
+and \textbf{30.4~s (iGPU)} of kernel time --- within $12\%$ despite the iGPU's
+$\sim$1.8$\times$ higher per-region cost (21.4 vs.\ 11.8~ms/region) --- because the
+faster device simply pulls more regions. Note that kernel time understates lane
+occupancy: adding each lane's host-side commit work (previous subsection), both GPU
+threads finish close to the 44~s wall, i.e.\ mode~3 ends in a \emph{three-way}
+balance (dGPU lane, iGPU lane, CPU pool), which is what a work-conserving queue
+should produce. Separately, the iGPU \emph{as the sole accelerator}
+(mode~2) cuts the CPU-only floor nearly in half ($161.6\to81.7$~s, $-49\%$) by
+absorbing the interior outliers: CPU outliers ($>$5~s regions) drop from 4 to 0 in
+every accelerated mode (Table~\ref{tab:breakdown}), including the
+13.5~s frame-73 minibrot interior that pins a CPU thread in mode~0.
+
+% -----------------------------------------------------------------------
+\section{Recommendations}
+
+\begin{enumerate}
+    \item \textbf{Adopt \texttt{gpuMode}\,=\,3 (both GPUs) as the default on this
+    machine.} It is a clean $-23.2\%$ ($57.72\to44.32$~s) with disjoint A/B ranges,
+    decomposition-identical, output equivalent to CUDA's to within $\pm1$-iteration
+    FP rounding (\S2.3), and contained to one new translation unit. Merge
+    \texttt{feat/igpu-opencl} and tag \texttt{binary-v6-igpu}.
+
+    \item \textbf{Try strict dGPU-priority-on-the-largest.} Both GPUs currently pull
+    from the same end, so the weaker iGPU can grab the single biggest outlier the
+    dGPU would clear in $\sim$1/1.8 the time. Reserving the very largest region for
+    the dGPU (iGPU takes second-largest) may shave the tail further; expected to be
+    small (the GPUs already self-balance to $12\%$) but it is a pure scheduling
+    change in \texttt{WorkQueue}.
+
+    \item \textbf{Widen both GPU lanes by cheapening the host-side commit.} The
+    corrected mechanism above says GPU-class throughput is \emph{lane}-bound, and a
+    large share of each lane is \texttt{commitGPUResult}'s per-pixel
+    \texttt{QImage::setPixel} walk. Replacing it with \texttt{scanLine()} row
+    writes (one \texttt{QRgb*} per row, same pixels) is a small, local change that
+    would let \emph{both} GPU lanes absorb more leaves per second --- the same
+    lever as adding a lane, without new hardware. Worth measuring before the
+    scheduling refinement of item~2.
+
+    \item \textbf{Run the full Fig.~11.15 thread-scaling sweep in mode~3.} This
+    report fixed 12~threads; the dGPU-vs-dGPU+iGPU scaling curves
+    (\texttt{GPU+}$k$\texttt{CPU}) would show where the iGPU's contribution
+    saturates as CPU workers are added, comparable to
+    \texttt{experiments/05-fig1115-postfix}.
+
+    \item \textbf{Generalise off this laptop with care.} The win is conditional on
+    the CPU pool being the binding lane at \texttt{diffT}\,=\,0.1 with
+    \texttt{save}\,=\,1; on a machine where the dGPU saturates first, a second weak
+    GPU would help less. The mechanism (CPU-work removal), not the magnitude,
+    is what transfers.
+\end{enumerate}
+
+% -----------------------------------------------------------------------
+\section{Conclusion}
+
+Adding an OpenCL backend for the integrated GPU --- a third \texttt{ExecKind} that
+shares the dGPU's largest-first affinity and the CPU's work queue, dispatched at one
+point in \texttt{compute()} --- cuts the end-to-end wall by \textbf{$23.2\%$}
+($57.72\to44.32$~s, disjoint ranges), and by $72.6\%$ against the CPU-only floor.
+The configuration wins despite trading a CPU worker for the iGPU thread. The
+mechanism is measured, not assumed: the CPU pool is the binding lane (busiest
+thread $\approx$ wall), and the second GPU strips total CPU compute by $30\%$
+(622$\to$435~s), more than offsetting the lost worker. This refutes the
+pre-measurement ``marginal-to-negative'' prediction, which mistook a
+work-\emph{removal} lever for a rebalancing one. The two GPUs self-balance to
+within $12\%$, the iGPU output matches CUDA to within FP rounding (0.050\% of
+pixels over the run, \S2.3), and the iGPU alone halves
+the CPU floor. Scheduling was exhausted at $-3.6\%$
+(\texttt{12-gpu-affinity.tex}); adding hardware that removes CPU work is what moved
+the wall again.
+
+\end{document}
