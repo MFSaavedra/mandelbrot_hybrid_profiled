@@ -88,11 +88,55 @@ imbalance the static assignment cannot absorb — the concrete motivation for
 the manager-worker frame dispenser (seam in `main.cpp`) and for weighted
 static shares in the report-25 study.
 
+## 2-node benchmark (laptop + ivy, 2026-07-12) — `results_bench.csv`
+
+`bench_2node.sh` (both machines on AC, verified by the script): production
+spec, 3 reps, save=1, laptop hybrid `12 1` + ivy CPU-only `8 0`. `wall_e2e_s`
+times the whole `dist_frames.sh` invocation (ship + ranks + collect);
+`laptop_s`/`ivy_s` are each node's own `[total_elapsed_s]`.
+
+| Config (means) | e2e wall | laptop rank | ivy rank | vs baseline |
+|---|---|---|---|---|
+| `laptop_hybrid` baseline | **18.75 s** | 18.75 | — | — |
+| `2node_cyclic` (block=1) | 46.90 s | 10.33 | 42.67 | +150% |
+| `2node_bc8` (block=8) | 45.00 s | 9.91 | 41.54 | +140% |
+| `2node_block` (ivy gets deep half) | 65.12 s | 5.70 | 61.55 | +247% |
+| `2node_block_rev` (ivy gets cheap half) | **28.24 s** | 12.52 | 24.86 | +51% |
+| `ivy_solo` (1 rep) | 85.48 s | — | 85.48 | — |
+
+**Every 2-node static config loses to the laptop alone.** The mechanism is
+pure throughput asymmetry: per-frame cost is 0.188 s on the laptop vs 0.855 s
+on ivy (4.56×), so any equal-share assignment strands the wall on ivy's rank
+(cyclic: ivy 42.7 s vs laptop 10.3 s — the laptop idles 77% of the run).
+Block orientation acts as a crude 70/30 weighting — the zoom's cost trend
+puts ~70% of total work in the deep half (laptop halves: 12.5 vs 5.7 s; ivy
+halves: 61.5 vs 24.9 s, both ≈70:30) — which is why `block_rev` (fast node
+takes the deep half) is the best 2-node config and `block` is the worst.
+
+The ceiling is analytic and already visible: combined throughput 1/18.75 +
+1/85.5 s⁻¹ gives an ideal (perfectly weighted, zero-overhead) 2-node wall of
+**15.4 s = 1.22×** — ivy can contribute at most 18% of the work. Measured
+orchestration overhead (e2e − max rank: ship + SSH + PNG collection) is
+3.3–4.2 s, which would consume most of that ideal 3.4 s gain. Conclusions:
+(1) static equal-share distribution requires near-homogeneous nodes; (2) for
+this pair, the manager-worker dispenser or weighted shares are *necessary
+but barely sufficient* — the honest use of ivy is capacity (freeing the
+laptop) rather than latency; (3) cyclic vs block-cyclic(8) is a wash when a
+slow node binds (46.9 vs 45.0 s) — the interleave only matters between
+comparable nodes, which is what the report-25 study should use.
+
+Side note: today's laptop baseline (18.75±0.3 s) is 21% faster than report
+23's 23.72 s steady state on the same commit lineage — same-day internal
+comparisons above are unaffected, but absolute walls are not comparable
+across reports without a same-day baseline (thermals/driver drift).
+
 ## Files
 
 - `verify_dist.sh` — the identity harness (run it from anywhere; takes NNODES)
 - `results_identity.csv` — one row per check
-- `collect/`, `verify_work/` — gitignored scratch (PNG trees, per-rank logs)
+- `bench_2node.sh` — the laptop+ivy benchmark driver (AC-gated; REPS env)
+- `results_bench.csv` — one row per run, columns as above
+- `collect/`, `verify_work/`, `bench/` — gitignored scratch (PNG trees, logs)
 
 ## Regenerate
 

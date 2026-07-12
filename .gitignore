@@ -44,6 +44,7 @@ experiments/*/viz_*/ff*.log
 dist_work/
 experiments/25-frame-distribution/collect/
 experiments/25-frame-distribution/verify_work/
+experiments/25-frame-distribution/bench/
 
 # ncu raw per-kernel dumps (regenerate via ncu --import from the .ncu-rep)
 experiments/16-ncu-divergence/analysis/*_full.csv
