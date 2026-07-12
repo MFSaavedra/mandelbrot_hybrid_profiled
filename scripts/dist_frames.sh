@@ -14,12 +14,23 @@
 #   scripts/dist_frames.sh hosts.txt
 #   BLOCK=4 ARGS="12 1 0.1 32768 1 1" OUT=/tmp/collect scripts/dist_frames.sh hosts.txt
 #
-# hosts.txt: one SSH destination per line (user@host); rank r = line r+1.
-# The special entry ":" means "this machine, no SSH" (GNU parallel's
-# convention) — the identity check in experiments/25-frame-distribution/ uses
-# it to simulate N nodes locally.  The mandelHybrid binary must already be
-# built at RDIR on every host (same CUDA/Qt stack); this script ships only
-# the spec and collects only PNGs.
+# hosts.txt: one node per line, rank r = line r+1:
+#
+#   host [rdir [args...]]
+#
+# host = SSH destination (user@host), or ":" for "this machine, no SSH" (GNU
+# parallel's convention — the identity check in experiments/25-... uses it to
+# simulate N nodes locally).  rdir = that host's project root ("-" or omitted
+# = the RDIR default below).  args = that host's mandelHybrid arguments
+# (omitted = the ARGS default) — this is how heterogeneous nodes join: a
+# GPU-less node (built with `make GPU=0`, e.g. the GT 750M machine, Kepler
+# sm_30, no modern CUDA) runs with its own thread count and gpuEnable=0:
+#
+#   :                                                        # this laptop, hybrid
+#   ivy /home/lynx/box/mandelbrot_hybrid_profiled 8 0 0.1 32768 1 1
+#
+# The mandelHybrid binary must already be built at each node's rdir; this
+# script ships only the spec and collects only PNGs.
 #
 # Environment variables (all optional):
 #   SPEC  = spec file to ship                      (default $PROJECT_ROOT/spec.in)
@@ -50,8 +61,12 @@ SELF="$SCRIPT_DIR/dist_frames.sh"
 #--------------- per-node job (invoked by GNU parallel as: SELF _node RANK) ---------------
 if [[ "${1:-}" == "_node" ]]; then
   rank=$2
-  host=$(grep . "$DIST_HOSTS" | sed -n "$((rank + 1))p")
-  wd="$DIST_RDIR/dist_work/rank$rank"
+  # Node line: host [rdir [args...]]; "-"/empty fall back to the exported
+  # defaults.  read -r keeps everything after the second field in args.
+  read -r host rdir args <<< "$(grep . "$DIST_HOSTS" | sed -n "$((rank + 1))p")"
+  [[ -z "${rdir:-}" || "$rdir" == "-" ]] && rdir=$DIST_RDIR
+  [[ -z "${args:-}" ]] && args=$DIST_ARGS
+  wd="$rdir/dist_work/rank$rank"
 
   # rsh CMD: run CMD on this rank's host (":" = locally, no SSH).
   rsh() { if [[ "$host" == ":" ]]; then bash -c "$1"; else ssh "$host" "$1"; fi }
@@ -65,7 +80,7 @@ if [[ "${1:-}" == "_node" ]]; then
 
   log="$DIST_OUT/logs/rank$rank"
   rsh "cd '$wd' && DIST_NODES=$DIST_N DIST_RANK=$rank DIST_BLOCK=$DIST_B \
-       '$DIST_RDIR/mandelHybrid' spec.in $DIST_ARGS" \
+       '$rdir/mandelHybrid' spec.in $args" \
       > "$log.stdout" 2> "$log.stderr"
 
   owned=$(grep -oP 'ownedFrames=\K[0-9]+' "$log.stderr" || echo 0)
@@ -77,7 +92,7 @@ if [[ "${1:-}" == "_node" ]]; then
       scp -q "$host:$wd/${DIST_PREFIX}*.png" "$DIST_OUT/"
     fi
   fi
-  echo "[dist] rank $rank on $host: $owned frames in ${elapsed}s"
+  echo "[dist] rank $rank on $host ($args): $owned frames in ${elapsed}s"
   exit 0
 fi
 #-------------------------------------------------------------------------------------------

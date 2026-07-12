@@ -8,7 +8,15 @@
 // Including it in a plain C++ translation unit is fine; it links against
 // libnvToolsExt without requiring nvcc.
 // nvToolsExt.h lives under nvtx3/ in CUDA 11+ installations.
+// CPU-only builds (make GPU=0, for nodes with no usable CUDA stack) have no
+// CUDA install to provide the header; -DNO_NVTX turns the annotations into
+// no-ops with the real API's signatures.
+#ifdef NO_NVTX
+static inline int nvtxRangePush(const char *) { return 0; }
+static inline int nvtxRangePop()              { return 0; }
+#else
 #include <nvtx3/nvToolsExt.h>
+#endif
 
 // ============================================================
 // CPU-side timing via clock_gettime
