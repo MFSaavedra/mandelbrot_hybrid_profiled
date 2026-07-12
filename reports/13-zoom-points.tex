@@ -42,17 +42,17 @@ deep-zoom target (\texttt{spec.in} line~3) changes. Data:
 \begin{abstract}
 Every prior report measured one zoom target --- the canonical minibrot at
 $c\approx(0.0016,-0.8225)$. This report profiles the current best binary (GPU
-affinity, report~\texttt{12-gpu-affinity.tex}) on \textbf{four qualitatively
-different targets}: fully outside the set, fully inside the main cardioid, and
+affinity, report~\texttt{12-gpu-affinity.tex}) on four qualitatively
+different targets: fully outside the set, fully inside the main cardioid, and
 two boundary points distinct from the canonical one. The same wide first frame
 and \texttt{maxIter} ramp are used; only the deep target differs. The headline
-is a paradox: end-to-end cost spans \textbf{32$\times$} (2.37~s to 76.3~s) from
+is a paradox: end-to-end cost spans 32$\times$ (2.37~s to 76.3~s) from
 the same binary and parameters, yet the per-thread CPU spread stays under
-\textbf{1.4\,\% in every regime} --- the dynamic queue is not the bottleneck
-anywhere. The binding resource instead \emph{shifts}: light regimes are
-trivially CPU-bound, heavy ones are GPU-saturated (\textbf{95--96\,\%}). The
+1.4\,\% in every regime --- the dynamic queue is not the bottleneck
+anywhere. The binding resource instead shifts: light regimes are
+trivially CPU-bound, heavy ones are GPU-saturated (95--96\,\%). The
 most useful new finding is the seahorse point, which reproduces the interior
-outlier \textbf{eightfold}, and all eight are \texttt{cardioidBulb}=1
+outlier eightfold, and all eight are \texttt{cardioidBulb}=1
 main-cardioid interiors that overflow to the CPU because the GPU is saturated
 --- exactly the case the cheap cardioid certificate would fix, unlike the
 canonical minibrot (\texttt{cardioidBulb}=0). The outliers never bind the wall:
@@ -71,7 +71,7 @@ show the within-run balance directly).
 
 \paragraph{The experimental variable.} Every run keeps the identical wide
 full-set first frame ($-1.9,0.94$)--($1.2,-0.94$) at \texttt{maxIter}\,=\,100 and
-changes \emph{only} the deep target. This makes the zoom target the single
+changes only the deep target. This makes the zoom target the single
 independent variable and keeps every run comparable to the others and to the
 canonical data of prior reports.
 
@@ -85,9 +85,9 @@ canonical   : c = ( 0.0016437, -0.8224676 )   -- (prior reports) minibrot interi
 
 \paragraph{Instrumentation neutrality.} All numbers below are \texttt{viz}=0
 timing runs. The \texttt{viz}=3 animations (next section) were generated
-separately, because \texttt{viz}=3 is \emph{not} performance-neutral for
+separately, because \texttt{viz}=3 is not performance-neutral for
 trivial-region workloads: misiurewicz compute was 2.37~s at \texttt{viz}=0 but
-\textbf{66.5~s at \texttt{viz}=3}, since the per-region \texttt{VizRect}
+66.5~s at \texttt{viz}=3, since the per-region \texttt{VizRect}
 registration is a fixed cost that dominates when regions are $\sim$0.01~ms (it is
 negligible for the expensive-region points: outside $16.95\to16.89$~s, inside
 $\approx$76~s either way). The ``performance-neutral'' claim of
@@ -107,12 +107,12 @@ $\approx$76~s either way). The ``performance-neutral'' claim of
     \label{tab:char}
     \begin{tabular}{lrrrrrr}
         \hline
-        \textbf{Point} & \textbf{Wall (s)} & \textbf{Spread} & \textbf{GPU util}
-            & \textbf{GPU leaves (avg)} & \textbf{CPU leaves} & \textbf{Outliers} \\
+        Point & Wall (s) & Spread & GPU util
+            & GPU leaves (avg) & CPU leaves & Outliers \\
         \hline
         outside     & 16.95 & 1.4\% & 79\%  & 2{,}190 (6.14~ms)  & 2{,}758 & 0 \\
         misiurewicz &  2.37 & 0.2\% & 1.4\% & 3{,}312 (0.010~ms) & 3{,}088 & 0 \\
-        seahorse    & 69.82 & 0.9\% & 95\%  & 1{,}128 (58.7~ms)  & 2{,}908 & \textbf{8} \\
+        seahorse    & 69.82 & 0.9\% & 95\%  & 1{,}128 (58.7~ms)  & 2{,}908 & 8 \\
         inside      & 76.28 & 0.8\% & 96\%  &   573 (127~ms)    & 3{,}346 & 0 \\
         \hline
     \end{tabular}
@@ -124,13 +124,13 @@ $\approx$76~s either way). The ``performance-neutral'' claim of
     \centering
     \caption{GPU share of leaves and mean GPU region size. As the content
              coarsens toward solid interior, the min-max queue routes
-             \emph{fewer, larger} regions to the GPU (44\,\%$\to$15\,\% of leaves,
+             fewer, larger regions to the GPU (44\,\%$\to$15\,\% of leaves,
              6~µs$\to$127~ms each), which is exactly the affinity design at work.}
     \label{tab:route}
     \begin{tabular}{lrrrrr}
         \hline
-        \textbf{Point} & \textbf{Total leaves} & \textbf{GPU leaves}
-            & \textbf{GPU share} & \textbf{GPU avg (ms)} & \textbf{GPU util} \\
+        Point & Total leaves & GPU leaves
+            & GPU share & GPU avg (ms) & GPU util \\
         \hline
         outside     & 4{,}948 & 2{,}190 & 44\% & 6.14  & 79\%  \\
         misiurewicz & 6{,}400 & 3{,}312 & 52\% & 0.010 & 1.4\% \\
@@ -159,7 +159,7 @@ This contrasts with the canonical point, whose two binding outliers (frames 73,
 
 \insertimage{img/13-zoom-baseline-frame0.png}{width=0.74\linewidth}
             {Frame~0, identical for all four runs: the full set at
-             \texttt{maxIter}=100. Every leaf outline is \emph{yellow} (CPU); the
+             \texttt{maxIter}=100. Every leaf outline is yellow (CPU); the
              GPU does not participate at this cheap wide frame, as
              \texttt{01-initial-profile.tex} noted. This is the common baseline
              the four targets diverge from. \label{fig:base}}
@@ -168,12 +168,12 @@ This contrasts with the canonical point, whose two binding outliers (frames 73,
             {Deepest-frame partitions (\texttt{viz}=3). Cyan = GPU leaf, yellow =
              CPU leaf, grey = split skeleton; colour shows the pixel value
              (red = fast escape, black = in-set, cyan/green = high-iteration
-             boundary). \textbf{outside}: solid red exterior, a single cyan GPU
-             tile --- nothing to balance. \textbf{misiurewicz}: a thin spiral in a
-             sea of red fast-escape exterior --- cheap. \textbf{seahorse}: the
+             boundary). outside: solid red exterior, a single cyan GPU
+             tile --- nothing to balance. misiurewicz: a thin spiral in a
+             sea of red fast-escape exterior --- cheap. seahorse: the
              main-cardioid interior (orange) tiled in yellow CPU leaves (the
              \texttt{cardioidBulb}=1 outliers) beside the spiral and black
-             exterior. \textbf{inside}: solid black interior, a single cyan GPU
+             exterior. inside: solid black interior, a single cyan GPU
              tile --- maximal but uniform work. \label{fig:regimes}}
 
 % -----------------------------------------------------------------------
@@ -201,10 +201,10 @@ The per-thread CPU spread is 0.2--1.4\,\% across all four points
 reports~09 and~12: with thousands of fine-grained leaves over 12~threads
 ($\sim$330--530 leaves per thread here), the tail is always well-filled, so the
 shared min-max queue keeps every worker busy until the work is gone. This is the
-central load-balancing result: \emph{dynamic balance is already a solved problem
-on this workload, in every regime tested}. The corollary --- important for the
+central load-balancing result: dynamic balance is already a solved problem
+on this workload, in every regime tested. The corollary --- important for the
 planned static-load-balancing experiment --- is that static decomposition can at
-best \emph{match} the dynamic queue here (the headroom is the $<$1.4\,\% spread),
+best match the dynamic queue here (the headroom is the $<$1.4\,\% spread),
 and could only win in a latency-bound configuration the queue is not stressed by.
 
 \subsection{The binding resource shifts from the CPU pool to the GPU}
@@ -216,7 +216,7 @@ is so little GPU-worthy work that thread~0 is idle 98\,\% of the time. The heavy
 regimes are GPU-saturated: affinity routes the few large coherent tiles to the
 GPU (seahorse 28\,\% of leaves, inside just 15\,\%, but 58.7~ms and 127~ms each),
 and the GPU fills to 95--96\,\%. This is the same $\sim$91\,\% saturation ceiling
-report~12 hit on the canonical point, now confirmed to \emph{generalise} across
+report~12 hit on the canonical point, now confirmed to generalise across
 boundary and interior targets. The implication is that on heavy frames the GPU,
 not the schedule, is the wall --- and the next lever is work-reduction, not
 scheduling.
@@ -225,7 +225,7 @@ scheduling.
 
 Seahorse is the only regime with outliers --- eight of them, all
 \texttt{cardioidBulb}=1 (Table~\ref{tab:char}, §3.3). They are the largest class
-of region ($960\times540$, depth~1), which affinity \emph{tries} to send to the
+of region ($960\times540$, depth~1), which affinity tries to send to the
 GPU; but the GPU is already 95\,\% busy with other large tiles, so these eight
 overflow to CPU threads at 17--18.7~s each. Per-thread balance still holds at
 0.9\,\% because the run is throughput-bound: $8\times18$~s~$\approx$~144~s of
@@ -233,44 +233,44 @@ outlier work overlaps hundreds of other regions across the 69.8~s wall, so no
 single region binds. The decisive contrast with the canonical point is the
 membership flag: these are main-cardioid interiors, so unlike the canonical
 minibrot (\texttt{cardioidBulb}=0, on which the cheap test cannot fire) the exact
-cardioid/bulb certificate of \texttt{08-region-metrics-viz.tex} \emph{would}
+cardioid/bulb certificate of \texttt{08-region-metrics-viz.tex} would
 constant-fill them in O(1). Seahorse is therefore the first concrete,
 measured beneficiary of that certificate.
 
 \subsection{Uniform interior produces zero outliers}
 
 Inside is the heaviest run (76.3~s, every pixel to \texttt{maxIter}) yet has
-\emph{no} outliers (Table~\ref{tab:char}). The mechanism is two-fold: a uniform
+no outliers (Table~\ref{tab:char}). The mechanism is two-fold: a uniform
 interior has zero corner spread everywhere, so the heuristic subdivides only down
 to the \texttt{pixelSizeThresh} floor, producing many equal medium tiles rather
 than one giant one; and GPU affinity then takes the largest of those (127~ms
 avg), so the biggest piece any CPU thread ever sees stays under 5~s. Maximal
-total work does not imply a tail --- the tail is a \emph{boundary} phenomenon
-(seahorse, canonical), not a \emph{volume} one.
+total work does not imply a tail --- the tail is a boundary phenomenon
+(seahorse, canonical), not a volume one.
 
 % -----------------------------------------------------------------------
 \section{Recommendations}
 
 \begin{enumerate}
-    \item \textbf{Use this as the baseline for the static-load-balancing study.}
+    \item Use this as the baseline for the static-load-balancing study.
     Dynamic balance is $<$1.4\,\% spread in all four regimes, so static
     decomposition (block vs.\ cyclic vs.\ block-cyclic) should be measured for
-    \emph{parity at lower overhead}, not for a wall win --- and specifically in a
+    parity at lower overhead, not for a wall win --- and specifically in a
     latency-bound corner (CPU-only, or GPU-starved) where a single region can
     bind the critical path, which never happens here.
 
-    \item \textbf{Implement the cardioid/period-2 bulb certificate; seahorse is
-    its test case.} The eight \texttt{cardioidBulb}=1 outliers ($\approx$144~s of
+    \item Implement the cardioid/period-2 bulb certificate; seahorse is
+    its test case. The eight \texttt{cardioidBulb}=1 outliers ($\approx$144~s of
     CPU work) would be constant-filled in O(1). Expected wall effect is bounded by
     GPU saturation (the relieved CPU work must still beat the 66.2~s GPU floor),
     so target the CPU-pool-bound and latency-bound configurations where it pays
-    most. It does \emph{not} help the canonical minibrot (\texttt{cardioidBulb}=0).
+    most. It does not help the canonical minibrot (\texttt{cardioidBulb}=0).
 
-    \item \textbf{Treat the 95--96\,\% GPU saturation as a general ceiling.} It
+    \item Treat the 95--96\,\% GPU saturation as a general ceiling. It
     reproduced on both heavy targets, confirming report~12: past it, only
     work-reduction (periodicity checking in \texttt{diverge()}) shrinks the wall.
 
-    \item \textbf{Fix the filename-prefix buffer} (\texttt{main.cpp:201},
+    \item Fix the filename-prefix buffer (\texttt{main.cpp:201},
     \texttt{char imageFilePrefix[MAXFNAME-8]}, $\approx$42~B, read by
     \texttt{fin >> imageFilePrefix}): prefixes $\ge$42 chars truncate silently
     (the \texttt{viz\_misiurewicz/} overflow seen here). A \texttt{char[256]} or

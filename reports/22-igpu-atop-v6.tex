@@ -45,7 +45,7 @@ binary that also carries the periodicity check of
 \texttt{21-periodicity-check.tex}. Method: the same production A/B
 (100 frames, $1920\times1080$, \texttt{diffT}\,=\,0.1, save=1, three
 alternated reps), \texttt{dGPU+iGPU+10CPU} vs \texttt{dGPU+11CPU}.
-\textbf{The iGPU's $-23.2\%$ collapses to a wash}: $28.05\pm0.12$\,s vs
+The iGPU's $-23.2\%$ collapses to a wash: $28.05\pm0.12$\,s vs
 $27.36\pm1.60$\,s ($+2.5\%$ on all-reps means, $-0.7\%$ excluding a cold
 first run). The mechanism is an exact cancellation: the iGPU strips
 27\,CPU-seconds off the binding CPU pool, and the CPU worker it displaces
@@ -63,7 +63,7 @@ Recommendation: keep \texttt{feat/igpu-opencl} off \texttt{main}.
 Report \texttt{20-igpu-opencl.tex} added a third executor --- an OpenCL FP64
 backend on the Intel UHD 630 --- and measured a surprise: replacing one CPU
 worker with the iGPU lane cut the production wall from 57.72 to 44.32\,s
-($-23.2\%$). The mechanism was a second \emph{serial lane} for the big
+($-23.2\%$). The mechanism was a second serial lane for the big
 coherent interior regions, stripping 187\,s of MAXITER-grind off the binding
 CPU pool.
 
@@ -71,8 +71,8 @@ Report \texttt{21-periodicity-check.tex} then attacked that same grind
 directly: an exact Brent cycle detector in the CPU \texttt{diverge()} lets an
 interior pixel return after $\sim$900 iterations-equivalent instead of
 10{,}000, byte-identically. The hybrid wall fell $57.6\to30.9$\,s and its
-closing section flagged the consequence measured here: \emph{the iGPU's
-$-23.2\%$ was priced against work that no longer exists}. This experiment
+closing section flagged the consequence measured here: the iGPU's
+$-23.2\%$ was priced against work that no longer exists. This experiment
 answers the re-opened question --- and, having both changes in one binary for
 the first time, prices every device in the system against the new, faster
 CPU worker.
@@ -119,9 +119,9 @@ $-13.4$\,s win before periodicity, a wash after.\label{tab:headline}}
 binary & config & mean (s) & $\sigma$ & $\Delta$ vs mode 1 \\
 \midrule
 pre-v6 & mode 1 \texttt{dGPU+11CPU} & 57.72 & 0.35 & --- \\
-pre-v6 & mode 3 \texttt{dGPU+iGPU+10CPU} & \textbf{44.32} & 0.26 & $-23.2\%$ \\
+pre-v6 & mode 3 \texttt{dGPU+iGPU+10CPU} & 44.32 & 0.26 & $-23.2\%$ \\
 \midrule
-post-v6 & mode 1 \texttt{dGPU+11CPU} & \textbf{27.36} & 1.60 & --- \\
+post-v6 & mode 1 \texttt{dGPU+11CPU} & 27.36 & 1.60 & --- \\
 post-v6 & mode 3 \texttt{dGPU+iGPU+10CPU} & 28.05 & 0.12 & $+2.5\%$ \\
 \bottomrule
 \end{tabular}
@@ -153,8 +153,8 @@ contributes.\label{tab:split}}
 \toprule
 config & pool regions & dGPU & iGPU & pool busy (s) & s/thread \\
 \midrule
-mode 1 (11 CPU) & 4{,}662 & 946 & --- & 292 & \textbf{26.6} \\
-mode 3 (10 CPU) & 2{,}861 & 1{,}761 & 986 & 266 & \textbf{26.6} \\
+mode 1 (11 CPU) & 4{,}662 & 946 & --- & 292 & 26.6 \\
+mode 3 (10 CPU) & 2{,}861 & 1{,}761 & 986 & 266 & 26.6 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -179,7 +179,7 @@ pool; the worker it displaced would have supplied $292/11=26.5$
 CPU-seconds of capacity in the same wall time. The two sides of the trade
 agree to within 2\%, which is exactly what a wash looks like from inside.
 
-The reason is \emph{what} the iGPU takes. GPU affinity (report
+The reason is what the iGPU takes. GPU affinity (report
 \texttt{12-gpu-affinity.tex}) hands both GPU lanes the largest queued
 regions, which at \texttt{diffT}\,=\,0.1 are certified-interior content ---
 precisely the region class where the periodicity check makes a CPU worker
@@ -234,9 +234,9 @@ elimination ratio ($11.2\times$), and that is not a coincidence: the GPUs'
 diet is interior-dominated by construction (affinity feeds them the
 certified-uniform largest regions), so their worker-equivalence scales down
 by almost exactly the discount the CPU received on that content. The
-important framing: \textbf{the iGPU did not get slower}. Its raw iteration
+important framing: the iGPU did not get slower. Its raw iteration
 throughput is unchanged --- of order 15--20 scalar CPU threads. Its
-\emph{marginal} value collapsed because report 21 removed 10/11 of the
+marginal value collapsed because report 21 removed 10/11 of the
 iterations a CPU spends on the content the iGPU serves, while both GPU
 kernels still grind all 10{,}000 (deliberately: report
 \texttt{16-ncu-divergence.tex} showed the interior kernels are 100\%
@@ -259,7 +259,7 @@ strictly negative: worse than both 12-thread configurations.\label{tab:probe1}}
 \toprule
 config & reps (s) & mean \\
 \midrule
-mode 1, 12 thr (control) & 26.28, 28.43 & \textbf{27.36} \\
+mode 1, 12 thr (control) & 26.28, 28.43 & 27.36 \\
 mode 3, 13 thr & 29.58, 29.18 & 29.38 ($+7.4\%$) \\
 \bottomrule
 \end{tabular}
@@ -268,7 +268,7 @@ mode 3, 13 thr & 29.58, 29.18 & 29.38 ($+7.4\%$) \\
 The reason is that the premise ``the GPU thread is idle while the kernel
 runs'' is false on this system. Report
 \texttt{15-async-streams-analysis.tex} established that the CUDA
-synchronous wait \emph{busy-spins} (driver \texttt{ScheduleAuto} spins when
+synchronous wait busy-spins (driver \texttt{ScheduleAuto} spins when
 contexts $<$ cores), and both lanes additionally execute the host-side
 commit (the per-pixel \texttt{setPixel} loop) --- so each lane genuinely
 occupies a logical CPU. Thirteen runnable threads on twelve logical CPUs
@@ -300,7 +300,7 @@ mode 3 (row 3) improves but still never beats plain mode 1.\label{tab:probe2}}
 \toprule
 config & reps (s) & mean & pre-BlockingSync \\
 \midrule
-mode 1, 12 thr (control) & 24.33, 27.04 & \textbf{25.69} & 27.36 \\
+mode 1, 12 thr (control) & 24.33, 27.04 & 25.69 & 27.36 \\
 mode 1, 13 thr (12 CPU + sleeping lane) & 26.30, 26.52 & 26.41 & --- \\
 mode 3, 13 thr (11 CPU + both lanes) & 28.63, 26.87 & 27.75 & 29.38 \\
 \bottomrule
@@ -359,30 +359,30 @@ that already lose.
 \section{Recommendations}
 
 \begin{enumerate}
-  \item \textbf{Do not merge \texttt{feat/igpu-opencl} into \texttt{main}.}
+  \item Do not merge \texttt{feat/igpu-opencl} into \texttt{main}.
         Measured value atop v6: $+2.5\%$/$-0.7\%$ (a wash) for the cost of an
         OpenCL ICD loader dependency at build time, the AUR legacy Intel
         runtime at run time, and a third executor in the code. The branch
         stays as a characterization --- report 20 documents the pre-v6 win,
         this report its repeal --- mirroring the reports-11/18 precedent.
-  \item \textbf{Keep the \texttt{cudaDeviceScheduleBlockingSync} line} (it
+  \item Keep the \texttt{cudaDeviceScheduleBlockingSync} line (it
         stays on this branch; porting to \texttt{main} is optional and
         expected to be worth $\approx0$ at 12 threads). It is measured safe,
         and it retires report 15's open confirmation.
-  \item \textbf{The one lever left on this axis is GPU-side periodicity}
+  \item The one lever left on this axis is GPU-side periodicity
         (report 21, recommendation 3). \S\ref{sec:reprice} sharpens its
         motivation: the GPUs' value collapsed because only the CPU got the
         $\sim$11$\times$ interior discount. A GPU-side check would re-inflate
         $k$ for both GPUs --- against report 16's warning that it breaks the
         kernels' 100\% warp coherence. That trade must be measured, not
         assumed, and it is a separate A/B on \texttt{kernel.cu}.
-  \item \textbf{If the iGPU is ever revisited} (e.g.\ after GPU-side
+  \item If the iGPU is ever revisited (e.g.\ after GPU-side
         periodicity changes the price again): the unmeasured residuals are
         the \texttt{scanLine} commit cheapening and strict
         dGPU-priority-on-largest (report 20 \S Analysis), plus mode 2 as a
         budget config for machines without a dGPU.
-  \item \textbf{Treat absolute walls on this laptop as carrying a
-        $\sim$10\% thermal-history band.} Same-day alternated controls (as
+  \item Treat absolute walls on this laptop as carrying a
+        $\sim$10\% thermal-history band. Same-day alternated controls (as
         used throughout here) are mandatory for any future headline number;
         cross-day comparisons of raw seconds are not meaningful at the
         current effect sizes.

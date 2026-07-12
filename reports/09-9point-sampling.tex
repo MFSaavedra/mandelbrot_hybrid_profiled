@@ -40,27 +40,27 @@ is \texttt{binary-v2-viz} itself --- the 4-corner sampler --- built from the sam
 % -----------------------------------------------------------------------
 \begin{abstract}
 Report \texttt{08-region-metrics-viz.tex} pinned the binding load-balancing
-outliers to \emph{minibrot interiors}: $960\times540$ regions whose four
+outliers to minibrot interiors: $960\times540$ regions whose four
 corners all reach \texttt{maxIter} (spread 0), so the 4-corner uniformity rule
 never subdivides them. This report implements the next-step~2b remedy --- a
-\textbf{9-point stencil} that augments the four corners with the four edge
+9-point stencil that augments the four corners with the four edge
 midpoints and the centre --- and measures it against the 4-corner baseline on
 100~frames at $1920\times1080$ (i7-9750H + GTX~1660~Ti~Max-Q, 12~threads,
-\texttt{diffT}\,=\,0.1, \texttt{save}\,=\,0). The headline is a \emph{partial}
-win: the 9-point stencil exposes \textbf{+5.4\,\% more leaves} (5{,}323~$\to$~5{,}608)
-and \textbf{eliminates the frame-89 outlier} (84.4\,\% interior), cutting the
-count of $>$5~s regions from \textbf{2 to 1}. But the densest region ---
-frame~73, \textbf{97.3\,\% interior} --- survives unchanged at 13.3~s, because
+\texttt{diffT}\,=\,0.1, \texttt{save}\,=\,0). The headline is a partial
+win: the 9-point stencil exposes +5.4\,\% more leaves (5{,}323~$\to$~5{,}608)
+and eliminates the frame-89 outlier (84.4\,\% interior), cutting the
+count of $>$5~s regions from 2 to 1. But the densest region ---
+frame~73, 97.3\,\% interior --- survives unchanged at 13.3~s, because
 all nine stencil points still land at \texttt{maxIter}. Crucially, end-to-end
-wall time is \textbf{statistically unchanged}: 52.39~s vs.\ 52.07~s over 3~reps
+wall time is statistically unchanged: 52.39~s vs.\ 52.07~s over 3~reps
 each ($+0.6\%$, inside the $\sim$1\,\% run-to-run spread). A Nsight Systems pass
 explains why, and corrects an earlier guess: the extra sampling costs a
-\emph{measured} $+0.40$~s of CPU ($+29$~µs per \texttt{examine()},
+measured $+0.40$~s of CPU ($+29$~µs per \texttt{examine()},
 $\sim$37~ms wall-equivalent) --- negligible, not an ``offset'' --- and splitting
-\textbf{conserves total compute} ($\approx$595~s in both binaries). The
+conserves total compute ($\approx$595~s in both binaries). The
 heuristic moves work between threads but removes none; with the load already
 balanced under 2\,\%, the wall is bound by total interior-pixel work. The next
-optimisation must therefore \emph{reduce} that work (periodicity checking or an
+optimisation must therefore reduce that work (periodicity checking or an
 interior certificate), not subdivide it further.
 \end{abstract}
 
@@ -104,7 +104,7 @@ other logic are untouched.
 
 \paragraph{Baseline and measurement.} The 4-corner baseline is
 \texttt{binary-v2-viz} built in a separate worktree. Four measurement passes
-were taken on \emph{both} binaries: (i) a clean wall-time A/B, three reps each,
+were taken on both binaries: (i) a clean wall-time A/B, three reps each,
 alternating to balance thermal drift; (ii) a single \texttt{quiet}\,=\,0
 metrics run for leaf counts, per-thread totals and the \texttt{[OUTLIER]} dump;
 (iii) a Nsight Systems capture
@@ -127,7 +127,7 @@ scheduling was not under analysis), keeping the capture lean.
     \label{tab:decomp}
     \begin{tabular}{lrrr}
         \hline
-        \textbf{Metric} & \textbf{4-point} & \textbf{9-point} & \textbf{$\Delta$} \\
+        Metric & 4-point & 9-point & $\Delta$ \\
         \hline
         Total leaf regions       & 5{,}323 & 5{,}608 & $+285$ ($+5.4\%$) \\
         \texttt{examine()} calls & 7{,}064 & 7{,}444 & $+380$ ($+5.4\%$) \\
@@ -149,7 +149,7 @@ scheduling was not under analysis), keeping the capture lean.
     \label{tab:outliers}
     \begin{tabular}{llrrrr}
         \hline
-        \textbf{Sampler} & \textbf{Frame} & \textbf{Size} & \textbf{Inset \%} & \textbf{cardioid/bulb} & \textbf{CPU time} \\
+        Sampler & Frame & Size & Inset \% & cardioid/bulb & CPU time \\
         \hline
         4-point & 73 & $960\times540$ & 97.3\% & no & 14.5~s \\
         4-point & 89 & $960\times540$ & 84.4\% & no & 15.4~s \\
@@ -169,12 +169,12 @@ scheduling was not under analysis), keeping the capture lean.
     \label{tab:wall}
     \begin{tabular}{lrrr}
         \hline
-        \textbf{Metric} & \textbf{4-point} & \textbf{9-point} & \textbf{$\Delta$} \\
+        Metric & 4-point & 9-point & $\Delta$ \\
         \hline
         CPU thread total (min--max, s) & 51.0--51.9 & 50.4--51.1 & tighter, lower \\
         Sum CPU compute (s)            & 565.7      & 557.8      & $-7.9$ \\
         Worst single region (s)        & 15.4 (f89) & 13.3 (f73) & $-2.1$ \\
-        Wall, A/B mean (s)             & \textbf{52.07} & \textbf{52.39} & $+0.32$ ($+0.6\%$) \\
+        Wall, A/B mean (s)             & 52.07 & 52.39 & $+0.32$ ($+0.6\%$) \\
         \quad A/B range (s)            & 51.84--52.34 & 52.10--52.80 & overlapping \\
         \hline
     \end{tabular}
@@ -197,7 +197,7 @@ compute}.
     \label{tab:nvtx}
     \begin{tabular}{lrrr}
         \hline
-        \textbf{Range / quantity} & \textbf{4-point} & \textbf{9-point} & \textbf{$\Delta$} \\
+        Range / quantity & 4-point & 9-point & $\Delta$ \\
         \hline
         \texttt{examine region} total (s)  & 598.34 & 603.84 & $+5.49$ \\
         \quad instances                    & 7{,}064 & 7{,}444 & $+380$ \\
@@ -207,17 +207,17 @@ compute}.
         \texttt{GPU region compute} total (s) & 45.74  & 45.96  & $+0.22$ \\
         \hline
         Total compute (CPU+GPU, s)         & 594.86 & 599.94 & $+5.08$ ($+0.9\%$) \\
-        \textbf{Subdivision overhead (s)}  & \textbf{3.49} & \textbf{3.89} & \textbf{$+0.40$} \\
+        Subdivision overhead (s)  & 3.49 & 3.89 & $+0.40$ \\
         \quad per \texttt{examine()} (µs)  & 494    & 523    & $+29$ \\
         \hline
     \end{tabular}
 \end{table}
 
-The overhead delta is \textbf{+0.40~s of CPU work summed across eleven threads}
+The overhead delta is +0.40~s of CPU work summed across eleven threads
 --- about 37~ms of wall-equivalent --- or $+29$~µs per \texttt{examine()} call.
 Total compute (the pixel loops) is unchanged within noise ($+0.9\%$): the same
 pixels are iterated regardless of how they are partitioned. The CPU-vs-GPU
-\emph{split} of that total is scheduling-dependent and drifts a few percent
+split of that total is scheduling-dependent and drifts a few percent
 run-to-run (this capture is a different run from Table~\ref{tab:wall}), so only
 the aggregate total and the deterministic counts (leaves, \texttt{examine()}
 calls) should be read closely.
@@ -233,7 +233,7 @@ calls) should be read closely.
     \label{tab:cuda}
     \begin{tabular}{lrr}
         \hline
-        \textbf{Quantity} & \textbf{4-point} & \textbf{9-point} \\
+        Quantity & 4-point & 9-point \\
         \hline
         \texttt{cudaMemcpy} total / \% of API   & 45.62~s / 99.4\% & 45.82~s / 99.3\% \\
         \texttt{mandelKernel} total (s)          & 45.47 & 45.56 \\
@@ -256,7 +256,7 @@ calls) should be read closely.
     \label{tab:dist}
     \begin{tabular}{lrrrr}
         \hline
-        \textbf{Percentile} & \textbf{4-pt CPU} & \textbf{9-pt CPU} & \textbf{4-pt GPU} & \textbf{9-pt GPU} \\
+        Percentile & 4-pt CPU & 9-pt CPU & 4-pt GPU & 9-pt GPU \\
         \hline
         count    & 1{,}251 & 1{,}399 & 4{,}072 & 4{,}209 \\
         median   & 126.3   & 99.5    & 2.97    & 3.25 \\
@@ -291,7 +291,7 @@ Figure~\ref{fig:cmp89} contrasts the two on frame~89.
 
 This is the headline. Both outliers have four corners pinned at \texttt{maxIter}
 (spread 0 under the 4-corner rule). The 9-point stencil adds five interior
-samples; whether it splits the region depends on whether \emph{any} of those
+samples; whether it splits the region depends on whether any of those
 five lands on a pixel that diverges before \texttt{maxIter}.
 
 For frame~89 (84.4\,\% interior) at least one interior sample fell on the
@@ -323,11 +323,11 @@ reps' ranges overlapping (9-point's fastest rep, 52.10~s, beats 4-point's
 slowest, 52.34~s). The Nsight Systems capture lets us say precisely why, and
 correct an earlier guess.
 
-\paragraph{The sampling overhead is negligible --- it does \emph{not} offset the
+\paragraph{The sampling overhead is negligible --- it does not offset the
 gain.} An earlier draft of this report attributed the flat result partly to the
 cost of the five extra samples. The NVTX breakdown (Table~\ref{tab:nvtx})
 refutes that: the non-compute overhead rises only from 3.49~s to 3.89~s summed
-across eleven threads --- \textbf{+0.40~s, or +29~µs per \texttt{examine()}} ---
+across eleven threads --- +0.40~s, or +29~µs per \texttt{examine()} ---
 about 37~ms of wall-equivalent. That is two orders of magnitude too small to
 explain a flat wall. The five extra \texttt{diverge()} calls are simply cheap
 next to the pixel loop they guard.
@@ -336,7 +336,7 @@ next to the pixel loop they guard.
 real reason is in the same table: total compute (CPU+GPU pixel loops) is
 unchanged at $\approx$595--600~s ($+0.9\%$, noise). Every pixel is iterated
 exactly once however the frame is partitioned, so subdividing a region
-\emph{redistributes} work without reducing it. With eleven CPU workers and
+redistributes work without reducing it. With eleven CPU workers and
 100~frames in flight, no single region is on the critical path --- while one
 thread spends 13~s on the frame-73 block, the other ten drain the remaining
 frames --- so the wall is governed by total work over parallelism
@@ -355,20 +355,20 @@ D$\rightarrow$H transfer is $\sim$95~ms total --- still not a bottleneck.
 \subsection{The binding cost is work, not balance}
 
 The decisive insight from the breakdown is that the heuristic can only move
-\emph{where} work runs, never \emph{how much} there is. The frame-73 block
+where work runs, never how much there is. The frame-73 block
 costs $960\times540 \times {\approx}7{,}300$ iterations $\approx 3.8\times10^9$
 iterations no matter how it is split; 9-point's finer decomposition cannot
 remove a single iteration. The load was already well balanced (per-thread
 spread under 2\,\% in both samplers), so improving balance further buys nothing.
 The only lever that can shrink the $\sim$595~s of total compute is one that
-\emph{skips} iterating interior pixels --- an interior certificate that
+skips iterating interior pixels --- an interior certificate that
 constant-fills a region proven to be inside the set. This is why the wall is
 flat and why the next optimisation must target work, not subdivision.
 
-\subsection{Where 9-point \emph{would} pay off}
+\subsection{Where 9-point would pay off}
 
 The flat result is configuration-specific. In a latency-bound setup --- CPU-only,
-or a GPU-starved hybrid where a single 15~s region \emph{is} the critical path
+or a GPU-starved hybrid where a single 15~s region is the critical path
 --- subdividing that region across threads would translate directly into wall
 time. The 9-point stencil's value here is therefore decomposition correctness
 (it makes the heuristic see interior structure) plus insurance for
@@ -394,7 +394,7 @@ check, the hybrid configuration was swept across
     \label{tab:difft}
     \begin{tabular}{rrrr}
         \hline
-        \textbf{\texttt{diffT}} & \textbf{Wall mean (s)} & \textbf{min--max (s)} & \textbf{Leaves} \\
+        \texttt{diffT} & Wall mean (s) & min--max (s) & Leaves \\
         \hline
         0.05 & 51.08 & 49.93--52.22 & 5{,}608 \\
         0.10 & 52.09 & 51.55--52.52 & 5{,}608 \\
@@ -405,8 +405,8 @@ check, the hybrid configuration was swept across
     \end{tabular}
 \end{table}
 
-\textbf{The optimum did not move --- 0.1 remains the right default.} The leaf
-count \emph{saturates} by \texttt{diffT}\,=\,0.1: 0.05 produces the identical
+The optimum did not move --- 0.1 remains the right default. The leaf
+count saturates by \texttt{diffT}\,=\,0.1: 0.05 produces the identical
 5{,}608 leaves, because the \texttt{pixelSizeThresh} floor is reached and a lower
 threshold can add no further splits. Across the saturated band
 \texttt{diffT}\,$\in\{0.05,0.10,0.20\}$ the wall times are statistically
@@ -421,7 +421,7 @@ This reproduces the 4-corner result of \texttt{06-difft-sweep.tex} --- a plateau
 over [0.05, 0.20] with 0.1 the predictable sweet spot --- and is exactly what
 the analysis above predicts: because the wall is throughput-bound and total
 compute is conserved, \texttt{diffThreshold} only sets partition granularity,
-which saturates at the pixel floor by $\sim$0.1 for \emph{either} sampler. The
+which saturates at the pixel floor by $\sim$0.1 for either sampler. The
 change from 4 to 9 sampling points does not warrant re-tuning the default.
 (Hybrid config only; CPU-only and GPU-only were not swept.)
 
@@ -429,36 +429,36 @@ change from 4 to 9 sampling points does not warrant re-tuning the default.
 \section{Recommendations}
 
 \begin{enumerate}
-    \item \textbf{Keep 9-point as the default sampler.} It strictly improves
+    \item Keep 9-point as the default sampler. It strictly improves
     decomposition quality --- one of two binding outliers eliminated, CPU
     per-region median $-21\%$ and max $-14\%$ (Table~\ref{tab:dist}) --- at a
-    \emph{measured} cost of $+0.40$~s CPU total ($+29$~µs/\texttt{examine}, $\sim$37~ms
+    measured cost of $+0.40$~s CPU total ($+29$~µs/\texttt{examine}, $\sim$37~ms
     wall-equivalent; Table~\ref{tab:nvtx}). It is the correct heuristic, and it
     is effectively free. Keep its \texttt{diffThreshold} at 0.1 --- the sweep of
     Table~\ref{tab:difft} confirms the optimum did not move with the stencil
     change.
 
-    \item \textbf{Attack work, not balance --- this is the real lever.} The
+    \item Attack work, not balance --- this is the real lever. The
     breakdown shows total compute is conserved under any partitioning
     (Table~\ref{tab:nvtx}); the only way to shrink the $\sim$595~s is to stop
     iterating interior pixels. Two options, in order of safety:
-    (a)~\emph{periodicity checking} inside \texttt{diverge()} --- detect the
+    (a)~periodicity checking inside \texttt{diverge()} --- detect the
     cycle that interior orbits settle into and bail early; exact, no image
     change, and it directly cuts the frame-73 block's $3.8\times10^9$ iterations;
-    (b)~a \emph{heuristic interior certificate} that constant-fills a large
+    (b)~a heuristic interior certificate that constant-fills a large
     region whose samples all reach \texttt{maxIter} --- cheaper still but risks
     filling over a thin filament, so it trades a small accuracy risk for speed.
     The exact cardioid/bulb certificate (report~08) does not apply --- frame~73
     is a minibrot interior.
 
-    \item \textbf{Re-test 9-point in a latency-bound config.} Run CPU-only and
+    \item Re-test 9-point in a latency-bound config. Run CPU-only and
     GPU+1CPU; where a single region bounds the critical path, 9-point's tighter
     distribution (and the residual-outlier split of recommendation~2a) should
     convert into wall time that is invisible at 12~threads.
 
-    \item \textbf{Then the throughput levers of report~08 (async streams,
-    priority queue)} --- but note Table~\ref{tab:cuda}: the D$\rightarrow$H
-    transfer is only $\sim$95~ms, so async streams recover GPU-thread \emph{idle}
+    \item Then the throughput levers of report~08 (async streams,
+    priority queue) --- but note Table~\ref{tab:cuda}: the D$\rightarrow$H
+    transfer is only $\sim$95~ms, so async streams recover GPU-thread idle
     around the kernel, not transfer time.
 \end{enumerate}
 
@@ -466,21 +466,21 @@ change from 4 to 9 sampling points does not warrant re-tuning the default.
 \section{Conclusion}
 
 The 9-point stencil does what report~08 predicted it would for the
-\emph{less}-dense outlier: frame~89, 84\,\% interior, is detected and
+less-dense outlier: frame~89, 84\,\% interior, is detected and
 subdivided, dropping the count of $>$5~s regions from two to one and exposing
-$+5.4\%$ more leaves overall. It does \emph{not} fix the densest region ---
+$+5.4\%$ more leaves overall. It does not fix the densest region ---
 frame~73, 97\,\% interior --- whose thin divergent filament slips between all
 nine fixed sample points; sparse sampling is a probabilistic catch, not a
 guarantee. And at \texttt{diffT}\,=\,0.1 on this 12-thread hybrid the change is
 wall-time-neutral ($+0.6\%$, within noise). The Nsight Systems breakdown
 pins down why: the extra sampling costs a measured $+0.40$~s of CPU
 ($\sim$37~ms wall-equivalent), far too little to matter, and splitting
-\emph{conserves} total compute ($\approx$595~s in both, $+0.9\%$) --- it moves
+conserves total compute ($\approx$595~s in both, $+0.9\%$) --- it moves
 work between threads but removes none. Since the load was already balanced to
 under 2\,\%, better decomposition has nothing left to gain at this thread count.
 The 9-point sampler is the right default on correctness grounds and is
 effectively free, but the wall is bound by total interior-pixel work, so the
-next optimisation must \emph{reduce} that work --- periodicity checking or an
+next optimisation must reduce that work --- periodicity checking or an
 interior certificate (recommendation~2) --- rather than subdivide it further.
 
 \end{document}

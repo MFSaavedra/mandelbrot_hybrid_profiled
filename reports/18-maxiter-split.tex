@@ -34,7 +34,7 @@
 \begin{center}\small\textsf{%
 Branch: \texttt{examine/maxiter-split} (\texttt{d572c78}, tag
 \texttt{binary-maxiter-split}) atop \texttt{binary-v5-affinity}
-(\texttt{fc33e29}); \emph{not} merged (a characterization). Machine: i7-9750H +
+(\texttt{fc33e29}); not merged (a characterization). Machine: i7-9750H +
 GTX~1660~Ti~Max-Q. Data: \texttt{experiments/18-maxiter-split/}.%
 }\end{center}
 
@@ -49,12 +49,12 @@ similar is for all of them to run to \texttt{MAXITER}. This report tests that by
 replacing the relative-spread test with a parameter-free binary rule: compute iff
 all nine samples reached \texttt{MAXITER} (\texttt{minIter}$=$frame
 \texttt{MAXITER}), else split. The result is decisive: the two rules produce
-\textbf{byte-identical} decompositions on the production zoom (\textbf{5608}
+byte-identical decompositions on the production zoom (5608
 leaves both) and on three of the four report-13 regimes. They diverge only on
-\textbf{outside} (uniform deep exterior): there \texttt{diffThreshold} keeps a
+\texttt{outside} (uniform deep exterior): there \texttt{diffThreshold} keeps a
 large uniform-exterior region as one leaf, while the binary rule splits it to the
-floor ($+22\,\%$ leaves) --- at \emph{zero} wall cost, since those leaves are
-trivial iter-2 exterior. So $\texttt{diffThreshold}=0.1$ \emph{is} a parameter-free
+floor ($+22\,\%$ leaves) --- at zero wall cost, since those leaves are
+trivial iter-2 exterior. So $\texttt{diffThreshold}=0.1$ is a parameter-free
 interior certificate on realistic content; the threshold's only distinctive job
 is to avoid shattering large uniform-exterior regions, which is cost-free here.
 This explains why $0.1$ is the sweet spot.
@@ -95,7 +95,7 @@ on the one spec where the rules differ.
 \insertimage{img/18-maxiter-split.png}{width=0.86\linewidth}
             {Leaf-region counts under the two rules. On the production zoom
              (\texttt{canonical}) and on inside / Misiurewicz / seahorse the two
-             rules are \emph{identical}; only \texttt{outside} differs (the binary
+             rules are identical; only \texttt{outside} differs (the binary
              rule splits large uniform-exterior regions the relative test keeps
              whole). \label{fig:leaves}}
 
@@ -107,13 +107,13 @@ on the one spec where the rules differ.
     \label{tab:leaves}
     \begin{tabular}{lrrr}
         \hline
-        \textbf{spec} & \textbf{\texttt{diffT}=0.1} & \textbf{all-MAXITER} & \textbf{$\Delta$} \\
+        spec & \texttt{diffT}=0.1 & all-MAXITER & $\Delta$ \\
         \hline
-        canonical \texttt{spec.in} & 5{,}608 & 5{,}608 & \textbf{identical} \\
+        canonical \texttt{spec.in} & 5{,}608 & 5{,}608 & identical \\
         inside                     & 969     & 969     & identical \\
         misiurewicz                & 1{,}050 & 1{,}050 & identical \\
         seahorse                   & 942     & 942     & identical \\
-        outside                    & 1{,}206 & \textbf{1{,}470} & $+264$ ($+22\,\%$) \\
+        outside                    & 1{,}206 & 1{,}470 & $+264$ ($+22\,\%$) \\
         \hline
         outside wall (GPU-only)    & $\sim$5.95~s & 5.76--5.98~s & flat \\
         \hline
@@ -123,15 +123,15 @@ on the one spec where the rules differ.
 % -----------------------------------------------------------------------
 \section{Analysis}
 
-\subsection{On realistic content, \texttt{diffThreshold}=0.1 \emph{is} the
+\subsection{On realistic content, \texttt{diffThreshold}=0.1 is the
 interior certificate}
 
 Table~\ref{tab:leaves}, Figure~\ref{fig:leaves}: the binary all-MAXITER rule
-reproduces the $\texttt{diffT}=0.1$ decomposition \textbf{exactly} on the
+reproduces the $\texttt{diffT}=0.1$ decomposition exactly on the
 production zoom (5608 leaves either way) and on inside, Misiurewicz, and seahorse.
 The hypothesis is confirmed: on this content the two rules are the same function.
 
-The mechanism is that the relative-spread test \emph{collapses} to the
+The mechanism is that the relative-spread test collapses to the
 \texttt{MAXITER} test at $\texttt{diffThresh}=0.1$. A region is computed only if
 $\texttt{maxIter}-\texttt{minIter} < 0.1\cdot\texttt{maxIter}$, i.e.\ all nine
 samples lie within $10\,\%$ of the largest. On boundary or interior content, the
@@ -146,18 +146,18 @@ byte-identical.
 
 The rules differ only on \texttt{outside}: a zoom into $c=(1,1)$, far from the
 set, where every pixel escapes at iteration~2. A large region there has all nine
-samples equal to 2 --- spread zero, but \emph{not} \texttt{MAXITER}. The
+samples equal to 2 --- spread zero, but not \texttt{MAXITER}. The
 relative test computes it as one big leaf; the binary rule, seeing samples that
 are not in-set, splits it to the pixel floor ($+264$ leaves, $+22\,\%$).
 
 This is the one thing \texttt{diffThreshold}'s relative formulation buys over a
-binary interior test: it recognises \emph{any} uniform region, interior or
+binary interior test: it recognises any uniform region, interior or
 exterior, and computes it whole. The implication, though, is that the difference
 is free: Table~\ref{tab:leaves} shows the \texttt{outside} wall is flat
 ($\sim$5.8~s under both), because the extra leaves are trivial iter-2 exterior ---
 splitting them adds kernel launches but essentially no compute (work is
 conserved; reports 09/16). So the binary rule is not worse here in any way that
-costs time; it is only \emph{less elegant}, shattering regions a relative test
+costs time; it is only less elegant, shattering regions a relative test
 would keep whole.
 
 \subsection{Why \texttt{diffThreshold}=0.1 is the sweet spot}
@@ -178,20 +178,20 @@ counts here show is the decomposition the workload wants.
 \section{Implications}
 
 \begin{enumerate}
-  \item \textbf{The heuristic could be made parameter-free with no loss on this
-        workload.} Replacing the \texttt{diffThreshold} test with the binary
+  \item The heuristic could be made parameter-free with no loss on this
+        workload. Replacing the \texttt{diffThreshold} test with the binary
         all-MAXITER rule removes a tuning knob and reproduces the production
         decomposition exactly (5608 leaves). It is a legitimate simplification
         for Mandelbrot zooms dominated by boundary and interior content.
-  \item \textbf{But keep \texttt{diffThreshold} for robustness.} The binary rule
-        degrades on uniform-\emph{exterior} content (\texttt{outside}: $+22\,\%$
+  \item But keep \texttt{diffThreshold} for robustness. The binary rule
+        degrades on uniform-exterior content (\texttt{outside}: $+22\,\%$
         leaves), shattering large coherent regions the relative test computes
-        whole. The penalty is cost-free \emph{here} (trivial exterior), but on a
+        whole. The penalty is cost-free here (trivial exterior), but on a
         workload with expensive uniform-exterior regions it would add real launch
         and bookkeeping overhead. The relative test is the safer general rule;
         this experiment simply shows it is doing nothing extra on the canonical
         zoom.
-  \item \textbf{This is not a performance lever.} On the production workload the
+  \item This is not a performance lever. On the production workload the
         decompositions are identical, so wall time is identical. The value is
         explanatory: it pins down what $\texttt{diffThreshold}=0.1$ actually does
         and why it is optimal --- not a new optimisation. The branch is kept off
@@ -204,7 +204,7 @@ counts here show is the decomposition the workload wants.
 
 Replacing the \texttt{diffThreshold} relative-spread test with a parameter-free
 ``compute iff all nine samples reached \texttt{MAXITER}'' rule reproduces the
-$\texttt{diffT}=0.1$ decomposition \textbf{byte-identically} on the production
+$\texttt{diffT}=0.1$ decomposition byte-identically on the production
 zoom (5608 leaves) and on inside, Misiurewicz, and seahorse. The two rules diverge
 only on uniform deep exterior (\texttt{outside}, $+22\,\%$ leaves), at zero wall
 cost. So on realistic Mandelbrot content $\texttt{diffThreshold}=0.1$ is, exactly,

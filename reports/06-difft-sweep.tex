@@ -47,12 +47,12 @@ GPU thread), and \texttt{GPU+11CPU} (best hybrid) --- with three reps at
 each \texttt{diffT}. The headline result is that the hybrid sweet spot
 sits at \texttt{diffT}\,=\,$0.1$ at 52.80~s mean, a 3.3\% improvement
 over the 0.5 baseline (54.61~s), with a non-monotonic tail: dropping
-further to \texttt{diffT}\,=\,$0.05$ does \emph{worse} (53.45~s with
+further to \texttt{diffT}\,=\,$0.05$ does worse (53.45~s with
 much higher variance, $\sigma{=}1.26$~s vs.\ $0.50$~s at 0.1). Pure
 \texttt{GPU} improves monotonically (-0.5\% across the full range) and
 \texttt{CPU12} is essentially invariant. The most surprising finding,
 revealed by a \texttt{quiet=0} rerun at each \texttt{diffT}, is that
-\textbf{the worst-case CPU region barely moves at all}: it remains a
+the worst-case CPU region barely moves at all: it remains a
 single $960\times540$ region taking 14.0--15.5~s regardless of
 \texttt{diffT}. The heuristic cannot subdivide this region at any
 threshold because all four corners lie inside the Mandelbrot set
@@ -128,15 +128,15 @@ parsed for max-region statistics. This added 5 runs.
 \begin{table}[H]
     \centering
     \caption{Mean wall-clock time per configuration and \texttt{diffT}
-             ($n=3$ each). Best per config in bold.}
+             ($n=3$ each).}
     \label{tab:wall}
     \begin{tabular}{lrrrrr}
         \hline
-        \textbf{Config} & \textbf{0.05} & \textbf{0.10} & \textbf{0.20} & \textbf{0.30} & \textbf{0.50} \\
+        Config & 0.05 & 0.10 & 0.20 & 0.30 & 0.50 \\
         \hline
-        CPU12     & \textbf{161.47} & 161.96 & 162.59 & 162.24 & 162.76 \\
-        GPU       & \textbf{77.60} & 77.81 & 77.82 & 77.83 & 78.03 \\
-        GPU+11CPU & 53.45 & \textbf{52.80} & 52.90 & 53.21 & 54.61 \\
+        CPU12     & 161.47 & 161.96 & 162.59 & 162.24 & 162.76 \\
+        GPU       & 77.60 & 77.81 & 77.82 & 77.83 & 78.03 \\
+        GPU+11CPU & 53.45 & 52.80 & 52.90 & 53.21 & 54.61 \\
         \hline
     \end{tabular}
 \end{table}
@@ -148,7 +148,7 @@ parsed for max-region statistics. This added 5 runs.
     \label{tab:std}
     \begin{tabular}{lrrrrr}
         \hline
-        \textbf{Config} & \textbf{0.05} & \textbf{0.10} & \textbf{0.20} & \textbf{0.30} & \textbf{0.50} \\
+        Config & 0.05 & 0.10 & 0.20 & 0.30 & 0.50 \\
         \hline
         CPU12     & 0.47 & 0.71 & 0.32 & 0.94 & 2.44 \\
         GPU       & 0.03 & 0.08 & 0.08 & 0.09 & 0.21 \\
@@ -174,7 +174,7 @@ parsed for max-region statistics. This added 5 runs.
     \label{tab:leaves}
     \begin{tabular}{lrrrrr}
         \hline
-        \textbf{Config} & \textbf{0.05} & \textbf{0.10} & \textbf{0.20} & \textbf{0.30} & \textbf{0.50} \\
+        Config & 0.05 & 0.10 & 0.20 & 0.30 & 0.50 \\
         \hline
         \texttt{CPU12} (CPU leaves)        & 5{,}323 & 5{,}323 & 5{,}320 & 5{,}290 & 5{,}152 \\
         \texttt{GPU} (GPU leaves)          & 5{,}323 & 5{,}323 & 5{,}320 & 5{,}290 & 5{,}152 \\
@@ -198,7 +198,7 @@ dimensions of that region:
     \label{tab:worst}
     \begin{tabular}{rrlrr}
         \hline
-        \textbf{diffT} & \textbf{Wall (s)} & \textbf{Worst CPU region} & \textbf{Worst kernel (ms)} & \textbf{Worst kernel size} \\
+        diffT & Wall (s) & Worst CPU region & Worst kernel (ms) & Worst kernel size \\
         \hline
         0.05 & 51.15 & 14.00~s @ $960\times540$ & 137.9 & $480\times270$ \\
         0.10 & 53.08 & 15.47~s @ $960\times540$ & 139.8 & $480\times270$ \\
@@ -225,7 +225,7 @@ baseline:
     \item $0.5 \to 0.1$: $-1.81$~s ($-3.3\%$).
     \item $0.5 \to 0.05$: $-1.16$~s ($-2.1\%$), but with $\sigma=1.26$~s
     vs.\ $0.39$~s at 0.5. The mean improved but the worst rep ran
-    \emph{worse} than the 0.5 baseline.
+    worse than the 0.5 baseline.
 \end{itemize}
 
 \noindent
@@ -264,14 +264,14 @@ wash.
 \subsection{The Surprise: The Outlier Is Unbreakable}
 
 The worst single CPU region remains a $960 \times 540$ patch
-\textbf{at every \texttt{diffT} tested}, taking 14.0--15.5~s. Five
+at every \texttt{diffT} tested, taking 14.0--15.5~s. Five
 points of \texttt{diffT} from 0.05 to 0.5 (a 10$\times$ range) move
 its compute time by less than 1.5~s. This is the central surprise of
 the experiment, and it is also the explanation for why all the
 preceding wall-time improvements are so small:
 
-\textbf{The corner-spread heuristic cannot see this region as a split
-candidate at any \texttt{diffT}.} A $960 \times 540$ leaf is a quarter
+The corner-spread heuristic cannot see this region as a split
+candidate at any \texttt{diffT}. A $960 \times 540$ leaf is a quarter
 of an early-zoom frame; its four corners almost certainly all lie
 inside the Mandelbrot set, where \texttt{diverge()} returns the cap
 \texttt{MAXITER}\,=\,$10{,}000$. With identical corner values, the
@@ -283,8 +283,8 @@ thread for $\sim$15~s while the other threads complete the remaining
 $\sim$5{,}320 leaves and idle.
 
 Lowering \texttt{diffT} does not help because the corners are
-\emph{identical}, not just close. The diffT knob controls how much
-\emph{near}-uniformity is acceptable; it cannot reject \emph{exact}
+identical, not just close. The diffT knob controls how much
+near-uniformity is acceptable; it cannot reject exact
 uniformity. The only way to subdivide this region with the existing
 heuristic is to lower \texttt{pixelSizeThresh} far enough that
 $960 \times 540 = 518{,}400$ pixels falls below the floor. That would
@@ -302,25 +302,25 @@ leaves, but the bigger averaged-size of those leaves means the GPU
 thread spends slightly more time per kernel launch and the CPU threads
 spend slightly more time per region. At \texttt{diffT}\,=\,$0.1$ the
 renderer produces 5{,}323 leaves --- 171 more, $+3.3\%$ --- each
-\emph{slightly} smaller on average. Three effects compound:
+slightly smaller on average. Three effects compound:
 
 \begin{enumerate}
-    \item \textbf{More uniform region sizes} mean the tail of the leaf
+    \item More uniform region sizes mean the tail of the leaf
     distribution (the leaves the CPU threads chew on) is closer to
     the median, so any given CPU thread finishes its last leaf closer
     to the slowest thread's completion time. Per-thread wall times
     tighten.
-    \item \textbf{The GPU consumes leaves $\sim$40$\times$ faster than
-    the CPU}, so the GPU thread is always returning to the queue
+    \item The GPU consumes leaves $\sim$40$\times$ faster than
+    the CPU, so the GPU thread is always returning to the queue
     looking for more work. More leaves at finer granularity means the
     GPU stays usefully busy for longer; its idle tail (the time it
     spends waiting for the last CPU thread) shrinks.
-    \item \textbf{The worst-case region's $\sim$15~s wall is masked by
-    other workers}. When that region runs on, say, thread~7, the
+    \item The worst-case region's $\sim$15~s wall is masked by
+    other workers. When that region runs on, say, thread~7, the
     other 10 CPU threads continue chewing on the queue. The wall time
     becomes \texttt{max(15.3~s,~time-to-drain-remaining-queue)}. More
     leaves means the queue takes slightly longer to drain, so the
-    15.3~s is more often \emph{below} the queue-drain time and ceases
+    15.3~s is more often below the queue-drain time and ceases
     to be the binding constraint for that rep.
 \end{enumerate}
 
@@ -342,18 +342,18 @@ region plus $\sim$37~s of remaining-queue drain. To improve further
 the renderer needs:
 
 \begin{itemize}
-    \item \textbf{To split the worst region}. The corner heuristic
+    \item To split the worst region. The corner heuristic
     will never do this. Required: edge-midpoint sampling (the centre
     of the worst $960 \times 540$ region likely has a non-trivial
     iteration value; sampling it would detect interior non-uniformity)
     or a geometric/pixel-floor-only force-split for any region whose
     corners are all \texttt{MAXITER}.
-    \item \textbf{To use cardioid and bulb interior certificates.} For
+    \item To use cardioid and bulb interior certificates. For
     truly-interior regions, this skips iteration entirely. The
     payoff in worst-case savings is bounded by however much of the
     outlier region is genuinely inside vs.\ just appearing to be from
     the corners.
-    \item \textbf{Asynchronous CUDA streams}. Independent of the
+    \item Asynchronous CUDA streams. Independent of the
     heuristic, recovers up to $\sim$13~ms of per-region GPU idle.
 \end{itemize}
 
@@ -368,14 +368,14 @@ default \texttt{diffThreshold} from $0.5$ to $0.1$:
     \item Pure-GPU wall: $78.03 \to 77.81$~s ($-0.3\%$, but it is
     still GPU's best).
     \item CPU-only wall: unchanged within noise.
-    \item Run-to-run variance for the hybrid actually \emph{tightens}
+    \item Run-to-run variance for the hybrid actually tightens
     at $0.1$ versus $0.5$ ($\sigma = 0.50$~s vs.\ $0.39$~s --- nearly
     equal --- but the $\sigma = 2.44$~s outlier observed on
     \texttt{CPU12} at $0.5$ does not recur at $0.1$).
 \end{itemize}
 
 \noindent
-Avoid $\texttt{diffT}\,=\,$0.05$, which trades the small mean improvement
+Avoid $\texttt{diffT}\,=\,0.05$, which trades the small mean improvement
 for $2.5 \times$ higher run-to-run variance --- predictable performance
 is more valuable than a marginal mean.
 

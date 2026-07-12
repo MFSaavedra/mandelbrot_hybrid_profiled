@@ -45,9 +45,9 @@ file does, how the pieces fit, and why the design balances load the way it does.
 The program renders a 100-frame Mandelbrot zoom by recursively splitting each
 frame into rectangular regions and computing them on a pool of CPU threads plus a
 single GPU thread, all pulling from one shared work queue. The load-balancing
-strategy is \emph{adaptive subdivision}: a region whose sampled iteration counts
+strategy is adaptive subdivision: a region whose sampled iteration counts
 are uniform (or which is already small) is computed directly; otherwise it splits
-into four and the children go back on the queue. The queue is \emph{executor-aware}
+into four and the children go back on the queue. The queue is executor-aware
 --- the GPU thread takes the largest pending region, CPU threads the smallest ---
 which routes the big coherent interior regions onto the processor that is
 $\sim$30$\times$ faster on them. We walk every translation unit
@@ -63,7 +63,7 @@ $\sim$595~s of compute) follows from the code. Companion file:
 \section{The Big Picture}
 
 \texttt{mandelHybrid} turns a camera path through the complex plane into a
-sequence of PNG images. The unit of work is a \textbf{region}: a rectangle of
+sequence of PNG images. The unit of work is a region: a rectangle of
 pixels belonging to one frame. The whole program is a producer/consumer loop over
 regions (Figure~\ref{fig:arch}).
 
@@ -74,14 +74,14 @@ regions (Figure~\ref{fig:arch}).
              \texttt{MandelRegion} per interpolated frame, and every worker
              thread runs the same \texttt{CalcThr::run} drain loop. The
              load-balancing decision lives in two places the figure highlights.
-             \emph{Who} pulls a region: cyan is the single GPU thread, which pops
-             the \emph{largest} pending region (\texttt{--end()}); yellow is the
-             CPU pool, which pops the \emph{smallest} (\texttt{begin()}); the
-             dotted note is the no-GPU LPT guard. \emph{How big} the task is:
+             Who pulls a region: cyan is the single GPU thread, which pops
+             the largest pending region (\texttt{--end()}); yellow is the
+             CPU pool, which pops the smallest (\texttt{begin()}); the
+             dotted note is the no-GPU LPT guard. How big the task is:
              \texttt{examine}'s 9-point spread test. From there a region is
-             either a \textbf{leaf} (\texttt{compute}, then the atomic
+             either a leaf (\texttt{compute}, then the atomic
              \texttt{regionComplete} whose last $1\!\to\!0$ decrement writes the
-             PNG) or a \textbf{split} (four quadrant children re-enter the queue
+             PNG) or a split (four quadrant children re-enter the queue
              along the dashed edge, \texttt{regionSplit} bumping the same atomic
              counter by $+3$). Those three local decisions --- task owner, task
              size, completion --- are the entire scheduler.\label{fig:arch}}
@@ -91,14 +91,14 @@ runs per logical worker. Thread~0 drives the GPU path; every other thread is
 CPU-only. All of them run the same drain loop: pull a region, examine it, repeat
 until the queue is empty. ``Examine'' is the load-balancing decision --- it either
 computes the region's pixels or replaces the region with four smaller ones. A
-region therefore lives somewhere in a \emph{quadtree}: the frame is the root, and
+region therefore lives somewhere in a quadtree: the frame is the root, and
 the leaves are the rectangles actually computed.
 
 \paragraph{What ``adaptive subdivision'' buys.} The Mandelbrot set is cheap to
 evaluate where points escape quickly (a handful of iterations) and expensive deep
 inside the set (every pixel runs to \texttt{MAXITER}). A fixed pixel-per-task
 split would put wildly different costs in equal-sized tasks. Subdivision instead
-makes \emph{task size} track \emph{visual complexity}: smooth regions stay large
+makes task size track visual complexity: smooth regions stay large
 and are computed in one shot; busy boundary regions are split until each piece is
 either uniform or tiny. Figure~\ref{fig:partition} shows the result --- the
 quadtree is fine along the fractal boundary and coarse in the flat interior and
@@ -122,12 +122,12 @@ root (matching the Makefile):
     \label{tab:files}
     \begin{tabular}{lll}
         \hline
-        \textbf{File} & \textbf{Responsibility} & \textbf{LB role} \\
+        File & Responsibility & LB role \\
         \hline
         \texttt{main.cpp}        & arg parsing, setup, threads, wall timer & launches workers \\
         \texttt{mandelframe.*}   & per-frame image + atomic completion counter & detects ``frame done'' \\
-        \texttt{mandelregion.*}  & the subdivision \emph{decision} + CPU compute & \textbf{the heuristic} \\
-        \texttt{workqueue.*}     & thread-safe min-max region queue & \textbf{the dispatch policy} \\
+        \texttt{mandelregion.*}  & the subdivision decision + CPU compute & the heuristic \\
+        \texttt{workqueue.*}     & thread-safe min-max region queue & the dispatch policy \\
         \texttt{kernel.cu/.h}    & CUDA kernel + host front-end & the GPU compute path \\
         \hline
     \end{tabular}
@@ -201,7 +201,7 @@ short of its target rectangle.
 
 \paragraph{Threads.} \texttt{numThreads} workers are created. Thread~0 is special:
 it is the GPU worker (when \texttt{enableGPU}), and \texttt{main} runs it on the
-\emph{main} thread itself rather than spawning it, so the main thread is not idle.
+main thread itself rather than spawning it, so the main thread is not idle.
 Threads $1\ldots n{-}1$ are CPU workers, started with \texttt{QThread::start()}.
 
 \begin{sourcecode}{cpp}{main.cpp --- worker launch and the wall timer.}
@@ -229,7 +229,7 @@ fprintf(stderr, "[total_elapsed_s] %.6f\n", elapsed_s);
 The timer brackets the entire compute phase, including the PNG saves (they happen
 on whichever CPU worker finishes a frame last --- see \S\ref{sec:frame}) and the
 GPU summary print. \texttt{CLOCK\_MONOTONIC} is immune to NTP/DST jumps. The
-visualization passes run \emph{after} \texttt{t1}, so they never count against the
+visualization passes run after \texttt{t1}, so they never count against the
 measurement.
 
 \paragraph{The worker loop.} \texttt{CalcThr::run()} is the consumer. Each thread
@@ -305,7 +305,7 @@ void MandelFrame::regionComplete() {
 \end{sourcecode}
 
 \texttt{fetchAndAddOrdered} is Qt's atomic read-modify-write: it returns the value
-\emph{before} the add and carries a full memory barrier (``Ordered''), so the
+before the add and carries a full memory barrier (``Ordered''), so the
 thread that drives the counter from 1 to 0 is the unique one that saves, with no
 torn reads of the pixel buffer. This is why the save time lands inside the wall
 timer on an arbitrary CPU worker, and why no separate ``join the frame'' step is
@@ -346,7 +346,7 @@ int MandelRegion::diverge(double cx, double cy) {
 Everything costly about this workload is here: in-set points run the full
 \texttt{MAXITER} loop (up to 10{,}000 at the deepest zoom), so a region full of
 in-set pixels is the most expensive thing the program can be handed. An
-\emph{identical} \texttt{\_\_device\_\_} copy lives in \texttt{kernel.cu} so the
+identical \texttt{\_\_device\_\_} copy lives in \texttt{kernel.cu} so the
 CPU and GPU produce byte-identical images.
 
 \subsection{\texttt{examine}: the split-or-compute decision}
@@ -385,7 +385,7 @@ discarded, some then misclassified as uniform and not split. The fix exposed
 $\sim$9--12\,\% more leaves (report 04).
 
 \paragraph{Step 2 --- the 9-point stencil.} Four corners are blind to a
-high-iteration filament that threads \emph{between} them. The stencil adds the
+high-iteration filament that threads between them. The stencil adds the
 four edge midpoints and the centre. The five interior samples are always fresh (a
 child never inherits a midpoint), so each \texttt{examine} costs five extra
 \texttt{diverge} calls over the 4-corner version --- measured negligible (report 09).
@@ -407,7 +407,7 @@ for (int i = 0; i < 5; i++) {
 \end{sourcecode}
 
 \paragraph{Step 3 --- the decision and the split.} The rule is: compute if the
-sampled iteration spread is small relative to the maximum, \emph{or} the region is
+sampled iteration spread is small relative to the maximum, or the region is
 already below the pixel floor; otherwise split.
 
 \begin{sourcecode}{cpp}{mandelregion.cpp --- the uniformity rule and the four-way split.}
@@ -438,7 +438,7 @@ evaluation is never duplicated across the tree. Second, the decision rule
 \texttt{diff\_uniform OR below\_pixT} is why no \texttt{diffThreshold} can subdivide
 the all-interior outlier: its corners (and all nine samples) sit at
 \texttt{maxIter}, so \texttt{maxIter - minIter == 0} and the uniformity test passes
-at \emph{every} threshold (reports 06, 08).
+at every threshold (reports 06, 08).
 
 \subsection{\texttt{compute}: pixels, two ways, with metrics}
 
@@ -492,7 +492,7 @@ a candidate for a constant-fill shortcut. The second diagnostic uses it: any CPU
 region exceeding \texttt{OUTLIER\_MS} (5000~ms) is dumped in full --- regardless of
 \texttt{quiet} --- including its corner spread, interior fraction, and
 \texttt{cardioidBulb} flag. That dump is what pinned the binding outliers (frames
-73 and 89) and proved they are \emph{minibrot} interiors with
+73 and 89) and proved they are minibrot interiors with
 \texttt{cardioidBulb=0} --- so the cheap cardioid certificate cannot relieve them
 (report 08). The dump format is in \texttt{INSTRUMENTATION.md}, \S5.
 
@@ -514,7 +514,7 @@ Ascending order means \texttt{queue.begin()} is the smallest region and
 \texttt{--queue.end()} the largest --- the two ends the queue hands to CPU and GPU
 workers respectively (\S\ref{sec:queue}). There is also a stray member
 \texttt{operator<} on \texttt{MandelRegion} left from the original code; it is
-\emph{not} what the queue uses (the queue uses \texttt{Compare}) and is retained
+not what the queue uses (the queue uses \texttt{Compare}) and is retained
 only for historical compatibility. When extending the code, order regions through
 \texttt{Compare}, not \texttt{operator<}.
 
@@ -541,7 +541,7 @@ public:
 
 \paragraph{Executor-aware extraction --- ``GPU affinity''.} This is the −3.6\,\%
 win of report 12. \texttt{extract} takes the caller's executor type and hands the
-GPU thread the \emph{largest} pending region and CPU threads the \emph{smallest}:
+GPU thread the largest pending region and CPU threads the smallest:
 
 \begin{sourcecode}{cpp}{workqueue.cpp --- GPU affinity, with the CPU-only LPT guard.}
 MandelRegion* WorkQueue::extract(bool isGPU) {
@@ -563,10 +563,10 @@ faster than a CPU thread on a big coherent interior region but only modestly
 faster on small divergent ones; on the $960\times540$ outlier it is 460~ms versus
 13.3~s (report 12). Reserving the largest regions for the GPU therefore moves the
 expensive coherent work onto the processor that eats it cheaply, while the CPU pool
-chews through the many small boundary leaves. A \emph{shared} largest-first queue
+chews through the many small boundary leaves. A shared largest-first queue
 cannot do this --- with eleven CPU threads to one GPU thread, a CPU thread wins the
 biggest region $\sim$11:1 (report 11's negative result); the fix is to make
-extraction depend on \emph{who} is asking, which is exactly the \texttt{isGPU}
+extraction depend on who is asking, which is exactly the \texttt{isGPU}
 branch above.
 
 \paragraph{The CPU-only guard.} With \texttt{gpuEnable=0}, thread~0 is just another
@@ -587,8 +587,8 @@ The GPU side is three \texttt{extern "C"} entry points (so the C++ side links
 against them by unmangled name) plus the device kernel. Memory is allocated once
 and reused across every region the GPU thread processes.
 
-\paragraph{One-time setup.} \texttt{CUDAmemSetup} allocates \emph{pitched} device
-memory (rows padded to an aligned stride for coalesced access) and \emph{pinned}
+\paragraph{One-time setup.} \texttt{CUDAmemSetup} allocates pitched device
+memory (rows padded to an aligned stride for coalesced access) and pinned
 (page-locked) mapped host memory for fast transfers, and creates four reusable
 CUDA timing events.
 
@@ -620,10 +620,10 @@ __global__ void mandelKernel(unsigned *d_res, double upperX, double upperY,
 }
 \end{sourcecode}
 
-A C++ reader should note \emph{why} interior regions are the GPU's strength here.
+A C++ reader should note why interior regions are the GPU's strength here.
 A warp (32 threads) executes in lockstep; when neighbouring pixels take different
 iteration counts (the fractal boundary), the warp must wait for its slowest lane
---- \emph{branch divergence}. A coherent interior region has every lane running to
+--- branch divergence. A coherent interior region has every lane running to
 \texttt{MAXITER} together, so there is no divergence and the GPU runs flat-out.
 This is compounded by the GTX~1660~Ti being consumer Turing, where \texttt{double}
 throughput is 1:32 of single precision; \texttt{double} is required for deep-zoom
@@ -700,7 +700,7 @@ performance-neutral when off (report 08 verified decomposition-identical output)
 \label{sec:viz}
 
 The three \texttt{viz} modes replay the recorded \texttt{VizRect}s after the timer
-stops, stroking each region's outline 2~px \emph{inward} (so a GPU/CPU boundary
+stops, stroking each region's outline 2~px inward (so a GPU/CPU boundary
 shows two solid colour bands instead of two 1~px lines that blend to green at
 scale). \texttt{viz=1} animates one frozen frame depth-by-depth (Figure~\ref{fig:partition}
 is one such frame); \texttt{viz=2} overlays every frame's full partition;
@@ -726,32 +726,32 @@ frames, $1920\times1080$, i7-9750H + GTX~1660~Ti~Max-Q, 12 threads,
 \texttt{diffT}\,=\,0.1):
 
 \begin{itemize}
-    \item \textbf{Why the wall is $\sim$49.9~s and not lower.} Adaptive subdivision
+    \item Why the wall is $\sim$49.9~s and not lower. Adaptive subdivision
     plus the dynamic queue balance the CPU threads to within $<$1.4\,\% of each
-    other across regimes (report 13), so dynamic balance is \emph{not} the binding
+    other across regimes (report 13), so dynamic balance is not the binding
     constraint. The binding resource is GPU saturation: with affinity the GPU runs
     $\sim$91\,\% busy (report 12), so the $\sim$49.5~s CPU pool is the wall. Both
-    lanes are full; only \emph{reducing} work can go lower.
+    lanes are full; only reducing work can go lower.
 
-    \item \textbf{Why moving work helped but rebalancing did not.} Total compute
-    ($\sim$595~s) is \emph{conserved} by any partitioning --- splitting redistributes
+    \item Why moving work helped but rebalancing did not. Total compute
+    ($\sim$595~s) is conserved by any partitioning --- splitting redistributes
     iterations, it removes none (report 09). So finer subdivision (the 9-point
     stencil) and shared-queue reordering (report 11) were wall-neutral. GPU affinity
     moved the wall ($-3.6\%$, $51.73\to49.86$~s, disjoint A/B ranges) because it does
-    something different: \emph{heterogeneous assignment}, sending the coherent
+    something different: heterogeneous assignment, sending the coherent
     interior regions to the 30$\times$-faster processor.
 
-    \item \textbf{Why one region used to dominate.} The $960\times540$ depth-1
+    \item Why one region used to dominate. The $960\times540$ depth-1
     outlier is an all-interior minibrot rectangle: its nine samples all hit
     \texttt{maxIter}, spread~0, so \texttt{examine}'s uniformity rule computes it
     whole at every threshold. On a CPU thread that is 13.3~s; routed to the GPU by
     affinity it is 460~ms, and CPU outliers drop from 1 to 0 (report 12).
 \end{itemize}
 
-In other words: \texttt{examine} decides task \emph{size} (tracking complexity),
-the \texttt{WorkQueue} decides task \emph{owner} (tracking the
+In other words: \texttt{examine} decides task size (tracking complexity),
+the \texttt{WorkQueue} decides task owner (tracking the
 processor each task suits), and \texttt{MandelFrame}'s atomic counter decides
-\emph{when} a frame is done --- and those three local decisions compose into the
+when a frame is done --- and those three local decisions compose into the
 observed global balance.
 
 % -----------------------------------------------------------------------
@@ -765,7 +765,7 @@ observed global balance.
     diagnosis), 09 (4-corner $\to$ 9-point).
     \item \textbf{For the dispatch policy:} reports 11 (shared priority queue ---
     negative), 12 (GPU affinity --- the win), 13 (four-regime characterization).
-    \item \textbf{To extend the code:} the remaining lever is \emph{work-reduction}
+    \item \textbf{To extend the code:} the remaining lever is work-reduction
     (CLAUDE.md, ``Recommended next steps''): periodicity checking inside
     \texttt{diverge()} to bail early on in-set orbits (exact, no image change), or an
     interior certificate that constant-fills a provably-in-set region. Scheduling has

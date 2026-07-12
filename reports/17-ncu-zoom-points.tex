@@ -42,18 +42,18 @@ are byte-identical to \texttt{13-zoom-points.tex}; only the frame count is reduc
 % -----------------------------------------------------------------------
 \begin{abstract}
 Report~\texttt{16} measured, on synthetic specs, that the coherent regions GPU
-affinity routes to the device run \emph{divergence-free} and \emph{FP64-bound}.
-This report verifies that on the \textbf{four \texttt{13-zoom-points.tex}
-geometries} (outside, inside, Misiurewicz, seahorse) --- the real workload
-shapes --- and adds \textbf{Misiurewicz}, which report~16 never covered. Same
+affinity routes to the device run divergence-free and FP64-bound.
+This report verifies that on the four \texttt{13-zoom-points.tex}
+geometries (outside, inside, Misiurewicz, seahorse) --- the real workload
+shapes --- and adds Misiurewicz, which report~16 never covered. Same
 \texttt{ncu} methodology: GPU-only capture so the device sees every region type;
 the same four report-13 targets, with frame count reduced $100\to24$ (warp and
-FP64 metrics are \emph{rates}, independent of frame count). The result reproduces
-exactly: leaves of \textbf{480$\times$270 and larger run at 99.7--100\,\% warp
-execution efficiency in every regime} (0\,\% below 70\,\%), while divergence
-(down to \textbf{38\,\%}) is \textbf{entirely confined to the 240$\times$135
-pixel-floor leaves} (mean $\sim$89\,\%, 8--14\,\% below 70\,\%). The inside point
-is FP64-bound at \textbf{85.6\,\% of peak} ($\sim$110 of 129~GFLOPS at 1.34~GHz),
+FP64 metrics are rates, independent of frame count). The result reproduces
+exactly: leaves of 480$\times$270 and larger run at 99.7--100\,\% warp
+execution efficiency in every regime (0\,\% below 70\,\%), while divergence
+(down to 38\,\%) is entirely confined to the 240$\times$135
+pixel-floor leaves (mean $\sim$89\,\%, 8--14\,\% below 70\,\%). The inside point
+is FP64-bound at 85.6\,\% of peak ($\sim$110 of 129~GFLOPS at 1.34~GHz),
 matching report~16 to the decimal. Even Misiurewicz's thin filaments obey the
 rule: the filament-crossing floor leaves diverge, the big regions do not.
 Divergence is confined to the floor tier by the subdivision rule itself ---
@@ -67,9 +67,9 @@ independent of geometry.
 from Nsight Compute counters, that (i) the coherent interior/exterior regions run
 at exactly 100\,\% warp execution efficiency, (ii) the kernel is FP64-bound at
 $\sim$85\,\% of the 1:32 double-precision peak, and (iii) divergence is real but
-confined to the pixel-floor boundary leaves. Those measurements used \emph{synthetic}
+confined to the pixel-floor boundary leaves. Those measurements used synthetic
 specs. The open question this report closes: does the result hold on the
-\emph{actual} four-regime geometries of \texttt{13-zoom-points.tex}, and on
+actual four-regime geometries of \texttt{13-zoom-points.tex}, and on
 Misiurewicz, which report~16 did not include?
 
 \paragraph{The four points.} Identical centres and deep rects to report~13:
@@ -79,9 +79,9 @@ $c\!=\!(-0.77568377,0.13646737)$ (self-similar spirals in fast-escape exterior);
 seahorse $c\!=\!(-0.745428,0.113009)$ (filaments + minibrots, the interior-outlier
 regime).
 
-\paragraph{Frame reduction.} The capture renders \textbf{24} frames per spec
+\paragraph{Frame reduction.} The capture renders 24 frames per spec
 instead of report~13's 100. Warp execution efficiency, branch efficiency, and
-FP64 pipe utilisation are per-kernel \emph{rates}; they do not depend on how many
+FP64 pipe utilisation are per-kernel rates; they do not depend on how many
 frames are rendered. The reduction only makes the \texttt{ncu} kernel-replay
 tractable (the heaviest regime, inside, drops from 103~s to 24~s GPU-only). First
 and last frames, deep-zoom rects, and \texttt{maxIter}$=$10000 are unchanged.
@@ -100,11 +100,11 @@ size-resolved distribution. Counters are admin-gated; capture ran as root via
 \insertimage{img/17-warp-zoom.png}{width=\linewidth}
             {Warp execution efficiency (100\,\% = all 32 lanes active = zero
              divergence) by region size, for each of the four report-13 zoom
-             points. In \emph{every} regime the leaves of 480$\times$270 and
+             points. In every regime the leaves of 480$\times$270 and
              larger (green) are pinned at 100\,\%; only the 240$\times$135
-             \emph{pixel-floor} leaves (red) diverge, with a tail to $\sim$38\,\%.
+             pixel-floor leaves (red) diverge, with a tail to $\sim$38\,\%.
              The pattern is the same across four geometrically very different
-             targets --- divergence tracks region \emph{size} (floor-clamped or
+             targets --- divergence tracks region size (floor-clamped or
              not), not content. \label{fig:zoom}}
 
 \begin{table}[H]
@@ -114,11 +114,11 @@ size-resolved distribution. Counters are admin-gated; capture ran as root via
              pipe and compute Speed-of-Light confirm the kernel is FP64-bound in
              every regime. Outside is the one exception in cSOL (escapes at
              iteration~2, so little FP64 work per pixel) --- yet still
-             FP64-saturated \emph{while it runs}.}
+             FP64-saturated while it runs.}
     \label{tab:sol}
     \begin{tabular}{lrrrrr}
         \hline
-        \textbf{regime} & \textbf{warpEff \%} & \textbf{branch \%} & \textbf{FP64 \%} & \textbf{cSOL \%} & \textbf{occ \%} \\
+        regime & warpEff \% & branch \% & FP64 \% & cSOL \% & occ \% \\
         \hline
         outside     & 100.0 & 100.0 & 84.9 & 81.9 & 91.5 \\
         inside      & 99.7  & 100.0 & 85.5 & 84.1 & 95.4 \\
@@ -133,14 +133,14 @@ size-resolved distribution. Counters are admin-gated; capture ran as root via
     \centering
     \caption{Warp efficiency split by region size (300-kernel warp pass). The
              $\ge$480$\times$270 leaves --- the ones that became leaves by
-             \emph{passing} the uniformity test --- never drop below 70\,\% in any
-             regime; the 240$\times$135 floor leaves carry \emph{all} the
+             passing the uniformity test --- never drop below 70\,\% in any
+             regime; the 240$\times$135 floor leaves carry all the
              divergence, near-identically across the four geometries.}
     \label{tab:size}
     \begin{tabular}{lrrrrr}
         \hline
-        & \multicolumn{2}{c}{\textbf{$\ge$480$\times$270 leaf}} & \multicolumn{3}{c}{\textbf{240$\times$135 floor}} \\
-        \textbf{regime} & \textbf{mean \%} & \textbf{$<$70\,\%} & \textbf{mean \%} & \textbf{min \%} & \textbf{$<$70\,\%} \\
+        & \multicolumn{2}{c}{$\ge$480$\times$270 leaf} & \multicolumn{3}{c}{240$\times$135 floor} \\
+        regime & mean \% & $<$70\,\% & mean \% & min \% & $<$70\,\% \\
         \hline
         outside     & 100.0 & 0\,\% & 91.0 & 47.3 & 8\,\%  \\
         inside      & 99.7  & 0\,\% & 88.9 & 39.4 & 14\,\% \\
@@ -156,8 +156,8 @@ size-resolved distribution. Counters are admin-gated; capture ran as root via
 \subsection{Coherent regions are divergence-free on every report-13 point}
 
 Table~\ref{tab:sol}, Figure~\ref{fig:zoom}: across all four geometries the big
-leaves run at \textbf{99.6--100.0\,\% warp execution efficiency and 100.0\,\%
-branch efficiency}. Table~\ref{tab:size} sharpens it: the $\ge$480$\times$270
+leaves run at 99.6--100.0\,\% warp execution efficiency and 100.0\,\%
+branch efficiency. Table~\ref{tab:size} sharpens it: the $\ge$480$\times$270
 leaves never fall below 70\,\% in any regime (0\,\% of them), with a minimum of
 96.9\,\%.
 
@@ -173,18 +173,18 @@ artifact of synthetic specs.
 \subsection{Divergence is confined to the floor tier --- the same way in four
 different geometries}
 
-The most striking result is the \emph{uniformity} of Table~\ref{tab:size} and
+The most striking result is the uniformity of Table~\ref{tab:size} and
 Figure~\ref{fig:zoom}. The 240$\times$135 floor leaves diverge in every regime
 with a mean of 88.7--91.0\,\%, a minimum of 37.9--47.3\,\%, and 8--14\,\% of them
 below 70\,\%. These numbers are nearly identical across four targets that look
 nothing alike --- a fast-escape exterior, a solid interior, a Misiurewicz spiral,
 and a seahorse filament field.
 
-The reason is that divergence is a property of \emph{subdivision}, not of content.
+The reason is that divergence is a property of subdivision, not of content.
 A region keeps splitting while its sample spread is high; the only way a
 high-spread region becomes a leaf is by hitting \texttt{pixelSizeThresh} --- the
 floor. So the floor-clamped 240$\times$135 leaves are precisely the regions the
-uniformity test \emph{refused} to compute at full size, in every regime. Their
+uniformity test refused to compute at full size, in every regime. Their
 internal escape-time spread is what the warp counters see as wasted lanes. The big
 leaves, having passed the test, are coherent everywhere. The implication is that
 report~16's ``divergence lives only in the floor leaves'' is not regime-specific:
@@ -203,7 +203,7 @@ kernel.
 
 Table~\ref{tab:sol}: the FP64 pipe runs at 84.9--85.5\,\% of peak in every regime,
 and the inside point --- the same geometry as report~13's heaviest run --- is
-FP64-bound at \textbf{85.6\,\% of peak}, $\sim$110 of 129~GFLOPS at the measured
+FP64-bound at 85.6\,\% of peak, $\sim$110 of 129~GFLOPS at the measured
 1.34~GHz. This is identical to report~16's interior measurement. Occupancy is
 91--95\,\%, memory throughput is negligible, and the dominant issue stall is
 \texttt{long\_scoreboard} at 94--95\,\% in every regime --- the latency of the
@@ -214,10 +214,10 @@ independently on four geometries.
 \subsection{Why the aggregate looks calmer than report~16}
 
 A reconciliation, so the two reports are not misread as conflicting. Report~16's
-\emph{boundary} regime reported 47\,\% of all kernels below 70\,\% efficiency;
+boundary regime reported 47\,\% of all kernels below 70\,\% efficiency;
 here the worst regime has only 11--14\,\%. The floor leaves themselves diverge
 identically (mean $\sim$89\,\%, min $\sim$38\,\% in both reports) --- what differs
-is their \emph{fraction} of the kernel population. Report~16's boundary spec was a
+is their fraction of the kernel population. Report~16's boundary spec was a
 shallow zoom engineered to maximise boundary content, so floor leaves dominated.
 The report-13 specs are full zooms whose kernels are mostly coherent (the big
 leaves plus the 480$\times$270 tier, all 100\,\%), so the floor leaves are a
@@ -230,18 +230,18 @@ the divergent floor leaves are both rare and cheap.
 \section{Implications}
 
 \begin{enumerate}
-  \item \textbf{The report-16 conclusion generalises --- divergence is a
-        non-lever.} On four real geometries plus Misiurewicz, the GPU's coherent
+  \item The report-16 conclusion generalises --- divergence is a
+        non-lever. On four real geometries plus Misiurewicz, the GPU's coherent
         kernels are 100\,\% efficient and the divergence is quarantined to cheap
         floor leaves that affinity routes to the CPU. There is no warp-divergence
         optimisation to pursue for the GPU path on any of these regimes.
-  \item \textbf{The FP64 pipe is the geometry-independent GPU floor.} 85\,\% of a
+  \item The FP64 pipe is the geometry-independent GPU floor. 85\,\% of a
         1:32 ceiling in every regime, recurrence-latency-limited. The only lever
         is fewer iterations (work-reduction); \texttt{float} is precluded by the
         deep-zoom precision (report~11). Periodicity checking should still land on
         the CPU branch first --- it would convert these 100\,\%-efficient kernels
         into divergent ones (report~16).
-  \item \textbf{Floor-leaf divergence is structural, not content-specific.} Since
+  \item Floor-leaf divergence is structural, not content-specific. Since
         it depends only on \texttt{pixelSizeThresh} clamping, a smaller
         \texttt{pixelSizeThresh} would shrink the divergent leaves further, but
         those leaves are already a cheap minority on the CPU --- not worth a sweep.
@@ -252,11 +252,11 @@ the divergent floor leaves are both rare and cheap.
 
 Re-running report~16's Nsight Compute measurement on the exact four
 \texttt{13-zoom-points.tex} geometries reproduces every finding. The coherent
-leaves GPU affinity routes to the device run at \textbf{99.6--100.0\,\% warp
-execution efficiency} on all four points; the kernel is \textbf{FP64-bound at
-85.6\,\% of the 1:32 peak} ($\sim$110 of 129~GFLOPS), recurrence-latency-limited;
-and divergence (to \textbf{38\,\%}) is \textbf{entirely confined to the
-240$\times$135 pixel-floor leaves}, near-identically across four geometries that
+leaves GPU affinity routes to the device run at 99.6--100.0\,\% warp
+execution efficiency on all four points; the kernel is FP64-bound at
+85.6\,\% of the 1:32 peak ($\sim$110 of 129~GFLOPS), recurrence-latency-limited;
+and divergence (to 38\,\%) is entirely confined to the
+240$\times$135 pixel-floor leaves, near-identically across four geometries that
 look nothing alike --- including Misiurewicz, whose filaments diverge only inside
 floor-clamped leaves. Divergence is a property of the subdivision rule, not of the
 zoom target; it is a non-lever, and the GPU floor is the FP64 iteration count.

@@ -182,7 +182,7 @@ for (int i = 0; i < 4; i++)
 \subsection{Why the \texttt{else if} Is Wrong}
 
 Tracking the running minimum and the running maximum of a sequence are
-\emph{independent} operations: a single value can simultaneously be the
+independent operations: a single value can simultaneously be the
 smallest seen so far and (trivially, if it is the only sample) the largest
 seen so far. The original code chains the two updates with an
 \texttt{else~if}, which says ``only consider updating \texttt{maxIter} if
@@ -221,8 +221,8 @@ Corner values: $[\,8000,\;50,\;60,\;70\,]$.
 \noindent
 Final: $\texttt{minIter} = 50$, $\texttt{maxIter} = 70$. The real maximum
 of $8000$ has been discarded. The decision rule evaluates as
-$70 - 50 = 20 < 0.5 \cdot 70 = 35$ — \emph{the region is classified as
-uniform and computed in a single block}, even though the corner values
+$70 - 50 = 20 < 0.5 \cdot 70 = 35$ — the region is classified as
+uniform and computed in a single block, even though the corner values
 actually span by a factor of 160. If the missing high-iteration corner
 is representative of a high-iteration filament passing through the
 upper-right area, this is exactly the misclassification pattern that
@@ -235,7 +235,7 @@ Corner values: $[\,100,\;100,\;100,\;100\,]$.
     \item $i=0$: $\texttt{INT\_MAX} > 100$ $\Rightarrow$
           $\texttt{minIter} = 100$. Skipped. $\texttt{maxIter}$ stays $0$.
     \item $i=1$: $100 > 100$ false $\Rightarrow$ $0 < 100$ true
-          $\Rightarrow$ $\texttt{maxIter} = 100$. \emph{Rescued.}
+          $\Rightarrow$ $\texttt{maxIter} = 100$. Rescued.
     \item $i=2,3$: no change.
 \end{itemize}
 
@@ -266,7 +266,7 @@ rule evaluates as $0 - 100 = -100 < 0.5 \cdot 0 = 0$ — true. The region
 is classified as uniform and computed in a single block. Note also that
 the right-hand side $\texttt{diffThresh} \cdot \texttt{maxIter}$
 collapses to $0$ whenever the bug discards the true maximum, making the
-decision rule degenerate: \emph{any} negative left-hand side passes, and
+decision rule degenerate: any negative left-hand side passes, and
 the spread can never look ``large'' relative to a maximum of zero.
 
 \subsection{Probability of Triggering the Bug}
@@ -278,7 +278,7 @@ silently dropped purely from corner-visit order, before considering the
 spatial correlations of the Mandelbrot iteration field. Most of those
 regions still happen to be classified correctly, because Mandelbrot
 iteration counts are highly correlated across nearby points and Case~B
-patterns dominate. But the regions that \emph{do} contain a single
+patterns dominate. But the regions that do contain a single
 high-iteration corner at position 0 are exactly the regions that should
 have been split—and they are precisely the regions that produce the
 long-tail outliers in the profile.

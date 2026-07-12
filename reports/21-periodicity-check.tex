@@ -41,20 +41,20 @@ Binary: branch \texttt{feat/periodicity-check}, commit \texttt{fa6d8ac}
 % -----------------------------------------------------------------------
 \begin{abstract}
 This report implements and measures the work-reduction lever that every report
-since \texttt{09-9point-sampling.tex} has pointed at: \textbf{periodicity
-checking} in the CPU \texttt{diverge()}. A Brent-style cycle detector saves the
+since \texttt{09-9point-sampling.tex} has pointed at: periodicity
+checking in the CPU \texttt{diverge()}. A Brent-style cycle detector saves the
 orbit state at doubling intervals and returns \texttt{MAXITER} as soon as the
-floating-point state \emph{exactly} revisits the saved state --- an
+floating-point state exactly revisits the saved state --- an
 exactly-repeating orbit of a deterministic map can never escape, so the early
 return is provably exact. Measured on the production spec (100 frames,
 $1920\times1080$, \texttt{diffT}\,=\,0.1, \texttt{save}\,=\,1, 3 alternating
-reps, on AC): \textbf{CPU12 falls $164.4 \to 35.2$~s ($-78.6\%$, $4.67\times$)
-and the best hybrid falls $57.6 \to 30.9$~s ($-46.3\%$, $1.86\times$)} --- a
+reps, on AC): CPU12 falls $164.4 \to 35.2$~s ($-78.6\%$, $4.67\times$)
+and the best hybrid falls $57.6 \to 30.9$~s ($-46.3\%$, $1.86\times$) --- a
 larger win than every scheduling lever combined (affinity $-3.6\%$, report~12;
 second GPU $-23.2\%$, report~20), from 18 added lines in one function. The
-mechanism is work \emph{elimination}: the CPU pool's compute drops
+mechanism is work elimination: the CPU pool's compute drops
 $1{,}917 \to 402$~s while the 5{,}608-leaf decomposition and all 100 output
-frames stay \textbf{byte-identical}. The hybrid queue self-rebalances --- CPU
+frames stay byte-identical. The hybrid queue self-rebalances --- CPU
 threads, now $\sim$5$\times$ faster on interior content, take 4{,}279 regions
 (was 2{,}160) and the GPU keeps only the 1{,}329 largest. The CPU pool remains
 the binding resource (busiest thread 29.5~s $\approx$ wall), but what is left
@@ -66,10 +66,10 @@ exact early-out can skip.
 \section{Motivation: 99.5\% of the iterations prove what a cycle detector knows early}
 \label{sec:motivation}
 
-Report~09 established that splitting \emph{conserves} total compute
+Report~09 established that splitting conserves total compute
 ($\sim$495~G iterations regardless of decomposition) and report~12 left the
 system with both executors near saturation --- scheduling was exhausted. What
-no report had quantified is \emph{what the iterations are for}. Parsing the
+no report had quantified is what the iterations are for. Parsing the
 per-region work metrics of the report-12 production run
 (\texttt{experiments/12-gpu-affinity/logs/dist\_aff.stderr}: all 5{,}608
 leaves with size, mean iterations and interior fraction) gives
@@ -97,11 +97,11 @@ $100\%$ (pure interior)    &   918 & 24.5 & 58.46 \\
 \end{table}
 
 Weighting each leaf's interior pixels by the frame's \texttt{MAXITER} shows
-that \textbf{99.5\% of all 495~G iterations are spent on interior pixels} ---
+that 99.5\% of all 495~G iterations are spent on interior pixels ---
 pixels whose orbits never escape, grinding to the iteration cap only to
 confirm it. The entire boundary band plus all exterior costs 0.5\%. The wall
 itself is the CPU pool grinding that content: in the report-12 run the 11 CPU
-threads spend 545~s of compute, \textbf{99.0\% of it on interior pixels},
+threads spend 545~s of compute, 99.0\% of it on interior pixels,
 at 252~M iterations/s/thread --- content the GPU runs at 7.9~G iterations/s
 ($31\times$) but cannot absorb (kernel already 91\% busy, report~12). Interior
 pixels are exactly the ones whose orbits settle into an attracting cycle, so a
@@ -114,7 +114,7 @@ of after \texttt{MAXITER} iterations. That is the lever implemented here.
 
 \texttt{MandelRegion::diverge()} gains a saved orbit state $(s_x, s_y)$,
 refreshed at doubling intervals (iterations 8, 16, 32, \dots); every iteration
-compares the new state against it with \emph{exact} floating-point equality:
+compares the new state against it with exact floating-point equality:
 
 \begin{sourcecode}{cpp}{mandelregion.cpp --- the modified \texttt{diverge()} inner loop (commit \texttt{fa6d8ac}).}
 double sx = vx, sy = vy;
@@ -141,13 +141,13 @@ return iter;
 \paragraph{Why this is exact.} The iteration is a deterministic map on the
 floating-point numbers: the successor of $(v_x, v_y)$ is a pure function of
 $(v_x, v_y, c_x, c_y)$. If the state ever equals a previously visited state,
-the orbit is in a cycle \emph{of the FP map} and will repeat forever --- the
+the orbit is in a cycle of the FP map and will repeat forever --- the
 escape test can never fire, so the unmodified loop would have ground to
 \texttt{MAXITER} and returned \texttt{MAXITER}. Returning it at detection time
-changes \emph{when} the answer arrives, never \emph{what} it is. Conversely,
+changes when the answer arrives, never what it is. Conversely,
 an orbit that eventually escapes can never exactly revisit a state (it would
 otherwise cycle and not escape), so no escaping pixel can be misclassified:
-there are no false positives \emph{by construction}, not by tolerance tuning.
+there are no false positives by construction, not by tolerance tuning.
 This is why exact equality is used instead of an epsilon --- an epsilon
 comparison would detect sooner but could constant-fill slowly-diverging
 boundary orbits, changing the image. Section~\ref{sec:verify} confirms the
@@ -159,7 +159,7 @@ once the anchor lands inside the cycle and the window $\ge p$, the comparison
 must hit. Figure~\ref{fig:orbit} traces the detector on an interior point of
 the period-3 bulb: the FP orbit converges geometrically to the attracting
 3-cycle, the distance-to-anchor sawtooth collapses by $\sim$3 decades per
-checkpoint window, and at iteration 67 the state is \emph{bitwise} equal to
+checkpoint window, and at iteration 67 the state is bitwise equal to
 the anchor --- 67 iterations instead of the frame's thousands.
 
 \insertimage{img/periodicity_orbit.png}{width=\linewidth}
@@ -174,7 +174,7 @@ the anchor --- 67 iterations instead of the frame's thousands.
              skipping every remaining iteration. \label{fig:orbit}}
 
 \paragraph{Cost.} The check adds two compares and a predictable branch to a
-loop of $\sim$10 FP operations, paid by \emph{every} iteration, including
+loop of $\sim$10 FP operations, paid by every iteration, including
 escaping pixels that never cycle. This bounds the worst case: exterior and
 boundary-band pixels carry 0.5\% of all iterations
 (\S\ref{sec:motivation}), so even a 30\% per-iteration slowdown on that slice
@@ -182,7 +182,7 @@ is $<$0.2\% of wall --- invisible next to the interior savings.
 
 \paragraph{CPU branch only.} Report~16 measured the GPU's interior kernels at
 exactly 100.0\% warp-execution efficiency and 85.6\% of FP64 peak: pixels in
-a warp bail out at \emph{different} iterations under periodicity checking, so
+a warp bail out at different iterations under periodicity checking, so
 the same change on the GPU would introduce divergence into a
 perfectly-coherent FP64-bound kernel. \texttt{kernel.cu} is untouched; a GPU
 variant is a separate A/B (recommendation~3).
@@ -206,7 +206,7 @@ variant is a separate A/B (recommendation~3).
         same as the experiment-20 headline).
   \item \textbf{Configs}: CPU12 (mode~0; the change carries everything) and
         dGPU+11CPU (mode~1; the production config). 3 reps each,
-        \textbf{binaries alternated inside every rep} so thermal drift hits
+        binaries alternated inside every rep so thermal drift hits
         both sides equally (\texttt{experiments/21-periodicity-check/ab.sh}).
   \item \textbf{Calibration}: the baseline reproduces its references ---
         CPU12 164.4~s vs.\ experiment~20's 161.6~s ($+1.7\%$, third rep
@@ -216,12 +216,12 @@ variant is a separate A/B (recommendation~3).
 
 \paragraph{Incidental finding: spec-prefix buffer overflow.} Smoke-testing
 with a spec whose image prefix was an absolute scratch path produced garbage
-timings in \emph{both} binaries: \texttt{main.cpp} reads the prefix with
+timings in both binaries: \texttt{main.cpp} reads the prefix with
 \texttt{fin >{}> imageFilePrefix} into \texttt{char[MAXFNAME-8]} (42 bytes),
 so any prefix over 41 characters silently smashes the stack --- observed as
 \texttt{maxIterations[]} corrupted to 24 in one binary and to a huge value in
 the other (layout-dependent). Production specs use the 3-character prefix
-\texttt{img}, so \textbf{no historical measurement is affected}. All runs in
+\texttt{img}, so no historical measurement is affected. All runs in
 this report use short prefixes; a bounds-checked read should land as its own
 change on \texttt{main}.
 
@@ -234,15 +234,15 @@ change on \texttt{main}.
 \begin{table}[H]
 \centering
 \caption{End-to-end wall (s), 3 reps and mean $\pm$ sample $\sigma$. Negative
-$\Delta$ means the periodicity check \emph{helped}. Every treatment rep beats
+$\Delta$ means the periodicity check helped. Every treatment rep beats
 every baseline rep by $>$26~s in both configs; at these $\sigma$ the deltas
 are $>$40$\sigma$ --- unambiguous signal.\label{tab:wall}}
 \begin{tabular}{lrrrr}
 \toprule
 config & \texttt{main} & periodicity & $\Delta$ & speed-up \\
 \midrule
-CPU12 (mode 0)      & $164.43 \pm 2.10$ & $\mathbf{35.21 \pm 0.17}$ & $-78.6\%$ & $4.67\times$ \\
-dGPU+11CPU (mode 1) & $57.64 \pm 0.45$  & $\mathbf{30.94 \pm 0.56}$ & $-46.3\%$ & $1.86\times$ \\
+CPU12 (mode 0)      & $164.43 \pm 2.10$ & $35.21 \pm 0.17$ & $-78.6\%$ & $4.67\times$ \\
+dGPU+11CPU (mode 1) & $57.64 \pm 0.45$  & $30.94 \pm 0.56$ & $-46.3\%$ & $1.86\times$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -284,7 +284,7 @@ CPU busiest thread (s)    & 56.8    & 29.7    & $-48\%$ \\
             {The rebalance at a glance. Left: the CPU pool takes over most of
              the region count (4{,}279 of 5{,}608) because its threads are now
              cheap on interior content; the GPU keeps only the largest
-             regions (its per-region average \emph{rises} 12.4 to 19.6~ms).
+             regions (its per-region average rises 12.4 to 19.6~ms).
              Right: both executors' busy time drops and stays nearly matched
              (25.7~s kernel vs.\ 29.5~s per CPU thread) --- the queue
              re-found its balance around the new cost structure with no code
@@ -292,20 +292,20 @@ CPU busiest thread (s)    & 56.8    & 29.7    & $-48\%$ \\
 
 In CPU-only mode the accounting is starker: pool compute falls
 $1{,}917 \to 402$~s ($-79\%$) --- matching the $4.67\times$ wall ratio, i.e.\
-the win is work \emph{elimination} at fixed balance, not better scheduling.
+the win is work elimination at fixed balance, not better scheduling.
 
 \subsection{Per-region cost distribution}
 
 \insertimage{img/periodicity_dist.png}{width=0.9\linewidth}
             {Survival function of per-region CPU compute time in hybrid
              mode~1 (log $x$; fraction of regions costlier than $x$).
-             The green (periodicity) population is \emph{larger} --- 4{,}808
+             The green (periodicity) population is larger --- 4{,}808
              regions vs.\ 1{,}959, because the faster CPU pool now takes
              regions the GPU used to --- yet its heavy tail collapses: the
              worst CPU region halves ($1{,}340 \to 662$~ms) and the
              $>$100~ms tail thins from 34\% of regions to 8\%. The
              crossing at $\sim$30~ms is the signature of taking over
-             \emph{more but cheaper-per-pixel} work.\label{fig:dist}}
+             more but cheaper-per-pixel work.\label{fig:dist}}
 
 The distributions come from the \texttt{quiet}\,=\,0 runs
 (\texttt{dist\_aff.stderr} of experiment~12 for the baseline;
@@ -318,12 +318,12 @@ absorbs formerly-GPU mid-size regions), total falls $545 \to 284$~s.
 \begin{itemize}
   \item \textbf{Byte identity}: the full spec rendered CPU-only (mode~0 ---
         every pixel through the modified code path) by both binaries;
-        \texttt{cmp} on all frames: \textbf{100/100 byte-identical}
+        \texttt{cmp} on all frames: 100/100 byte-identical
         (\texttt{verify\_identity.sh}; mode-0 pixel values are independent of
         thread count and decomposition, so the comparison is exact). The GPU
         path is untouched by the branch, so this covers the entire change.
   \item \textbf{Decomposition}: all 12 A/B runs report exactly
-        \textbf{5{,}608 leaves} --- the known \texttt{diffT}\,=\,0.1
+        5{,}608 leaves --- the known \texttt{diffT}\,=\,0.1
         decomposition (reports~09/18). The check returns identical values at
         the 9-point stencil samples, so \texttt{examine()} takes identical
         decisions.
@@ -343,7 +343,7 @@ transient-plus-period of its orbit. The residual 402~s is the boundary band
 (escaping pixels cannot be skipped --- they never cycle) plus detection
 latency. The implication closes the arc of reports 09--15: after scheduling
 was exhausted (affinity $-3.6\%$, shared queue $\pm 0$, async streams priced
-at $<$1\%), the first \emph{work} lever is worth $12\times$ more than the best
+at $<$1\%), the first work lever is worth $12\times$ more than the best
 scheduling lever.
 
 \subsection{Detection latency on the production content is $\sim$900 iterations-equivalent, not 67}
@@ -353,14 +353,14 @@ pure-interior $1920\times1080$ region on one thread) runs $67.27 \to 5.98$~s
 ($11.2\times$). At the measured 308~M iterations/s that is $\sim$890
 iterations-equivalent per pixel --- far above the 67 of
 Figure~\ref{fig:orbit}'s period-3 point. This is consistent with the content:
-the production zoom terminates inside a \emph{deep minibrot} (report~08),
+the production zoom terminates inside a deep minibrot (report~08),
 whose attracting cycles have high periods and long transients, and Brent's
 schedule pays $O(\max(p,t))$ with up to a $2\times$ overshoot from the
 doubling window. The implication: the speed-up is content-dependent ---
 shallow interior (main cardioid, low-period bulbs; the report-13
 \texttt{inside} and \texttt{seahorse} regimes) will detect in tens of
 iterations, while deep minibrot interior keeps hundreds --- but it is bounded
-below by the exactness guarantee: the detector never does \emph{worse} than
+below by the exactness guarantee: the detector never does worse than
 the grind by more than the 2-compare overhead.
 
 \subsection{The hybrid self-rebalances; the CPU pool remains the (much lower) wall}
@@ -396,31 +396,31 @@ measured the production zoom and its interior-heavy relatives only.
 \label{sec:recs}
 
 \begin{enumerate}
-  \item \textbf{Merge \texttt{feat/periodicity-check} to \texttt{main} and tag
-        \texttt{binary-v6-periodicity}.} It is the new best binary: hybrid
+  \item Merge \texttt{feat/periodicity-check} to \texttt{main} and tag
+        \texttt{binary-v6-periodicity}. It is the new best binary: hybrid
         $57.6 \to 30.9$~s ($-46.3\%$), CPU12 $164.4 \to 35.2$~s ($-78.6\%$),
         output byte-identical, 18 lines in one function. Trade-off: none
         measured --- the worst case is the $<$0.2\% overhead bound on
         exterior content.
-  \item \textbf{Re-run the experiment-20 A/B on top of v6 before merging
-        \texttt{feat/igpu-opencl}.} The iGPU's $-23.2\%$ was measured against
+  \item Re-run the experiment-20 A/B on top of v6 before merging
+        \texttt{feat/igpu-opencl}. The iGPU's $-23.2\%$ was measured against
         a CPU pool that no longer exists ($620 \to 324$~s of grind). Expected
         outcome: the mode-3 win shrinks substantially --- the serial tail of
         big interior regions that motivated the second lane is now $5\times$
         cheaper to clear; whether it still pays for displacing a CPU worker
         is an open measurement. Cost: one $\sim$15-minute sweep.
-  \item \textbf{A/B a GPU-side periodicity variant separately --- expect a
-        loss.} Report~16 measured the interior kernels at 100.0\% warp
+  \item A/B a GPU-side periodicity variant separately --- expect a
+        loss. Report~16 measured the interior kernels at 100.0\% warp
         efficiency and 85.6\% of FP64 peak; per-pixel early-out would
         introduce divergence into that kernel and add FP64 compare work to
         the bottleneck pipe. Measure once for the record; do not merge
         blind.
-  \item \textbf{Fix the spec-prefix overflow on \texttt{main}.} Replace the
+  \item Fix the spec-prefix overflow on \texttt{main}. Replace the
         unbounded \texttt{fin >{}> imageFilePrefix} with a bounded read
         (\texttt{std::string} + length check). Zero performance impact;
         removes a silent-corruption trap that cost this session its first
         smoke measurements.
-  \item \textbf{Re-price the experiment-19 threshold sweep on v6.} The
+  \item Re-price the experiment-19 threshold sweep on v6. The
         partial sweep's preliminary optimum (\texttt{pixT}\,=\,131{,}072)
         was driven by per-region overhead against interior grind; with
         interior $5\times$ cheaper on the CPU, the optimum may move again.
@@ -435,8 +435,8 @@ measured the production zoom and its interior-heavy relatives only.
 An 18-line exact cycle detector in the CPU \texttt{diverge()} --- anchor state
 refreshed at doubling intervals, return \texttt{MAXITER} on exact FP revisit
 --- eliminates most of the interior grind that \S\ref{sec:motivation} showed
-to be 99.5\% of all iterations: \textbf{CPU12 $-78.6\%$ (164.4 to 35.2~s),
-hybrid $-46.3\%$ (57.6 to 30.9~s, the new best wall)}, with all 100 frames
+to be 99.5\% of all iterations: CPU12 $-78.6\%$ (164.4 to 35.2~s),
+hybrid $-46.3\%$ (57.6 to 30.9~s, the new best wall), with all 100 frames
 byte-identical and the 5{,}608-leaf decomposition unchanged --- the exactness
 argument (an exactly-repeating orbit cannot escape; an escaping orbit cannot
 exactly repeat) held empirically. The win is work elimination at fixed

@@ -47,18 +47,18 @@ to order by descending pixel count), in the hope --- per
 in particular the $\sim$14~s interior outlier, to the fast GPU thread.
 Measured against the FIFO baseline on 100~frames at $1920\times1080$
 (i7-9750H + GTX~1660~Ti~Max-Q, 12~threads, \texttt{diffT}\,=\,0.1,
-\texttt{save}\,=\,0), the change is \textbf{wall-neutral}: 51.09~s vs.\ 51.37~s
+\texttt{save}\,=\,0), the change is wall-neutral: 51.09~s vs.\ 51.37~s
 over 3~reps each ($-0.55\%$, within noise). The Nsight Systems breakdown shows
-why nothing moves: \textbf{the GPU is equally utilised either way}
-($\approx$46.5~s busy, $\sim$91\%), the \textbf{kernel max stays at
-$\approx$139~ms} in both --- i.e.\ \textbf{the outlier is never routed to the
-GPU}; it still lands on a CPU thread (worst region 13.3~$\to$~14.4~s) --- and
+why nothing moves: the GPU is equally utilised either way
+($\approx$46.5~s busy, $\sim$91\%), the kernel max stays at
+$\approx$139~ms in both --- i.e.\ the outlier is never routed to the
+GPU; it still lands on a CPU thread (worst region 13.3~$\to$~14.4~s) --- and
 total compute is conserved ($\approx$610~s). With eleven CPU workers versus one
-GPU thread, a \emph{shared} largest-first queue hands big regions to whichever
+GPU thread, a shared largest-first queue hands big regions to whichever
 of the twelve extracts next, which is a CPU thread $\sim$11:1; and with the load
 already balanced under 2\,\% (report~09), reordering a work-conserving,
 throughput-bound schedule has nothing to gain. The report also documents a
-methodology near-miss: a battery-power run \emph{falsely} showed a 2$\times$
+methodology near-miss: a battery-power run falsely showed a 2$\times$
 ``regression'' because the GPU was power-capped to 30~W; an AC-power sanity gate
 caught it before any conclusion was drawn.
 \end{abstract}
@@ -70,7 +70,7 @@ caught it before any conclusion was drawn.
 (100~frames, $1920\times1080$, zoom to \texttt{maxIterations}\,=\,10{,}000),
 i7-9750H (6c/12t) + GTX~1660~Ti~Max-Q, 12~threads (1~GPU~+~11~CPU),
 \texttt{diffThreshold}\,=\,0.1, \texttt{pixelSizeThresh}\,=\,32{,}768,
-\texttt{save}\,=\,0. \textbf{On AC power} (see Section~5).
+\texttt{save}\,=\,0. On AC power (see Section~5).
 
 \paragraph{The change.} \texttt{WorkQueue} held a FIFO \texttt{deque} (push back,
 pop front). It is replaced by a \texttt{std::priority\_queue} ordered by pixel
@@ -91,9 +91,9 @@ struct Compare {
 \end{sourcecode}
 
 The existing \texttt{Compare} (dead code until now) returned \texttt{>}, which in
-a \texttt{priority\_queue} yields \emph{smallest}-first; it was corrected to
+a \texttt{priority\_queue} yields smallest-first; it was corrected to
 \texttt{<} for the intended largest-first (longest-processing-time) ordering.
-The decomposition is unchanged --- the queue reorders \emph{when} regions are
+The decomposition is unchanged --- the queue reorders when regions are
 processed, not which exist --- so the leaf count stays exactly 5{,}608.
 
 \paragraph{Measurement.} Four passes on both binaries: a wall-time A/B
@@ -115,7 +115,7 @@ built in a worktree.
     \label{tab:pq}
     \begin{tabular}{lrrr}
         \hline
-        \textbf{Metric} & \textbf{FIFO (base)} & \textbf{Priority (largest-first)} & \textbf{$\Delta$} \\
+        Metric & FIFO (base) & Priority (largest-first) & $\Delta$ \\
         \hline
         Wall, A/B mean (s)        & 51.37 & 51.09 & $-0.28$ ($-0.55\%$) \\
         \quad A/B range (s)       & 51.21--51.52 & 50.96--51.33 & overlapping \\
@@ -141,7 +141,7 @@ built in a worktree.
     \label{tab:pq-nsys}
     \begin{tabular}{lrr}
         \hline
-        \textbf{Quantity} & \textbf{FIFO (base)} & \textbf{Priority} \\
+        Quantity & FIFO (base) & Priority \\
         \hline
         \texttt{GPU region compute} total (s) & 46.9 & 46.5 \\
         \texttt{CPU region compute} total (s) & 569.0 & 558.6 \\
@@ -163,7 +163,7 @@ built in a worktree.
     \label{tab:pq-dist}
     \begin{tabular}{lrrrr}
         \hline
-        \textbf{Percentile} & \textbf{base CPU} & \textbf{prio CPU} & \textbf{base GPU} & \textbf{prio GPU} \\
+        Percentile & base CPU & prio CPU & base GPU & prio GPU \\
         \hline
         count  & 1{,}515 & 1{,}659 & 4{,}093 & 3{,}949 \\
         median & 46.4    & 33.0    & 3.64    & 3.97 \\
@@ -180,7 +180,7 @@ built in a worktree.
 
 The A/B delta is $-0.55\%$ with overlapping ranges (Table~\ref{tab:pq}) --- a
 wash. Table~\ref{tab:pq-nsys} rules out the two things one might fear: the
-GPU-thread busy time is $\approx$46.5--46.9~s in \emph{both} (about 91\% of the
+GPU-thread busy time is $\approx$46.5--46.9~s in both (about 91\% of the
 $\sim$51~s wall), so largest-first neither idles the GPU nor overloads it, and
 total compute is conserved ($\approx$610~s, the same pixels). This is the
 report-09 regime: a throughput-bound schedule whose load is already balanced to
@@ -190,19 +190,19 @@ under 2\,\% has no slack for a reordering to recover.
 
 The motivating hope was that largest-first would hand the $\sim$14~s interior
 block to the GPU thread, where it would finish in milliseconds. It does not.
-The CUPTI kernel \textbf{max is $\approx$139~ms in both} binaries
+The CUPTI kernel max is $\approx$139~ms in both binaries
 (Table~\ref{tab:pq-nsys}): the GPU's biggest region is the same $\sim$139~ms
-region either way, so the $960\times540$ outlier was \emph{not} dispatched to
+region either way, so the $960\times540$ outlier was not dispatched to
 the GPU under the priority queue. The CPU worst-region actually rose slightly
 (13.3~$\to$~14.4~s, Table~\ref{tab:pq}), and the CPU p99/max are unchanged
 (Table~\ref{tab:pq-dist}) --- the big regions still run on CPU threads.
 
-The mechanism is the \emph{shared} queue. All twelve workers pull from one
+The mechanism is the shared queue. All twelve workers pull from one
 priority queue; when the outlier is enqueued, the next thread to call
 \texttt{extract()} takes it, and with eleven CPU threads against one GPU thread
-that is a CPU thread roughly 11:1. Largest-first changes the \emph{order} regions
-are handed out, not \emph{which processor} gets them. Routing big work to the GPU
-specifically would need GPU \emph{affinity} (a separate GPU lane, or the GPU
+that is a CPU thread roughly 11:1. Largest-first changes the order regions
+are handed out, not which processor gets them. Routing big work to the GPU
+specifically would need GPU affinity (a separate GPU lane, or the GPU
 thread preferentially taking the largest while CPU threads take the smallest) ---
 not a single shared largest-first queue.
 
@@ -213,21 +213,21 @@ regions get slightly larger (median $3.64\to3.97$~ms; avg $11.0\to11.6$~ms over
 fewer launches, $4247\to4004$) and the CPU gets more, smaller regions (count
 $1515\to1659$, median $46.4\to33.0$~ms). This is the longest-processing-time
 effect --- big items first, small items filling the tail. It would help makespan
-on an \emph{imbalanced} schedule; here the FIFO schedule was already balanced to
+on an imbalanced schedule; here the FIFO schedule was already balanced to
 under 2\,\%, so the reshaping is invisible at the wall.
 
-\subsection{Would the outlier even belong on the GPU? Yes --- it is big \emph{and} coherent}
+\subsection{Would the outlier even belong on the GPU? Yes --- it is big and coherent}
 
 A natural objection to GPU affinity: these slow regions sit on the fractal
 boundary, so wouldn't they cause heavy warp divergence and run poorly on the GPU
-anyway? For \emph{these} regions the answer is no, and the reason is the same
+anyway? For these regions the answer is no, and the reason is the same
 property that makes them slow on the CPU.
 
 \paragraph{They are big because they are interior, not because they are
 boundary.} The outliers are $960\times540$ (depth~1, a quarter of the frame) and
 $480\times270$ (depth~2); they stay large precisely because their corners are all
 interior and uniform, so the heuristic never splits them. The genuinely
-\emph{divergent} regions --- those straddling the boundary --- have large corner
+divergent regions --- those straddling the boundary --- have large corner
 spread and are therefore split all the way to the $240\times135$ pixel floor.
 Big-and-coherent and small-and-divergent; the pathological big-and-divergent case
 does not occur.
@@ -239,7 +239,7 @@ in a 32-thread warp $\sim$31 threads run to \texttt{maxIter} together --- only
 $\sim$3\,\% of lanes are wasted. The cost is the \texttt{maxIter} arithmetic
 itself (which the GPU does in parallel), not divergence. ``97.3\,\% interior''
 here means 97.3\,\% of that region's pixels reach \texttt{maxIter} (in the set ---
-specifically inside a \emph{minibrot}, since \texttt{cardioidBulb}\,=\,0, not the
+specifically inside a minibrot, since \texttt{cardioidBulb}\,=\,0, not the
 main cardioid/bulb).
 
 \paragraph{Direct evidence: same-size region, both processors.}
@@ -253,7 +253,7 @@ main cardioid/bulb).
     \label{tab:gpu-outlier}
     \begin{tabular}{lrrr}
         \hline
-        \textbf{Region} & \textbf{type} & \textbf{GPU kernel} & \textbf{CPU compute} \\
+        Region & type & GPU kernel & CPU compute \\
         \hline
         $240\times135$ (depth 3, floor) & boundary/mixed & $\le$36~ms     & $<$1~s \\
         $480\times270$ (depth 2)        & interior       & 139~ms (max)   & $\sim$4~s (CPU p99) \\
@@ -285,18 +285,18 @@ failure was the 11:1 extraction that kept it on the CPU.
 \section{Methodology Note: Power-State Contamination and the AC Gate}
 
 This experiment was nearly reported with the opposite conclusion. An initial run
-showed the priority queue at $\sim$104~s and a later full pass put \emph{both}
+showed the priority queue at $\sim$104~s and a later full pass put both
 binaries at $\sim$147~s --- an apparent 2$\times$ regression. The cause was not
-the code: the laptop was on \textbf{battery}, and the GTX~1660~Ti~Max-Q had its
-power limit clamped to \textbf{30~W} (default 60~W, \texttt{SW Power Cap}
+the code: the laptop was on battery, and the GTX~1660~Ti~Max-Q had its
+power limit clamped to 30~W (default 60~W, \texttt{SW Power Cap}
 active), so the GPU drew 14~W at 1140~MHz, processed far fewer regions
 (GPU leaves $\approx$1{,}670 vs.\ the healthy $\approx$4{,}190), and the CPU pool
 absorbed the rest. The CPU was also on a power-saving profile.
 
-Two lessons. First, \textbf{never compare a fresh run against historical
-numbers without confirming both ran in the same power state} --- the false
+Two lessons. First, never compare a fresh run against historical
+numbers without confirming both ran in the same power state --- the false
 2$\times$ ``regression'' came from comparing a battery run against report-09's
-AC numbers. Second, an \textbf{AC-power sanity gate} now precedes any timing
+AC numbers. Second, an AC-power sanity gate now precedes any timing
 pass: one FIFO base run must return $\approx$52~s with GPU\,$\ge$\,4{,}000 leaves,
 or the pass is aborted. After a reboot restored the 60~W limit, the gate passed
 (50.5~s, GPU 4{,}167, GPU drawing 35.8~W at 1845~MHz mid-run) and the numbers
@@ -306,22 +306,22 @@ above were collected. All measurements in this report are post-gate.
 \section{Recommendations}
 
 \begin{enumerate}
-    \item \textbf{Do not adopt the shared largest-first queue as the default.}
+    \item Do not adopt the shared largest-first queue as the default.
     It is wall-neutral ($-0.55\%$, within noise), decomposition-identical, and
     adds \texttt{priority\_queue} bookkeeping for no measured benefit. Keep the
     FIFO \texttt{deque} for simplicity. (If kept, it is harmless --- correctness
     is unchanged.)
 
-    \item \textbf{If the goal is to offload the outlier to the GPU, use GPU
-    affinity, not a shared queue.} Have the GPU thread preferentially pull the
+    \item If the goal is to offload the outlier to the GPU, use GPU
+    affinity, not a shared queue. Have the GPU thread preferentially pull the
     largest region (or a dedicated large-region lane) while CPU threads pull
     smaller ones. The $960\times540$ block costs $\sim$14~s on a CPU thread but
-    only $\sim$139~ms on the GPU; routing \emph{it} specifically is the only
+    only $\sim$139~ms on the GPU; routing it specifically is the only
     version of this idea with real upside --- it would cut the worst-region tail
     by two orders of magnitude. A shared largest-first queue cannot do this
     (11:1 CPU:GPU extraction).
 
-    \item \textbf{The binding lever remains work-reduction (report~09).} Even a
+    \item The binding lever remains work-reduction (report~09). Even a
     perfect schedule cannot beat the conserved $\sim$610~s of compute; periodicity
     checking in \texttt{diverge()} or an interior certificate is what shrinks it.
 \end{enumerate}
@@ -337,7 +337,7 @@ routed to the GPU, because a single shared queue hands big regions to whichever
 of the twelve workers extracts next, a CPU thread $\sim$11:1. With the load
 already balanced under 2\,\% and total compute conserved, reordering has nothing
 to recover. The lever that would help --- routing the outlier to the
-$\sim$40$\times$-faster GPU --- requires GPU \emph{affinity}, not a shared
+$\sim$40$\times$-faster GPU --- requires GPU affinity, not a shared
 priority queue; and the lever that bounds the wall remains work-reduction. The
 experiment also reaffirmed a measurement discipline: a battery-induced 30~W GPU
 cap had falsely shown a 2$\times$ regression, which an AC-power gate caught

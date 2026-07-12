@@ -45,7 +45,7 @@ loop. The same machine, the same \texttt{spec.in}, the same
 (three per config) are used. The post-fix sweep delivers the same
 qualitative shape as before --- monotonic decrease as CPU workers are
 added to the GPU baseline, saturation tail at the right edge --- but
-exhibits a uniform $\sim$1--2\,\% \emph{slowdown} across every hybrid
+exhibits a uniform $\sim$1--2\,\% slowdown across every hybrid
 configuration and a +1.9\,\% slowdown on the GPU-alone configuration. The
 CPU-only configuration is statistically indistinguishable from the
 pre-fix baseline. The slowdown is consistent with the +12\,\% increase
@@ -117,7 +117,7 @@ report.
     \label{tab:results-post}
     \begin{tabular}{lrrrrr}
         \hline
-        \textbf{Config} & \textbf{Mean (s)} & \textbf{Std (s)} & \textbf{Min (s)} & \textbf{Max (s)} & \textbf{\% of GPU-alone} \\
+        Config & Mean (s) & Std (s) & Min (s) & Max (s) & \% of GPU-alone \\
         \hline
         CPU12      & 162.764 & 2.442 & 159.311 & 164.500 & 208.6\,\% \\
         GPU        &  78.031 & 0.208 &  77.786 &  78.294 & 100.0\,\% \\
@@ -149,7 +149,7 @@ pre-fix baseline (reproduced from
     \label{tab:compare-sweep}
     \begin{tabular}{lrrrr}
         \hline
-        \textbf{Config} & \textbf{Pre-fix (s)} & \textbf{Post-fix (s)} & \textbf{$\Delta$ (s)} & \textbf{$\Delta$\,\%} \\
+        Config & Pre-fix (s) & Post-fix (s) & $\Delta$ (s) & $\Delta$\,\% \\
         \hline
         CPU12      & 163.470 & 162.764 & $-0.706$ & $-0.4\,\%$ \\
         GPU        &  76.543 &  78.031 & $+1.488$ & $+1.9\,\%$ \\
@@ -172,7 +172,7 @@ pre-fix baseline (reproduced from
     \label{tab:speedup}
     \begin{tabular}{lrr}
         \hline
-        \textbf{Ratio} & \textbf{Pre-fix} & \textbf{Post-fix} \\
+        Ratio & Pre-fix & Post-fix \\
         \hline
         GPU-alone / CPU12             & 2.14$\times$ & 2.09$\times$ \\
         Best hybrid / CPU12           & 3.05$\times$ & 2.98$\times$ \\
@@ -187,8 +187,8 @@ pre-fix baseline (reproduced from
 \subsection{The Hybrid Curve Is Uniformly Shifted Up by ~1--2\,\%}
 
 The most striking feature of Table~\ref{tab:compare-sweep} is the
-\emph{sign of the change}: every hybrid configuration ran slightly
-\emph{slower} after the fix. The shift is consistent in direction
+sign of the change: every hybrid configuration ran slightly
+slower after the fix. The shift is consistent in direction
 (positive across all five hybrid points), small in magnitude
 (maximum 2.6\,\% at \texttt{GPU+4CPU}), and far below the pre-fix
 run-to-run variance for some configurations but above it for others. To
@@ -262,7 +262,7 @@ Table~\ref{tab:compare-sweep}.
 
 \subsection{Why \texttt{CPU12} Is Unchanged}
 
-The CPU-only configuration is the only one that does \emph{not} suffer
+The CPU-only configuration is the only one that does not suffer
 in absolute time. The mean fell from 163.470~s to 162.764~s
 ($-0.4\,\%$). Two effects compete:
 
@@ -320,7 +320,7 @@ point --- all hold without modification.
 \subsection{Correctness Fixes With Zero or Slightly-Negative Performance Are Still Worth Shipping}
 
 The bug fix does the right thing structurally --- it makes the
-decision rule \emph{do what it claims to do}, which is the precondition
+decision rule do what it claims to do, which is the precondition
 for any future heuristic improvement to deliver predictable results.
 Without the fix, lowering \texttt{diffThreshold} or adding a
 nine-point stencil would interact with a reduction that silently
@@ -329,7 +329,7 @@ After the fix, the corner-spread heuristic is now an honest knob.
 
 The 1--2\,\% wall-time cost is the price of that honesty, and it is the
 right price to pay. The cost is not a regression in the fix
-\emph{itself}; it is the renderer correctly paying for splits the
+itself; it is the renderer correctly paying for splits the
 pre-fix code was getting for free by skipping them. If the new splits
 were useless, lowering \texttt{diffThreshold} would not help either.
 The fact that the new splits do correctly bisect non-uniform regions
@@ -343,19 +343,19 @@ faithfully.
 the post-fix sweep makes more concrete:
 
 \begin{enumerate}
-    \item \textbf{Lower \texttt{diffThreshold} from 0.5 to 0.2--0.3}.
+    \item Lower \texttt{diffThreshold} from 0.5 to 0.2--0.3.
     Would attack the 14~s tail directly. Best expected upside:
     sub-second on the best-hybrid mean; downside is more queue traffic
     (we already paid 1--2\,\% for the bug fix's modest splits, so
     further splits are probably another 1--2\,\%).
-    \item \textbf{Edge-midpoint sampling}. Larger code change. Catches
+    \item Edge-midpoint sampling. Larger code change. Catches
     interior filaments. The natural way to compress the 14~s tail.
-    \item \textbf{Cardioid/period-2 bulb interior certificate}.
+    \item Cardioid/period-2 bulb interior certificate.
     Cheapest. For each region, test whether all four corners lie inside
     the analytic interior; if yes, skip iteration entirely and constant-fill.
     Would save iteration work proportional to how much of each frame
     falls inside the main cardioid (variable across the zoom path).
-    \item \textbf{Async CUDA streams}. The largest remaining
+    \item Async CUDA streams. The largest remaining
     optimisation by absolute wall time. Would let the GPU thread
     continue pulling from the queue while the previous kernel and its
     transfer drain. Decoupled from the bug fix.

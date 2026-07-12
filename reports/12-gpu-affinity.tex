@@ -39,21 +39,21 @@ built on top of \texttt{binary-v3-9point} (\texttt{ab47540}). Baseline is
 
 % -----------------------------------------------------------------------
 \begin{abstract}
-Report~11 showed a \emph{shared} largest-first priority queue cannot route the
+Report~11 showed a shared largest-first priority queue cannot route the
 $\sim$14~s interior outlier to the GPU: with eleven CPU threads versus one GPU
 thread, a CPU thread extracts it $\sim$11:1. This report fixes that with
-\textbf{executor-aware extraction}: \texttt{WorkQueue} becomes a min-max
-\texttt{multiset} ordered by pixel count, the \textbf{GPU thread pops the
-largest} region and \textbf{CPU threads pop the smallest}. Measured against the
+executor-aware extraction: \texttt{WorkQueue} becomes a min-max
+\texttt{multiset} ordered by pixel count, the GPU thread pops the
+largest region and CPU threads pop the smallest. Measured against the
 FIFO baseline (100~frames, $1920\times1080$, i7-9750H + GTX~1660~Ti~Max-Q,
 12~threads, \texttt{diffT}\,=\,0.1, \texttt{save}\,=\,0, on AC), this is the
-\textbf{first change to move the wall}: \textbf{49.86~s vs.\ 51.73~s, $-3.6\%$},
+first change to move the wall: 49.86~s vs.\ 51.73~s, $-3.6\%$,
 statistically clean (every affinity rep beats every base rep; ranges do not
 overlap). The mechanism is exactly as designed: the GPU now takes the
-$960\times540$ outlier (\textbf{460~ms} on the GPU, CUPTI kernel max, vs.\ 13.3~s
-on a CPU thread) plus 259 interior $480\times270$ regions; the \textbf{CPU's
-worst region collapses from 13.3~s to 1.34~s}, its median from 88~ms to 8.7~ms,
-and \textbf{CPU outliers drop from 1 to 0}. The gain is bounded at $-3.6\%$
+$960\times540$ outlier (460~ms on the GPU, CUPTI kernel max, vs.\ 13.3~s
+on a CPU thread) plus 259 interior $480\times270$ regions; the CPU's
+worst region collapses from 13.3~s to 1.34~s, its median from 88~ms to 8.7~ms,
+and CPU outliers drop from 1 to 0. The gain is bounded at $-3.6\%$
 because the GPU is now $\sim$91\,\% utilised --- near saturation --- so the CPU
 pool ($\sim$49.5~s) is the new wall and further gains require work-reduction, not
 scheduling.
@@ -106,15 +106,15 @@ Systems capture, and a \texttt{quiet}\,=\,0 distribution run, on both binaries.
     \label{tab:aff}
     \begin{tabular}{lrrr}
         \hline
-        \textbf{Metric} & \textbf{FIFO (base)} & \textbf{GPU affinity} & \textbf{$\Delta$} \\
+        Metric & FIFO (base) & GPU affinity & $\Delta$ \\
         \hline
-        Wall, A/B mean (s)        & 51.73 & \textbf{49.86} & \textbf{$-1.88$ ($-3.6\%$)} \\
+        Wall, A/B mean (s)        & 51.73 & 49.86 & $-1.88$ ($-3.6\%$) \\
         \quad A/B range (s)       & 51.59--51.93 & 49.69--49.99 & disjoint \\
         Total leaves              & 5{,}608 & 5{,}608 & 0 \\
         \quad GPU / CPU           & 4{,}235 / 1{,}373 & 3{,}679 / 1{,}929 & bigger$\to$GPU \\
-        GPU kernel avg / max (ms) & 2.96 / 139 & 5.80 / \textbf{460} & GPU took the outlier \\
-        Worst CPU region (s)      & 13.3 & \textbf{1.34} & outlier off CPU \\
-        CPU outliers $>$5~s       & 1 & \textbf{0} & $-1$ \\
+        GPU kernel avg / max (ms) & 2.96 / 139 & 5.80 / 460 & GPU took the outlier \\
+        Worst CPU region (s)      & 13.3 & 1.34 & outlier off CPU \\
+        CPU outliers $>$5~s       & 1 & 0 & $-1$ \\
         CPU thread wall (s)       & 50.4--51.2 & 49.0--49.6 & relieved \\
         \hline
     \end{tabular}
@@ -130,9 +130,9 @@ Systems capture, and a \texttt{quiet}\,=\,0 distribution run, on both binaries.
     \label{tab:aff-route}
     \begin{tabular}{lrr}
         \hline
-        \textbf{Quantity} & \textbf{FIFO (base)} & \textbf{GPU affinity} \\
+        Quantity & FIFO (base) & GPU affinity \\
         \hline
-        GPU took $960\times540$ (the outlier) & 0 & \textbf{1} \\
+        GPU took $960\times540$ (the outlier) & 0 & 1 \\
         GPU took $480\times270$ (interior)    & 182 & 259 \\
         \hline
         CPU per-region median (ms) & 88.3 & 8.7 \\
@@ -146,7 +146,7 @@ Systems capture, and a \texttt{quiet}\,=\,0 distribution run, on both binaries.
 \subsection{NVTX / CUPTI (Nsight Systems)}
 
 The NVTX \texttt{CPU region compute} total falls from 570.7~s to 543.7~s summed
-across the eleven CPU threads, and its \emph{max} from 14.71~s to 1.16~s --- the
+across the eleven CPU threads, and its max from 14.71~s to 1.16~s --- the
 outlier is no longer a CPU range. \texttt{GPU region compute} is essentially
 unchanged (47.3~$\to$~45.3~s busy); the CUPTI kernel count drops
 ($4{,}327\to3{,}424$) while the average rises ($2.96\to5.80$~ms) and the max
@@ -161,9 +161,9 @@ outlier.
 The A/B ranges are disjoint (Table~\ref{tab:aff}: base 51.59--51.93~s vs.\
 affinity 49.69--49.99~s), so the $-3.6\%$ is signal. This is the first
 optimisation in the series to move the wall, and the reason is precisely what
-reports~09 and~11 said was missing: those changes only \emph{rebalanced
-equal-cost work} on a throughput-bound, already-balanced schedule, which cannot
-help. GPU affinity instead performs \emph{heterogeneous assignment} --- it moves
+reports~09 and~11 said was missing: those changes only rebalanced
+equal-cost work on a throughput-bound, already-balanced schedule, which cannot
+help. GPU affinity instead performs heterogeneous assignment --- it moves
 the expensive coherent interior regions onto the processor that is $\sim$30$\times$
 faster on them. The $960\times540$ outlier costs 13.3~s on a CPU thread but
 460~ms on the GPU (Table~\ref{tab:aff-route}); routing it (and 77 more interior
@@ -176,7 +176,7 @@ drops from 50.4--51.2~s to 49.0--49.6~s and whose worst region collapses from
 Report~11's largest-first \texttt{priority\_queue} exposed only one end, so all
 twelve workers competed for the biggest region and a CPU thread won it $\sim$11:1
 --- the outlier stayed on CPU (kernel max unchanged at 139~ms). The min-max queue
-makes extraction \emph{executor-aware}: the GPU thread alone pulls the largest,
+makes extraction executor-aware: the GPU thread alone pulls the largest,
 the CPU threads pull the smallest, so the big regions are effectively reserved
 for the GPU. The kernel max moving from 139~ms to 460~ms (Table~\ref{tab:aff})
 is the direct fingerprint of the outlier finally landing on the GPU.
@@ -186,7 +186,7 @@ is the direct fingerprint of the outlier finally landing on the GPU.
 The GPU's busy time is $\sim$45~s of the 49.86~s wall --- about 91\,\%. It cannot
 absorb much more, and the CPU pool ($\sim$49.5~s) is now the binding wall. The
 two processors are balanced near 49.9~s. Pushing lower can no longer come from
-\emph{moving} work --- both lanes are busy --- only from \emph{reducing} it.
+moving work --- both lanes are busy --- only from reducing it.
 Total compute is still $\sim$conserved; the lever from report~09 (periodicity
 checking in \texttt{diverge()}, or an interior certificate that skips iterating
 in-set pixels) remains the way past this floor. GPU affinity has taken the
@@ -195,9 +195,9 @@ schedule about as far as scheduling alone can.
 \subsection{The CPU-only guard: implemented and measured}
 
 With the GPU disabled, \texttt{thread~0} is also a CPU worker, so without a guard
-\emph{all} threads would pull the smallest --- smallest-first, which defers the big
+all threads would pull the smallest --- smallest-first, which defers the big
 regions to the tail. A guard was added: when \texttt{gpuEnable}\,=\,0
-(\texttt{gpuPresent} false), CPU threads pull the \emph{largest} instead
+(\texttt{gpuPresent} false), CPU threads pull the largest instead
 (longest-processing-time, LPT). To check both the feared regression and the
 guard's value, the three CPU-only orderings were run head to head (\texttt{gpu}=0,
 12~threads, 2~reps each).
@@ -210,7 +210,7 @@ guard's value, the three CPU-only orderings were run head to head (\texttt{gpu}=
     \label{tab:cpu-only}
     \begin{tabular}{lrrr}
         \hline
-        \textbf{Ordering} & \textbf{Wall mean (s)} & \textbf{Worst region (s)} & \textbf{Leaves} \\
+        Ordering & Wall mean (s) & Worst region (s) & Leaves \\
         \hline
         FIFO (baseline)               & 156.84 & 14.1 & 5{,}608 \\
         Smallest-first (no guard)     & 157.41 & 14.0 & 5{,}608 \\
@@ -221,13 +221,13 @@ guard's value, the three CPU-only orderings were run head to head (\texttt{gpu}=
 
 The result is a wash: all three orderings land at $\approx$157~s, within
 $\sim$0.4\,\% (per-thread spread under 1\,\% in every case). The feared
-smallest-first regression \textbf{does not materialise} ($+0.4\%$, noise), and
-LPT does \textbf{not} beat FIFO either. The reason is the same throughput-bound
+smallest-first regression does not materialise ($+0.4\%$, noise), and
+LPT does not beat FIFO either. The reason is the same throughput-bound
 property as the hybrid: with 5{,}608 fine-grained leaves spread over 12~threads
 ($\sim$467 each), the tail is always well-filled, so when a region runs barely
 matters --- the 14~s outlier is only 9\,\% of the wall and overlaps hundreds of
 other regions regardless of order. Scheduling order only moved the wall when it
-changed \emph{which processor} ran the work (the hybrid GPU affinity); on a
+changed which processor ran the work (the hybrid GPU affinity); on a
 homogeneous CPU pool it cannot. The guard is therefore kept as the principled,
 zero-cost choice --- it protects smaller-scale or coarser workloads where the
 tail is not self-filling --- but it earns nothing measurable on this one.
@@ -236,17 +236,17 @@ tail is not self-filling --- but it earns nothing measurable on this one.
 \section{Recommendations}
 
 \begin{enumerate}
-    \item \textbf{Adopt GPU affinity as the default work queue.} It is a clean
+    \item Adopt GPU affinity as the default work queue. It is a clean
     $-3.6\%$ ($-1.88$~s) with disjoint A/B ranges, eliminates the CPU outlier
     (worst region 13.3~$\to$~1.34~s), is decomposition-identical, and is contained
     to \texttt{WorkQueue}. Merge \texttt{feat/gpu-affinity} to \texttt{main}.
 
-    \item \textbf{Keep the CPU-only guard} (§4.4). It is implemented (CPU threads
+    \item Keep the CPU-only guard (§4.4). It is implemented (CPU threads
     pull largest when no GPU) and is the principled choice, though measured to be
     a wash at this workload scale --- it costs nothing and serves both
     configurations safely.
 
-    \item \textbf{Next, attack work, not schedule (report~09).} With the GPU
+    \item Next, attack work, not schedule (report~09). With the GPU
     near-saturated and the CPU pool the wall, the only remaining lever is
     reducing the $\sim$595~s of compute: periodicity checking in \texttt{diverge()}
     (exact) or an interior certificate. Scheduling has been exhausted.
@@ -262,7 +262,7 @@ regions, including the $\sim$14~s outlier, onto the $\sim$30$\times$-faster GPU
 wall: $-3.6\%$ ($51.73\to49.86$~s) with disjoint A/B ranges, and the CPU outlier
 is eliminated (worst CPU region $13.3\to1.34$~s, zero $>$5~s regions). It
 succeeds where report~11's shared priority queue failed because it assigns by
-\emph{executor}, not by a single shared order that the eleven CPU threads win
+executor, not by a single shared order that the eleven CPU threads win
 11:1. The win is bounded at $-3.6\%$ because the GPU is now $\sim$91\,\% utilised:
 scheduling has been taken to its limit, and the remaining lever is work-reduction.
 

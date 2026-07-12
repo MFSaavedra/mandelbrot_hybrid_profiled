@@ -78,14 +78,14 @@ shared work queue. One \texttt{CalcThr} thread (thread~0) drives the GPU;
 all remaining threads compute on the CPU. Every thread calls
 \texttt{MandelRegion::examine()} in a loop, pulling items from the queue
 until it is empty. \texttt{examine()} evaluates the four corners of a
-region: if the corners are \emph{uniform} (the spread of iteration counts
+region: if the corners are uniform (the spread of iteration counts
 is small relative to the \texttt{diffThresh} parameter) or the region is
 smaller than \texttt{pixelSizeThresh} pixels, it calls
 \texttt{MandelRegion::compute()} immediately; otherwise it splits the
 region into four equal quadrants and pushes them all back onto the queue.
 
 The profiling run rendered 100 frames at 1920$\times$1080 pixels on a
-\textbf{NVIDIA GeForce GTX~1660~Ti Max-Q} using 12 threads (1 GPU thread +
+NVIDIA GeForce GTX~1660~Ti Max-Q using 12 threads (1 GPU thread +
 11 CPU threads), which is the machine's physical core count.
 
 % -----------------------------------------------------------------------
@@ -110,7 +110,7 @@ using \texttt{LD\_PRELOAD}. The NVTX3 headers then call \texttt{dlopen()}
 at the first \texttt{nvtxRangePush} to locate the injected library and
 register the annotation. Without linking \texttt{libdl}, the linker cannot
 resolve \texttt{dlopen} and the build fails. When the program runs
-\emph{without} Nsight Systems, the \texttt{dlopen} call simply finds
+without Nsight Systems, the \texttt{dlopen} call simply finds
 nothing and all NVTX calls become no-ops with negligible overhead.
 
 In CUDA~10 and earlier there was a real shared library
@@ -124,7 +124,7 @@ inside the CUDA toolkit at \texttt{\$CUDAINST/include/nvtx3/}.
 \subsubsection{What NVTX Is}
 
 NVTX (NVIDIA Tools Extension Library) is a C API for annotating host-side
-code with \emph{ranges} and \emph{markers}. A range is an interval opened
+code with ranges and markers. A range is an interval opened
 with \texttt{nvtxRangePush("label")} and closed with \texttt{nvtxRangePop()}.
 Ranges stack: if you push inside an existing range, the inner range appears
 nested under the outer one. Nsight Systems records the wall-clock timestamps
@@ -169,7 +169,7 @@ void MandelRegion::examine(WorkQueue &q, bool onGPU)
 \end{sourcecode}
 
 Because \texttt{examine()} calls \texttt{compute()}, the CPU and GPU
-compute ranges (described below) appear \emph{nested inside}
+compute ranges (described below) appear nested inside
 \texttt{"examine region"} in the timeline. The gap between the outer and
 inner range represents pure overhead: corner-iteration calls and queue
 operations.
@@ -218,7 +218,7 @@ extern "C" void hostFE(double upperX, double upperY, double lowerX,
 A \texttt{cudaEvent\_t} is an opaque handle to a hardware timestamp on the
 GPU. The GPU has its own free-running clock, independent of any CPU clock.
 When you call \texttt{cudaEventRecord(event)}, the CUDA runtime enqueues a
-\emph{``stamp yourself''} command into a CUDA stream. The GPU executes this
+``stamp yourself'' command into a CUDA stream. The GPU executes this
 command in stream order: it will not record the timestamp until all
 previously enqueued work in that stream has completed. The CPU returns from
 \texttt{cudaEventRecord} immediately—the stamping happens asynchronously.
@@ -236,7 +236,7 @@ approach is more accurate than a CPU-side timer because:
     \item \texttt{cudaMemcpy} with \texttt{cudaMemcpyDeviceToHost} is a
     blocking CPU call that first waits for any pending GPU work to finish
     and then performs the transfer. A CPU timer around it measures
-    \emph{kernel wait time + transfer time}, not \emph{transfer time alone}.
+    kernel wait time + transfer time, not transfer time alone.
     CUDA events placed around just the transfer report only the transfer.
 \end{itemize}
 
@@ -325,7 +325,7 @@ fprintf(stderr,
 \end{sourcecode}
 
 The key subtlety is that \texttt{cudaEventRecord(evKernelStop)} is called
-\emph{on the CPU immediately after the kernel launch returns}, not after
+on the CPU immediately after the kernel launch returns, not after
 the kernel finishes. Because the default CUDA stream serializes all
 operations, the GPU will record \texttt{evKernelStop} only after
 \texttt{mandelKernel} completes. Similarly, \texttt{evMemcpyStart} is
@@ -481,7 +481,7 @@ instances.
     \label{tab:nvtx}
     \begin{tabular}{lrrrrrr}
         \hline
-        \textbf{Range} & \textbf{Time\%} & \textbf{Total (s)} & \textbf{Instances} & \textbf{Avg (ms)} & \textbf{Med (ms)} & \textbf{Max (ms)} \\
+        Range & Time\% & Total (s) & Instances & Avg (ms) & Med (ms) & Max (ms) \\
         \hline
         \texttt{examine region}     & 51.0\% & 639.1 & 6{,}104  & 104.71 &   3.04 & 15{,}319 \\
         \texttt{CPU region compute} & 45.2\% & 567.2 & 1{,}060  & 535.11 & 146.68 & 15{,}319 \\
@@ -502,7 +502,7 @@ directly from the Nsight Systems SQLite database.
     \label{tab:cpu-threads}
     \begin{tabular}{rrrr}
         \hline
-        \textbf{Thread} & \textbf{Regions} & \textbf{Total (s)} & \textbf{Avg (ms/region)} \\
+        Thread & Regions & Total (s) & Avg (ms/region) \\
         \hline
         1  &  83 & 52.59 & 633.6 \\
         2  & 105 & 52.17 & 496.9 \\
@@ -516,7 +516,7 @@ directly from the Nsight Systems SQLite database.
         10 &  83 & 51.15 & 616.3 \\
         11 &  67 & 50.50 & 753.7 \\
         \hline
-        \textbf{GPU thread} & \textbf{3{,}543} & \textbf{47.11} & \textbf{13.3} \\
+        GPU thread & 3{,}543 & 47.11 & 13.3 \\
         \hline
     \end{tabular}
 \end{table}
@@ -534,7 +534,7 @@ CUPTI hardware counters.
     \label{tab:cuda-api}
     \begin{tabular}{lrrrr}
         \hline
-        \textbf{API call} & \textbf{Time\%} & \textbf{Calls} & \textbf{Avg} & \textbf{Total} \\
+        API call & Time\% & Calls & Avg & Total \\
         \hline
         \texttt{cudaMemcpy}          & 99.3\% & 3{,}543 & 13.4~ms    & 47.4~s   \\
         \texttt{cudaLaunchKernel}    &  0.2\% & 3{,}543 & 21.1~µs    & 74.6~ms  \\
@@ -550,7 +550,7 @@ CUPTI hardware counters.
     \label{tab:gpu-kernel}
     \begin{tabular}{lrrrrrr}
         \hline
-        \textbf{Kernel} & \textbf{Instances} & \textbf{Total (s)} & \textbf{Avg (ms)} & \textbf{Med (ms)} & \textbf{Min (µs)} & \textbf{Max (ms)} \\
+        Kernel & Instances & Total (s) & Avg (ms) & Med (ms) & Min (µs) & Max (ms) \\
         \hline
         \texttt{mandelKernel} & 3{,}543 & 47.11 & 13.30 & 5.40 & 8.2 & 465.3 \\
         \hline
@@ -563,7 +563,7 @@ CUPTI hardware counters.
     \label{tab:memcpy}
     \begin{tabular}{lrrrrrr}
         \hline
-        \textbf{Operation} & \textbf{Count} & \textbf{Total (s)} & \textbf{Total (MB)} & \textbf{Avg (µs)} & \textbf{Min (µs)} & \textbf{Max (µs)} \\
+        Operation & Count & Total (s) & Total (MB) & Avg (µs) & Min (µs) & Max (µs) \\
         \hline
         D$\rightarrow$H memcpy & 3{,}543 & 0.053 & 599.9 & 15.0 & 10.7 & 160.6 \\
         \hline
@@ -578,11 +578,11 @@ CUPTI hardware counters.
 Comparing the average per-region compute times:
 
 \begin{itemize}
-    \item \textbf{GPU}: 13.5~ms average (from NVTX \texttt{"GPU region compute"})
-    \item \textbf{CPU}: 535~ms average (from NVTX \texttt{"CPU region compute"}, summed across all 11 CPU threads)
+    \item GPU: 13.5~ms average (from NVTX \texttt{"GPU region compute"})
+    \item CPU: 535~ms average (from NVTX \texttt{"CPU region compute"}, summed across all 11 CPU threads)
 \end{itemize}
 
-The GPU is roughly \textbf{40$\times$ faster} per region. Because all
+The GPU is roughly 40$\times$ faster per region. Because all
 threads compete for the same work queue, the GPU thread cycles back to
 pull a new region 40$\times$ more often, naturally absorbing 77\% of all
 leaf regions (3{,}543 out of 4{,}603).
@@ -594,13 +594,13 @@ the Mandelbrot iteration kernel.
 \subsection{Load Balance Is Good, But Not Perfect}
 
 The per-thread total compute times (Table~\ref{tab:cpu-threads}) span
-50.50~s to 52.59~s across the 11 CPU threads—a spread of only \textbf{4\%}.
+50.50~s to 52.59~s across the 11 CPU threads—a spread of only 4\%.
 The GPU thread finishes its work in 47.1~s, roughly 3–5~s earlier than the
 last CPU thread. The dynamic work queue achieves its goal: no thread sits
 idle for long stretches while others have work.
 
 The remaining 4\% imbalance is not caused by a structural flaw in the
-scheduler. It arises entirely from \textbf{per-region variance}: some
+scheduler. It arises entirely from per-region variance: some
 Mandelbrot regions near the set's boundary require far more iterations than
 the corner heuristic predicted. A thread that happens to pull such a region
 will take much longer on it than a thread pulling a uniform interior region,
@@ -611,27 +611,27 @@ even if both regions have the same pixel count.
 This is the most surprising finding. The CUDA API summary reports
 \texttt{cudaMemcpy} as consuming 99.3\% of all CUDA API time (13.4~ms average
 per call). However, the CUPTI hardware counters tell a different story: the
-actual device-to-host transfer takes only \textbf{15~µs on average} and
-\textbf{53~ms total} across all 3{,}543 copies. The discrepancy is explained
+actual device-to-host transfer takes only 15~µs on average and
+53~ms total across all 3{,}543 copies. The discrepancy is explained
 by the semantics of \texttt{cudaMemcpy}:
 
 \begin{enumerate}
     \item \texttt{cudaMemcpy} with \texttt{cudaMemcpyDeviceToHost} is a
-    \emph{blocking, synchronous} call.
+    blocking, synchronous call.
     \item It first waits for all previously-enqueued GPU work to finish
     (i.e., it implicitly synchronizes the default stream).
     \item Only then does it initiate the DMA transfer.
 \end{enumerate}
 
 So the 13.4~ms reported by the CUDA API is almost entirely
-\emph{kernel execution time} (confirmed by the GPU kernel summary:
+kernel execution time (confirmed by the GPU kernel summary:
 13.3~ms average). The actual PCIe transfer consumes only 15~µs. At
 599.9~MB across 3{,}543 copies the effective bandwidth is
 $599.9 / 0.053 \approx 11.3$~GB/s, which is healthy use of a PCIe~3.0
 $\times$16 link (theoretical maximum: 16~GB/s). Optimizing memory layouts
 or using pinned memory more aggressively would have essentially no impact.
 
-This finding also highlights a \textbf{missed optimization}: during those
+This finding also highlights a missed optimization: during those
 13.4~ms where the CPU is blocked in \texttt{cudaMemcpy} (which is really
 waiting for the kernel), thread~0 (the GPU thread) cannot pull new work
 from the queue. Using asynchronous CUDA streams—launching the kernel into
@@ -642,9 +642,9 @@ GPU utilization.
 \subsection{High Per-Region Variance}
 
 \begin{itemize}
-    \item \textbf{GPU regions}: min~8.2~µs, avg~13.3~ms, max~465.3~ms
+    \item GPU regions: min~8.2~µs, avg~13.3~ms, max~465.3~ms
     (57{,}000$\times$ range)
-    \item \textbf{CPU regions}: min~0.9~ms, avg~535~ms, max~15.3~s
+    \item CPU regions: min~0.9~ms, avg~535~ms, max~15.3~s
     (17{,}000$\times$ range)
 \end{itemize}
 
@@ -679,7 +679,7 @@ compute times involved.
     \caption{Key findings and their implications.}
     \begin{tabular}{p{5.5cm} p{7cm}}
         \hline
-        \textbf{Finding} & \textbf{Implication} \\
+        Finding & Implication \\
         \hline
         GPU 40$\times$ faster per region &
             It naturally pulls 77\% of work-queue items \\

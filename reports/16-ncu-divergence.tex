@@ -41,19 +41,19 @@ Tool: Nsight Compute \texttt{2026.2.0.0}. Machine: i7-9750H + GTX~1660~Ti~Max-Q
 % -----------------------------------------------------------------------
 \begin{abstract}
 This report uses NVIDIA Nsight Compute (\texttt{ncu}) to measure, for the first
-time in this project, what happens \emph{inside} the GPU kernel --- warp
+time in this project, what happens inside the GPU kernel --- warp
 execution efficiency, branch divergence, FP64 pipe utilisation, occupancy, and
 the compute/memory roofline --- across four content regimes (interior, exterior,
 boundary, canonical), each run GPU-only so the single GPU thread is forced to
-process \emph{every} region type. The headline: the coherent regions the affinity
-queue actually routes to the GPU run at \textbf{exactly 100.0\,\% warp execution
-efficiency and 100.0\,\% branch efficiency} --- zero divergence, now measured
-rather than argued (\texttt{11-priority-queue.tex}). They are \textbf{FP64-bound
-at 85.6\,\% of the double-precision peak} ($\sim$110 of 129~GFLOPS at the measured
+process every region type. The headline: the coherent regions the affinity
+queue actually routes to the GPU run at exactly 100.0\,\% warp execution
+efficiency and 100.0\,\% branch efficiency --- zero divergence, now measured
+rather than argued (\texttt{11-priority-queue.tex}). They are FP64-bound
+at 85.6\,\% of the double-precision peak ($\sim$110 of 129~GFLOPS at the measured
 1.34~GHz on the 1:32 TU116), at 98.9\,\% occupancy with $\sim$0\,\% memory
 traffic; the 15\,\% gap is the dependent iteration recurrence (long-scoreboard
-stalls, uniform across all regimes), \emph{not} divergence. Divergence is real
-but \textbf{confined to the pixel-floor boundary leaves} (240$\times$135 down to
+stalls, uniform across all regimes), not divergence. Divergence is real
+but confined to the pixel-floor boundary leaves (240$\times$135 down to
 33.7\,\%; 480$\times$270 leaves 99.9\,\%): the uniformity test doubles as a
 coherence filter. This corrects report~11's $\sim$40\,\% FP64 estimate and closes
 the divergence question --- the GPU lever was never divergence.
@@ -62,17 +62,17 @@ the divergence question --- the GPU lever was never divergence.
 % -----------------------------------------------------------------------
 \section{Why \texttt{ncu}, and What It Sees That \texttt{nsys} Cannot}
 
-Reports 01/04/09/15 profiled with Nsight \emph{Systems} (\texttt{nsys}): a
-\emph{timeline} tracer. It records when each thing runs --- CUDA API calls, NVTX
-ranges, kernel and transfer \emph{durations}, the 12 CPU worker lanes, streams
---- and is the right tool for every \emph{scheduling} question this project has
+Reports 01/04/09/15 profiled with Nsight Systems (\texttt{nsys}): a
+timeline tracer. It records when each thing runs --- CUDA API calls, NVTX
+ranges, kernel and transfer durations, the 12 CPU worker lanes, streams
+--- and is the right tool for every scheduling question this project has
 asked (the \texttt{cudaMemcpy} kernel-wait of report~15, the GPU affinity routing
-of report~12). But \texttt{nsys} has \emph{no visibility inside a kernel}. It can
+of report~12). But \texttt{nsys} has no visibility inside a kernel. It can
 say a kernel took 60~ms; it cannot say whether those 60~ms were spent with all 32
 lanes of each warp busy or half of them idle, whether the bottleneck was the FP64
 pipe or DRAM, or how full the SM was.
 
-Those are \emph{hardware counters}, read only by Nsight \emph{Compute}
+Those are hardware counters, read only by Nsight Compute
 (\texttt{ncu}), which replays each kernel once per counter group. The two tools
 sit at different altitudes:
 
@@ -83,10 +83,10 @@ sit at different altitudes:
     \label{tab:tools}
     \begin{tabular}{lll}
         \hline
-        & \textbf{Nsight Systems (\texttt{nsys})} & \textbf{Nsight Compute (\texttt{ncu})} \\
+        & Nsight Systems (\texttt{nsys}) & Nsight Compute (\texttt{ncu}) \\
         \hline
         Scope        & whole-system timeline          & one kernel's internals \\
-        Answers       & \emph{when} / what overlaps     & \emph{why} this kernel is fast/slow \\
+        Answers       & when / what overlaps     & why this kernel is fast/slow \\
         Unit          & API calls, NVTX, durations      & per-launch HW counters \\
         Overhead      & low, one real-time pass         & high, replays each kernel \\
         Permissions   & user                            & admin (\texttt{ERR\_NVGPUCTRPERM}) \\
@@ -98,8 +98,8 @@ sit at different altitudes:
 execution efficiency (active threads per issued instruction $\div32$), branch
 efficiency, FP64 pipe utilisation, achieved occupancy, the Speed-of-Light
 compute/memory roofline, L1/L2 hit rates, and per-reason warp issue stalls.
-Divergence, the FP64 ceiling, and the roofline are all \emph{inside} the kernel;
-\texttt{nsys} reports their \emph{symptom} (duration) but never their \emph{cause}.
+Divergence, the FP64 ceiling, and the roofline are all inside the kernel;
+\texttt{nsys} reports their symptom (duration) but never their cause.
 
 % -----------------------------------------------------------------------
 \section{Setup and Methodology}
@@ -112,10 +112,10 @@ Binary \texttt{fc33e29} (\texttt{binary-v5-affinity}); the kernel is
 
 \paragraph{GPU-only, by design.} Every regime is run with one worker thread,
 GPU enabled (\texttt{./mandelHybrid spec 1 1 0.1 32768 1 0}). This forces the
-single GPU thread to process \emph{every} region --- interior, exterior, and
+single GPU thread to process every region --- interior, exterior, and
 boundary. In production the affinity queue (report~12) routes boundary regions to
 the CPU pool, so a normal hybrid run would never show the GPU the divergent
-regions; to \emph{measure} divergence we must put them on the GPU deliberately.
+regions; to measure divergence we must put them on the GPU deliberately.
 
 \paragraph{Four content regimes} (specs in \texttt{experiments/16-ncu-divergence/specs/}),
 chosen to isolate the variables:
@@ -126,7 +126,7 @@ chosen to isolate the variables:
     \label{tab:regimes}
     \begin{tabular}{llp{7.6cm}}
         \hline
-        \textbf{regime} & \textbf{target} & \textbf{what the GPU sees} \\
+        regime & target & what the GPU sees \\
         \hline
         interior  & inside the main cardioid ($c\!\approx\!-0.5$) & six full-frame 1920$\times$1080 leaves, every pixel $\to$ \texttt{MAXITER} (inset 100\,\%) \\
         exterior  & outside the set ($c\!\approx\!1\!+\!i$)        & six full-frame leaves, every pixel escapes in 1 iteration (inset 0\,\%) \\
@@ -143,11 +143,11 @@ Section~\ref{sec:div}).
 
 \paragraph{Methodology note --- the admin gate and a driver skew.} \texttt{ncu}
 counters are admin-restricted (\texttt{ERR\_NVGPUCTRPERM}), so capture ran from a
-root script (\texttt{capture.sh}) that chowns the reports back; \emph{parsing} a
+root script (\texttt{capture.sh}) that chowns the reports back; parsing a
 saved \texttt{.ncu-rep} needs no privileges (\texttt{ncu --import}). A driver /
 kernel-module version skew (userspace \texttt{610.43.02} vs.\ loaded
 \texttt{595.71.05}) disabled \texttt{nvidia-smi}/NVML until a reboot reloaded the
-module; \textbf{CUDA and the \texttt{ncu} counters were unaffected} (verified: the
+module; CUDA and the \texttt{ncu} counters were unaffected (verified: the
 reports are fully populated). Because Speed-of-Light metrics are clock-normalised
 ratios, the only casualty was the \texttt{gpu\_state.csv} snapshot; the GPC clock
 used below (1.34~GHz) is read from inside the reports.
@@ -157,12 +157,12 @@ used below (1.34~GHz) is read from inside the reports.
 
 \insertimage{img/16-warp-divergence.png}{width=\linewidth}
             {Warp execution efficiency (100\,\% = all 32 lanes active = zero
-             divergence). \textbf{(a)} Per-kernel, by regime: interior and
+             divergence). (a) Per-kernel, by regime: interior and
              exterior are pinned at 100\,\%; boundary scatters from 28.6\,\% to
              100\,\% (median 76.9\,\%); canonical is mostly high with a divergent
-             tail. \textbf{(b)} Within the boundary regime, split by region size:
-             the 480$\times$270 leaves that \emph{passed} the uniformity test are
-             coherent (99.9\,\%); only the 240$\times$135 \emph{pixel-floor}
+             tail. (b) Within the boundary regime, split by region size:
+             the 480$\times$270 leaves that passed the uniformity test are
+             coherent (99.9\,\%); only the 240$\times$135 pixel-floor
              regions --- force-computed when they hit the size limit regardless of
              coherence --- diverge (down to 33.7\,\%). The split rule is itself a
              coherence filter. \label{fig:div}}
@@ -174,17 +174,17 @@ used below (1.34~GHz) is read from inside the reports.
              divergence; \texttt{FP64} is pipe utilisation; \texttt{cSOL}/%
              \texttt{mSOL} are the compute/memory Speed-of-Light; \texttt{occ} is
              achieved occupancy. The interior/exterior \texttt{warpEff} of
-             \emph{exactly} 100 is the result; the boundary/canonical values here
-             are over the 60 \emph{largest} kernels and so are skewed high ---
+             exactly 100 is the result; the boundary/canonical values here
+             are over the 60 largest kernels and so are skewed high ---
              Table~\ref{tab:dist} gives the honest distribution.}
     \label{tab:regimes-metrics}
     \begin{tabular}{lrrrrrrrrr}
         \hline
-        \textbf{regime} & \textbf{k} & \textbf{warpEff} & \textbf{branchEff} & \textbf{FP64} & \textbf{cSOL} & \textbf{mSOL} & \textbf{occ} & \textbf{L2 hit} & \textbf{dur (ms)} \\
+        regime & k & warpEff & branchEff & FP64 & cSOL & mSOL & occ & L2 hit & dur (ms) \\
          & & \% & \% & \% & \% & \% & \% & \% & \\
         \hline
-        interior  & 6  & \textbf{100.0} & \textbf{100.0} & 85.6 & 85.5 & 0.0 & 98.9 & 87.6 & 600--853 \\
-        exterior  & 6  & \textbf{100.0} & \textbf{100.0} & 85.6 & 85.4 & 4.6 & 94.0 & 99.4 & 0.61 \\
+        interior  & 6  & 100.0 & 100.0 & 85.6 & 85.5 & 0.0 & 98.9 & 87.6 & 600--853 \\
+        exterior  & 6  & 100.0 & 100.0 & 85.6 & 85.4 & 4.6 & 94.0 & 99.4 & 0.61 \\
         boundary  & 60 & 92.6$^\ast$ & 99.6 & 85.3 & 78.1 & 0.2 & 84.3 & 99.2 & 0.14--71 \\
         canonical & 60 & 94.4$^\ast$ & 96.4 & 84.1 & 69.4 & 0.9 & 79.1 & 94.2 & 0.01--161 \\
         \hline
@@ -194,16 +194,16 @@ used below (1.34~GHz) is read from inside the reports.
 
 \begin{table}[H]
     \centering
-    \caption{Warp-efficiency \emph{distribution} over the full kernel population
+    \caption{Warp-efficiency distribution over the full kernel population
              (two-metric pass, \texttt{n} kernels each). ``$<$70\,\%'' is the
              fraction of kernels wasting more than 30\,\% of their lanes.}
     \label{tab:dist}
     \begin{tabular}{lrrrrrrr}
         \hline
-        \textbf{regime} & \textbf{n} & \textbf{min} & \textbf{p10} & \textbf{p50} & \textbf{mean} & \textbf{$<$90\,\%} & \textbf{$<$70\,\%} \\
+        regime & n & min & p10 & p50 & mean & $<$90\,\% & $<$70\,\% \\
         \hline
-        interior  & 6   & 100.0 & 100.0 & 100.0 & \textbf{100.0} & 0\,\%  & 0\,\%  \\
-        exterior  & 6   & 100.0 & 100.0 & 100.0 & \textbf{100.0} & 0\,\%  & 0\,\%  \\
+        interior  & 6   & 100.0 & 100.0 & 100.0 & 100.0 & 0\,\%  & 0\,\%  \\
+        exterior  & 6   & 100.0 & 100.0 & 100.0 & 100.0 & 0\,\%  & 0\,\%  \\
         boundary  & 276 & 28.6  & 34.0  & 76.9  & 70.7  & 55\,\% & 47\,\% \\
         canonical & 300 & 22.2  & 59.9  & 96.3  & 87.6  & 32\,\% & 13\,\% \\
         \hline
@@ -214,14 +214,14 @@ used below (1.34~GHz) is read from inside the reports.
     \centering
     \caption{Boundary regime by region size, and the dominant warp issue stall
              (mean over the captured kernels). The stall is \texttt{long\_scoreboard}
-             in \emph{every} regime --- see Section~\ref{sec:fp64}.}
+             in every regime --- see Section~\ref{sec:fp64}.}
     \label{tab:size-stall}
     \begin{tabular}{llrr}
         \hline
-        \textbf{regime / size} & \textbf{role} & \textbf{warpEff \%} & \textbf{top issue stall} \\
+        regime / size & role & warpEff \% & top issue stall \\
         \hline
-        boundary 480$\times$270 & leaf (passed uniformity)   & \textbf{99.9} (98.8--100) & --- \\
-        boundary 240$\times$135 & floor (force-computed)     & \textbf{81.6} (33.7--99.3) & --- \\
+        boundary 480$\times$270 & leaf (passed uniformity)   & 99.9 (98.8--100) & --- \\
+        boundary 240$\times$135 & floor (force-computed)     & 81.6 (33.7--99.3) & --- \\
         \hline
         interior  & --- & --- & long\_scoreboard 95\,\% \\
         exterior  & --- & --- & long\_scoreboard 92\,\% \\
@@ -234,26 +234,26 @@ used below (1.34~GHz) is read from inside the reports.
 % -----------------------------------------------------------------------
 \section{Analysis}
 
-\subsection{The coherent regions the GPU actually runs are \emph{exactly}
+\subsection{The coherent regions the GPU actually runs are exactly
 divergence-free}
 
 Table~\ref{tab:dist}, Figure~\ref{fig:div}a: the interior and exterior regimes
-measure \textbf{100.0\,\% warp execution efficiency and 100.0\,\% branch
-efficiency} on every kernel --- all 32 lanes of every warp active on every issued
+measure 100.0\,\% warp execution efficiency and 100.0\,\% branch
+efficiency on every kernel --- all 32 lanes of every warp active on every issued
 instruction, no divergent branch anywhere.
 
 The mechanism is the escape-time loop and the spatial layout. A warp is a
 16$\times$2 pixel strip; the loop bound is data-dependent, so divergence is the
-\emph{spread} of escape iterations within that strip. In a coherent interior
+spread of escape iterations within that strip. In a coherent interior
 region every pixel runs to \texttt{MAXITER} (inset 100\,\%), so all 32 lanes
 iterate in lockstep and exit together --- spread zero. In a coherent exterior
 region every pixel escapes at iteration~1 --- spread zero again. Report~11
 estimated this at ``$\sim$3\,\% of lanes wasted'' for a 97\,\% interior region;
-at 100\,\% interior the measurement reaches the limit it predicted: \emph{zero}.
+at 100\,\% interior the measurement reaches the limit it predicted: zero.
 
 The implication is that the entire ``would these boundary regions cause heavy
 warp divergence on the GPU?'' objection (report~11, \S3.4) is answered: the
-regions affinity routes to the GPU are coherent \emph{by construction}, and on
+regions affinity routes to the GPU are coherent by construction, and on
 them divergence is not small --- it is absent.
 
 \subsection{The kernel is FP64-bound at 85\,\% of peak --- not 40\,\% --- and the
@@ -262,9 +262,9 @@ remaining gap is the iteration recurrence, not divergence}\label{sec:fp64}
 Interior: FP64 pipe utilisation 85.6\,\%, compute Speed-of-Light 85.5\,\%, at
 98.9\,\% occupancy and $\sim$0\,\% memory throughput (L1 hit 0.6\,\%). At the
 measured GPC clock of 1.34~GHz the FP64 peak is $1536/32\times2\times1.34=129$~GFLOPS,
-so 85.6\,\% is $\sim$110~GFLOPS of double precision. Report~11 \emph{estimated}
+so 85.6\,\% is $\sim$110~GFLOPS of double precision. Report~11 estimated
 the coherent region reached ``$\sim$40\,\% of the FP64 ceiling''; the measurement
-puts it at \textbf{85.6\,\%} --- the kernel is far more FP64-saturated than
+puts it at 85.6\,\% --- the kernel is far more FP64-saturated than
 guessed.
 
 The mechanism is in \texttt{diverge()}: a serial double-precision recurrence.
@@ -289,8 +289,8 @@ divergence --- which is why coherent regions (uniform bound) are 100\,\%
 efficient. Second, each iterate depends on the previous, so a thread cannot
 overlap its own FP64 operations; the warp stalls on the latency of the
 double-precision result. This is exactly what the stall counters show: the
-dominant issue stall is \texttt{long\_scoreboard} in \emph{every} regime
-(92--95\,\%, Table~\ref{tab:size-stall}), and it is \emph{uniform across content}
+dominant issue stall is \texttt{long\_scoreboard} in every regime
+(92--95\,\%, Table~\ref{tab:size-stall}), and it is uniform across content
 --- a property of the recurrence, not of the pixels. With the kernel doing
 essentially no memory loads (mSOL~$\approx0$, L1 hit 0.6\,\%), that stall is the
 dependent FP64 chain's latency, partly --- but not fully --- hidden by 98.9\,\%
@@ -301,25 +301,25 @@ The implication is decisive for optimisation: a coherent interior kernel already
 runs the double-precision pipe at 85\,\% of a ceiling that is itself
 $1/32$ of FP32. There is no divergence to remove and almost no occupancy or
 memory headroom. The GPU cannot go faster on this work without doing
-\emph{fewer iterations} or \emph{wider-than-1:32 arithmetic} --- and \texttt{float}
+fewer iterations or wider-than-1:32 arithmetic --- and \texttt{float}
 cannot resolve the deepest frames (report~11), so the pipe rate is a hard floor.
 
 \subsection{Divergence is real and severe --- but confined to the pixel-floor
 boundary leaves}\label{sec:div}
 
 The boundary regime is where divergence lives: median warp efficiency 76.9\,\%,
-mean 70.7\,\%, minimum 28.6\,\% (only 9 of 32 lanes active), and \textbf{47\,\% of
-boundary kernels waste more than 30\,\% of their lanes} (Table~\ref{tab:dist}).
+mean 70.7\,\%, minimum 28.6\,\% (only 9 of 32 lanes active), and 47\,\% of
+boundary kernels waste more than 30\,\% of their lanes (Table~\ref{tab:dist}).
 So the divergent case the GPU is feared for is not a myth --- on the boundary it
 is as bad as 3.5$\times$ wasted work.
 
 But Figure~\ref{fig:div}b and Table~\ref{tab:size-stall} localise it exactly. The
 480$\times$270 boundary leaves --- regions that became leaves because their nine
-samples \emph{passed} the uniformity test --- are 99.9\,\% efficient. Only the
-240$\times$135 \emph{pixel-floor} regions diverge (mean 81.6\,\%, down to
+samples passed the uniformity test --- are 99.9\,\% efficient. Only the
+240$\times$135 pixel-floor regions diverge (mean 81.6\,\%, down to
 33.7\,\%). The reason is the split rule: a region is computed either when it is
-uniform (low spread) \emph{or} when it falls below \texttt{pixelSizeThresh}. The
-first clause only ever emits \emph{coherent} leaves; the second force-computes
+uniform (low spread) or when it falls below \texttt{pixelSizeThresh}. The
+first clause only ever emits coherent leaves; the second force-computes
 whatever remains at the floor, coherent or not. Divergence is therefore quarantined
 to the floor-clamped leaves --- the high-spread regions the uniformity test
 explicitly refused to compute at full size and split instead. The same
@@ -337,14 +337,14 @@ kernels below 70\,\% (Table~\ref{tab:dist}). Two effects compound. First, by
 \S\ref{sec:div} the divergent leaves are exactly the floor-clamped ones, which are
 240$\times$135 = the cheapest tier (sub-millisecond to $\sim$13~ms, vs.\ the
 interior leaves' 600--850~ms). Divergence-weighted by runtime, they are noise.
-Second --- and this run does \emph{not} include it --- in real hybrid execution
+Second --- and this run does not include it --- in real hybrid execution
 the affinity queue (report~12) routes small regions to the CPU pool, so those
 divergent floor leaves never reach the GPU at all. The 96.3\,\% median here is
-thus a \emph{worst case}; the production GPU sees the 100\,\% coherent tier almost
+thus a worst case; the production GPU sees the 100\,\% coherent tier almost
 exclusively.
 
 The implication closes the loop with report~12: GPU affinity is not only a
-load-balancing win, it is incidentally a \emph{divergence-avoidance} policy ---
+load-balancing win, it is incidentally a divergence-avoidance policy ---
 it keeps the GPU on the regions this report measures at 100\,\% efficiency.
 
 \subsection{None of this was visible to \texttt{nsys}}
@@ -353,35 +353,35 @@ Every number above is a hardware counter. \texttt{nsys} (reports 01/09/15) timed
 these same kernels --- it knew the interior kernel took $\sim$700~ms and the
 boundary kernels 0.1--70~ms --- but it could not distinguish a 100\,\%-efficient
 FP64-bound kernel from a 34\,\%-efficient divergent one, because lane efficiency,
-FP64 pipe pressure, and the roofline are \emph{inside} the launch.
+FP64 pipe pressure, and the roofline are inside the launch.
 \texttt{15-async-streams-analysis.tex} ranked the GPU near its ceiling from
-timeline evidence; this report explains \emph{why} from counter evidence ---
+timeline evidence; this report explains why from counter evidence ---
 85\,\% of a 1:32 FP64 pipe, divergence-free, latency-bound on the recurrence.
 
 % -----------------------------------------------------------------------
 \section{Recommendations}
 
 \begin{enumerate}
-  \item \textbf{Do not pursue warp-divergence optimisation for the GPU path.}
+  \item Do not pursue warp-divergence optimisation for the GPU path.
         Measured warp efficiency on the regions affinity routes to the GPU is
         100.0\,\%; there is nothing to recover. Any divergence (down to 34\,\%)
         lives in 240$\times$135 floor leaves that are both cheap and CPU-routed.
         Effort here returns zero.
-  \item \textbf{Treat the FP64 pipe (85.6\,\% of a 1:32 ceiling) as the hard GPU
-        floor.} The interior kernel is FP64-latency-bound at 98.9\,\% occupancy
+  \item Treat the FP64 pipe (85.6\,\% of a 1:32 ceiling) as the hard GPU
+        floor. The interior kernel is FP64-latency-bound at 98.9\,\% occupancy
         with no memory or divergence slack. The only ways down are fewer
         iterations or wider arithmetic; \texttt{float} is precluded by the
         15-digit deep-zoom coordinates (report~11). So the GPU per-pixel cost is
         fixed --- consistent with report~15's ``GPU is near its ceiling.''
-  \item \textbf{Periodicity checking must be measured per-executor, not assumed.}
+  \item Periodicity checking must be measured per-executor, not assumed.
         The recommended work-reduction lever (skip in-set iterations) is a clean
         win on the CPU branch, but on the GPU it would convert the currently
         100\,\%-efficient, lockstep interior warps into divergent ones (pixels
-        detecting their cycle at different iterations) \emph{and} add FP64 work
+        detecting their cycle at different iterations) and add FP64 work
         per iteration to the bottleneck pipe. Implement it in \texttt{compute()}'s
         CPU branch first; A/B the GPU branch separately against the divergence +
         FP64 cost this report quantifies.
-  \item \textbf{Keep GPU affinity --- it is also a divergence policy.} Routing
+  \item Keep GPU affinity --- it is also a divergence policy. Routing
         large coherent regions to the GPU (report~12) keeps it on the 100\,\%-
         efficient tier and the divergent floor leaves on the CPU. The two motives
         (load balance, lane efficiency) point the same way.
@@ -391,9 +391,9 @@ timeline evidence; this report explains \emph{why} from counter evidence ---
 \section{Conclusion}
 
 Nsight Compute converts report~11's structural argument into measurement. The
-coherent regions GPU affinity routes to the device run at \textbf{exactly
-100.0\,\% warp execution efficiency} --- divergence is not small, it is absent ---
-and are \textbf{FP64-bound at 85.6\,\% of the 1:32 double-precision peak}
+coherent regions GPU affinity routes to the device run at exactly
+100.0\,\% warp execution efficiency --- divergence is not small, it is absent ---
+and are FP64-bound at 85.6\,\% of the 1:32 double-precision peak
 ($\sim$110 of 129~GFLOPS), at 98.9\,\% occupancy, $\sim$0\,\% memory, with the
 remaining gap owed to the serial iteration recurrence (uniform
 \texttt{long\_scoreboard} stalls), not divergence. Divergence is real but

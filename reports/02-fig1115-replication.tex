@@ -53,7 +53,7 @@ timer, a self-describing configuration banner, and two boolean flags
 driver (\texttt{sweep.sh}) executes seven configurations three times each
 into a CSV; a Python script (\texttt{plot\_fig1115.py}) renders a chart
 in the style of Figure~11.15. The replication shows the same monotonic
-\emph{decrease} as one moves from GPU-alone through hybrid configurations
+decrease as one moves from GPU-alone through hybrid configurations
 with more CPU workers, but the slope is much shallower than in the book:
 on this laptop the GPU is 2.1$\times$ faster than the CPU at full
 parallelism, so adding 11~CPU workers buys only a 30\% speed-up over
@@ -81,7 +81,7 @@ either alone. This report addresses three questions:
 \begin{enumerate}
     \item What instrumentation is needed to record the metric the figure
     actually plots, given the existing per-region NVTX/CUDA-event
-    profiling captures only \emph{components} of total time and not the
+    profiling captures only components of total time and not the
     end-to-end wall clock?
     \item How does the same workload behave on an Intel Core i7-9750H
     (6~cores, 12~threads) paired with an NVIDIA GeForce GTX~1660~Ti
@@ -110,7 +110,7 @@ event timing to the program (documented in
     by Nsight Systems.
 \end{itemize}
 
-What was \emph{not} captured was the total end-to-end wall-clock time of
+What was not captured was the total end-to-end wall-clock time of
 the program---the makespan---which is exactly the quantity plotted in
 Figure~11.15. \texttt{cpuTotalMs} excludes idle time. \texttt{totalKernelMs}
 covers only the GPU's busy stretches. The thread summaries are
@@ -284,7 +284,7 @@ would manifest as silent corruption rather than a link error.
 The driver script runs seven configurations $N$ times each and emits a
 single CSV row per run. Configurations are tuned for a 12-thread
 machine: total threads (the \texttt{numThreads} argument to
-\texttt{mandelHybrid}) never exceed 12, and the count of \emph{pure CPU}
+\texttt{mandelHybrid}) never exceed 12, and the count of pure CPU
 workers in a hybrid run is \texttt{numThreads - 1} because thread~0 is
 the GPU driver.
 
@@ -341,7 +341,7 @@ mean and population standard deviation of \texttt{elapsed\_s} per group,
 and emits a Fig~11.15-style chart: blue bars with error caps on a
 left-axis time scale, a red percentage-of-GPU-alone line on the right
 axis, numeric labels on every element. Bar value labels are placed
-\emph{inside} each bar in white to avoid colliding visually with the
+inside each bar in white to avoid colliding visually with the
 percent labels above the line markers.
 
 \begin{sourcecode}{python}{plot\_fig1115.py --- core rendering block.}
@@ -373,7 +373,7 @@ ax2.set_ylim(0, max(pct) * 1.28)
     \label{tab:hw}
     \begin{tabular}{lll}
         \hline
-        & \textbf{This work} & \textbf{Barlas (2022)} \\
+        & This work & Barlas (2022) \\
         \hline
         CPU            & Intel Core i7-9750H        & AMD Ryzen 3900X \\
         Cores/threads  & 6 / 12                     & 12 / 24 \\
@@ -409,7 +409,7 @@ Fig~11.15.
     \label{tab:results}
     \begin{tabular}{lrrrrr}
         \hline
-        \textbf{Config} & \textbf{Mean (s)} & \textbf{Std (s)} & \textbf{Min (s)} & \textbf{Max (s)} & \textbf{\% of GPU-alone} \\
+        Config & Mean (s) & Std (s) & Min (s) & Max (s) & \% of GPU-alone \\
         \hline
         CPU12      & 163.470 & 0.392 & 163.018 & 163.702 & 213.6\% \\
         GPU        &  76.543 & 0.166 &  76.360 &  76.683 & 100.0\% \\
@@ -462,7 +462,7 @@ The headline number is CPU12~/~GPU $\approx$ 2.14. The 6-core/12-thread
 i7-9750H is 2.1$\times$ slower than the GTX~1660~Ti Max-Q at this
 workload, despite running at full thread parallelism. In the book this
 ratio was much closer to 1 (visually CPU was at about 85\% of
-GPU-alone, i.e.\ \emph{faster} than the GPU); the explanation is
+GPU-alone, i.e.\ faster than the GPU); the explanation is
 straightforward---a Ryzen 3900X has twice as many threads as an
 i7-9750H, while the two GPUs (1660 Ti vs.\ 2060 Super) are in the same
 Turing generation with similar fp64 ratios. Doubling the CPU's width
@@ -483,7 +483,7 @@ of CPU workers, however, differs substantially:
     \label{tab:marginal}
     \begin{tabular}{lrrr}
         \hline
-        \textbf{Step} & \textbf{Time (s)} & \textbf{$\Delta$ time (s)} & \textbf{$\Delta$\,\% of GPU-alone} \\
+        Step & Time (s) & $\Delta$ time (s) & $\Delta$\,\% of GPU-alone \\
         \hline
         GPU            & 76.54 &   ---  &   --- \\
         \,+1 CPU       & 68.45 & -8.09  & -10.6\% \\
@@ -498,7 +498,7 @@ of CPU workers, however, differs substantially:
 The first CPU worker is worth a full 10\% of GPU-alone time. The next
 ten together are worth another 20\%, and the last three workers (going
 from 8~CPU to 11~CPU) buy only a 3.4\% improvement. This is the
-\emph{Amdahl-like saturation of the hybrid}: once the work-queue
+Amdahl-like saturation of the hybrid: once the work-queue
 overhead per item and the fundamentally sequential portions of the
 program (frame setup, image saves, the last-region tail of each frame)
 become significant relative to the per-worker contribution, additional
@@ -562,10 +562,10 @@ this machine the CPU and GPU are not roughly on par. The corrected
 statement for this platform is:
 
 \begin{quote}
-\emph{On a CPU/GPU pairing where the GPU is roughly 2$\times$ faster
+On a CPU/GPU pairing where the GPU is roughly 2$\times$ faster
 than the CPU at full thread parallelism, combining both cuts the
 GPU-alone execution time by another 30\% and the CPU-alone execution
-time by a factor of 3.}
+time by a factor of 3.
 \end{quote}
 
 The structural conclusion from Section~11.5.1 of the book---that
