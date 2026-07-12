@@ -1,6 +1,6 @@
 # Experiment 25 — distributed frame rendering: PoC identity validation
 
-**Branch / binary:** `feat/frame-distribution` (tag `binary-frame-dist`), atop `main` `8acde54`
+**Branch / binary:** `feat/frame-distribution` commit `aae49fb` (tag `binary-frame-dist`), atop `main` `8acde54`
 (= `binary-v7-gpu-periodicity` code state).
 **Date:** 2026-07-12.
 **Machine:** i7-9750H + GTX 1660 Ti Max-Q (the usual laptop); identity does not

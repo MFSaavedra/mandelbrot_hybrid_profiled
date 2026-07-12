@@ -111,7 +111,7 @@ Tags pin the binary versions every report ultimately points at:
 - `binary-v6-periodicity` → commit `fa6d8ac` — exact Brent periodicity check in the CPU `diverge()` (report `21`); on `main`. Best until v7: hybrid 30.9 s, CPU12 35.2 s.
 - `binary-v7-gpu-periodicity` → commit `2abc909` — exact Brent periodicity check in the GPU kernel `diverge()` (report `23`); on `main`. **Current best: hybrid 23.72 s (steady state), byte-identical output.**
 - `binary-maxiter-split` → commit `d572c78` — parameter-free all-MAXITER split rule (report `18`); **not on `main`** (characterization, byte-identical decomposition to `diffT=0.1` on realistic content)
-- `binary-frame-dist` → `feat/frame-distribution` code commit — `DIST_*` static cyclic/block-cyclic frame distribution (PoC, experiments `25`); **not on `main`** yet
+- `binary-frame-dist` → commit `aae49fb` — `DIST_*` static cyclic/block-cyclic frame distribution (PoC, experiments `25`); on `feat/frame-distribution`, **not on `main`** yet
 
 ## Known bug: min/max tracking in `examine()`
 
