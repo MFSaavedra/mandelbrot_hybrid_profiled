@@ -130,12 +130,69 @@ Side note: today's laptop baseline (18.75±0.3 s) is 21% faster than report
 comparisons above are unaffected, but absolute walls are not comparable
 across reports without a same-day baseline (thermals/driver drift).
 
+## Weighted static + dynamic work stealing (post-report-25, 2026-07-12) — `results_dynamic.csv`
+
+Two balancing modes added after report 25's equal-share benchmark
+(`ffe61aa`+): **weighted-random static** (`DIST_WEIGHTS`/`DIST_SEED` in the
+binary: owner(i) = rank whose cumulative-weight interval contains
+`splitmix64(seed+i) mod W` — communication-free, cross-machine
+deterministic) and **coordinator-driven work stealing**
+(`scripts/dist_dynamic.sh`: seeded shuffle dealt proportionally into
+per-rank bags; per-node drivers dispatch guided chunks — half the remaining
+bag, capped at `KCAP·w_r` frames, min `KMIN` — via the new `DIST_FRAMES`
+explicit-list mode; a node whose bag empties steals half the richest
+undispatched tail under one flock).
+
+**Identity (production spec, laptop+ivy, CPU-pinned):** weighted static
+5:1 → 85/15 split, 100/100 byte-identical; dynamic 5:1 → 100/100
+byte-identical *with a live corrective steal*: in the CPU-pinned config the
+laptop is only ~2.4× ivy (no GPU), so 5:1 overloaded it and ivy stole 5
+frames back — miscalibration correction observed in the wild.
+
+**Benchmark** (`bench_dynamic.sh`, 3 reps, AC, hybrid laptop + CPU-only ivy):
+
+| Config (means) | e2e wall | laptop | ivy | shares (L/I) |
+|---|---|---|---|---|
+| `laptop_hybrid` baseline | 21.06 ± 2.73 s | — | — | 100/— |
+| `weighted_static` 5:1 | 22.93 ± 0.11 | 17.93 | 19.85 | 85/15 |
+| `dyn_51` (right weights) | 22.01 ± 0.56 | 18.96 busy | 16.31 busy | 83/17, 0 stolen |
+| `dyn_11` (wrong weights) | 28.18 ± 0.37 | 18.93 busy | 22.15 busy | 79/21, 29 stolen |
+
+Findings:
+
+1. **Right weights reach baseline parity, as report 25's ceiling said they
+   must — and no more.** Weighted static (22.93 s) and dynamic (22.01 s)
+   both land within this batch's noisy baseline (18.87/24.12/20.18 s —
+   sustained benching thermals; earlier same-day batches measured
+   18.75±0.34 and 19.20±0.55). The 1.22× ideal minus 3.4–4.2 s orchestration
+   overhead is a wash, and that is what was measured. The win vs *equal*
+   shares is large: 46.90 → ~22 s.
+2. **Stealing recovers 72% of a miscalibration autonomously.** Wrong (1:1)
+   weights: static equal-share 46.90 s → uncapped stealing 31.27 s →
+   weight-capped stealing **28.18 s**. The first run exposed the binding
+   defect: a slow node's half-bag chunk (25 frames = 27.4 s) is in flight
+   and unstealable. The fix caps chunks at `KCAP·w_r` frames — in-flight
+   exposure is k/rate with rate ∝ weight, so the weight-proportional cap
+   bounds every node's unstealable exposure at the same wall-time budget
+   (ivy busy fell 28.0 → 22.2 s; the laptop's stolen haul rose 25 → 29
+   frames). The residual +28% vs baseline is ivy's still-inflated share
+   plus per-chunk dispatch overhead.
+3. **With calibrated weights, stealing never fires** (dyn_51: 0 stolen,
+   both nodes finish within ~2 s) — it is pure insurance, costing only the
+   chunked dispatch (+0–1 s vs weighted static, within noise).
+4. **Random assignment has real variance at small shares:** ivy's fixed
+   (seed-1234) 15-frame draw costs 19.9 s = 1.32 s/frame vs its 0.855
+   overall mean — one draw from a 32×-spread population. A deterministic
+   weighted *interleave* would cut that variance; with stealing on top it
+   is moot (the dynamic tail absorbs it).
+
 ## Files
 
 - `verify_dist.sh` — the identity harness (run it from anywhere; takes NNODES)
 - `results_identity.csv` — one row per check
-- `bench_2node.sh` — the laptop+ivy benchmark driver (AC-gated; REPS env)
+- `bench_2node.sh` — the laptop+ivy equal-share benchmark driver (AC-gated; REPS env)
 - `results_bench.csv` — one row per run, columns as above
+- `bench_dynamic.sh` / `results_dynamic.csv` — weighted-static vs dynamic-stealing A/B
 - `collect/`, `verify_work/`, `bench/` — gitignored scratch (PNG trees, logs)
 
 ## Regenerate
