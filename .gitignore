@@ -39,6 +39,12 @@ experiments/*/viz_*/ff*.log
 # Claude Code local settings
 .claude/
 
+# Distributed-rendering scratch: per-rank workdirs, PNG collection, and the
+# identity check's ref/collect trees (results_identity.csv stays tracked)
+dist_work/
+experiments/25-frame-distribution/collect/
+experiments/25-frame-distribution/verify_work/
+
 # ncu raw per-kernel dumps (regenerate via ncu --import from the .ncu-rep)
 experiments/16-ncu-divergence/analysis/*_full.csv
 experiments/16-ncu-divergence/analysis/*_warp.csv

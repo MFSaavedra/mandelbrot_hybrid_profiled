@@ -100,16 +100,19 @@ static void generateSequenceFrames(MandelFrame **fr, int n, const char *prefix)
 {
   char outName[MAXFNAME + 16];
   long totalRects = 0;
+  int  drawn = 0;
   for (int i = 0; i < n; i++)
     {
+      if (!fr[i]) continue;                         // frame owned by another node (DIST_*)
       QImage frame = fr[i]->img->copy();
       drawVizOverlay(frame, fr[i]->vizRects, -1);   // -1 = full partition
       snprintf(outName, sizeof(outName), "%s%04d.png", prefix, i);
       frame.save(outName, "PNG");
       totalRects += fr[i]->vizRects.size();
+      drawn++;
     }
   fprintf(stderr, "[viz] wrote %d overlaid sequence frames (%ld subdivision nodes total)\n",
-          n, totalRects);
+          drawn, totalRects);
 }
 
 //************************************************************
@@ -128,6 +131,7 @@ static void generateProcessFrames(MandelFrame **fr, int n, const char *prefix)
   long totalRects = 0;
   for (int i = 0; i < n; i++)
     {
+      if (!fr[i]) continue;     // frame owned by another node (DIST_*)
       int maxDepth = 0;
       for (const VizRect &r : fr[i]->vizRects)
         if (r.depth > maxDepth)
@@ -243,6 +247,40 @@ int main (int argc, char *argv[])
   if (vizMode >= 2)
     profileSave = 0;
 
+  // ---- distributed frame assignment (static, cyclic / block-cyclic) ----
+  // DIST_NODES / DIST_RANK / DIST_BLOCK (environment; unset = off) select
+  // which frames of the interpolated sequence THIS process renders: frame i
+  // is ours iff (i / DIST_BLOCK) % DIST_NODES == DIST_RANK.  DIST_BLOCK=1 is
+  // pure cyclic; larger blocks give block-cyclic; DIST_BLOCK >=
+  // ceil(numframes/DIST_NODES) degenerates to contiguous block assignment.
+  // The frame is the distribution grain because region costs are unknowable
+  // until sampled (the region-level work queue stays intra-node, unchanged);
+  // cyclic assignment absorbs the ~32x per-frame cost trend along the zoom
+  // (report 13).  Environment variables rather than positional arguments so
+  // the existing 9-arg CLI and every sweep script stay untouched (precedent:
+  // SAMPLE_N on examine/random-sampling).
+  int distNodes = 0, distRank = 0, distBlock = 1;
+  if (const char *env = getenv ("DIST_NODES")) distNodes = atoi (env);
+  if (const char *env = getenv ("DIST_RANK"))  distRank  = atoi (env);
+  if (const char *env = getenv ("DIST_BLOCK")) distBlock = atoi (env);
+  if (distNodes > 0)
+    {
+      if (distRank < 0 || distRank >= distNodes || distBlock < 1)
+        {
+          cerr << "Bad DIST_* environment: need 0 <= DIST_RANK(" << distRank
+               << ") < DIST_NODES(" << distNodes << ") and DIST_BLOCK("
+               << distBlock << ") >= 1\n";
+          exit (1);
+        }
+      if (vizMode == 1)
+        {
+          // viz=1 renders one frozen frame chosen by vizFrame; frame
+          // distribution does not apply to it.
+          fprintf (stderr, "[dist] viz=1 freezes a single frame; ignoring DIST_*\n");
+          distNodes = 0;
+        }
+    }
+
   ifstream fin (argv[1]);
   fin >> numframes >> resolutionX >> resolutionY;
   fin >> imageFilePrefix;
@@ -279,6 +317,7 @@ int main (int argc, char *argv[])
   // the chosen frame matches what a full run would have produced.
   int framesToBuild = (vizMode == 1) ? 1 : numframes;
   MandelFrame **fr = new MandelFrame *[framesToBuild];
+  int ownedFrames = 0;          // frames this process actually renders
 
   if (vizMode == 1)
     {
@@ -295,15 +334,37 @@ int main (int argc, char *argv[])
       fr[0] = new MandelFrame (fuX, fuY, flX, flY, resolutionX, resolutionY, fname, fiter);
       fr[0]->frameIndex = vizFrame;
       workQ.append (new MandelRegion (fuX, fuY, flX, flY, 0, 0, resolutionX, resolutionY, fr[0]));
+      ownedFrames = 1;
     }
   else
     {
       for (int i = 0; i < numframes; i++)
         {
-          sprintf (fname, "%s%04i.png", imageFilePrefix, i);
-          fr[i] = new MandelFrame (uX, uY, lX, lY, resolutionX, resolutionY, fname, iter);
-          fr[i]->frameIndex = i;
-          workQ.append (new MandelRegion (uX, uY, lX, lY, 0, 0, resolutionX, resolutionY, fr[i]));
+          // Frame-ownership seam: this predicate is the ONLY thing that
+          // decides whether this process renders frame i.  A later
+          // manager-worker dispenser (finish a frame -> request the next
+          // index, one message per frame) replaces it with "ask the manager".
+          // workQ.append is already mutex-safe for incremental insertion, but
+          // CalcThr::run exits when the queue is momentarily empty, so a
+          // dispenser must enqueue the next root before the current frame
+          // drains (or block in extract).  Nothing downstream cares which
+          // frames exist locally.
+          bool owned = (distNodes <= 0) || ((i / distBlock) % distNodes == distRank);
+          if (owned)
+            {
+              // fname keeps the GLOBAL frame index i, so the union of all
+              // nodes' outputs is collision-free with no renumbering.
+              sprintf (fname, "%s%04i.png", imageFilePrefix, i);
+              fr[i] = new MandelFrame (uX, uY, lX, lY, resolutionX, resolutionY, fname, iter);
+              fr[i]->frameIndex = i;
+              workQ.append (new MandelRegion (uX, uY, lX, lY, 0, 0, resolutionX, resolutionY, fr[i]));
+              ownedFrames++;
+            }
+          else
+            fr[i] = NULL;       // skipped frame: no buffer, no root region
+          // The interpolation ACCUMULATES (uX += sx1, ...): it must advance
+          // for every i, owned or not, so frame i's corners stay bit-identical
+          // to a single-node run (base + i*step would round differently).
           uX += sx1;
           uY += sy1;
           lX += sx2;
@@ -320,6 +381,9 @@ int main (int argc, char *argv[])
           numThreads, (int)enableGPU, diffT, pixT,
           resolutionX, resolutionY, framesToBuild, profileQuiet, profileSave,
           vizMode, vizMode ? vizFrame : -1);
+  if (distNodes > 0)
+    fprintf(stderr, "[dist] rank=%d nodes=%d block=%d ownedFrames=%d of %d\n",
+            distRank, distNodes, distBlock, ownedFrames, numframes);
 
   // generate the threads that will process the workload
   CalcThr **thr = new CalcThr *[numThreads];
