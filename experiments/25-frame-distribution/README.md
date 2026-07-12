@@ -61,6 +61,33 @@ Side observation (not a timed A/B): the three CPU-only cyclic ranks reported
 near-equal thirds, exactly the cost-spread absorption the cyclic assignment
 is for (contiguous blocks would strand the deep-zoom third).
 
+## Cross-machine check (laptop + ivy, 2026-07-12)
+
+First run on real hardware: 2-node cyclic over SSH, production spec, CPU-only
+(pinned executor, as above), compared against the same single-process
+reference. Node 1 is **ivy** (i7-4702MQ, 4C/8T Haswell, GT 750M = Kepler
+sm_30 with no modern-CUDA support), running the `make GPU=0` CPU-only build
+(g++ 16, `kernel_stub.cpp`, `-DNO_NVTX`) at commit `52c40c4`:
+
+```
+# hosts.txt
+: - 12 0 0.1 32768 1 1
+ivy /home/lynx/box/mandelbrot_hybrid_profiled 8 0 0.1 32768 1 1
+```
+
+Result: **100/100 frames byte-identical** (laptop's 50 even frames 13.2 s,
+ivy's 50 odd frames 41.9 s). Cross-compiler and cross-microarchitecture
+identity (g++-15/Coffee Lake vs g++ 16/Haswell) holds because the build uses
+plain `-O2` with no `-march`: both compilers emit baseline x86-64 scalar SSE2
+FP64 with no FMA contraction, so `diverge()` computes bit-equal orbits.
+(Adding `-march=native` would break this — FMA contraction changes last-ulp
+rounding, the same mechanism as the CPU-vs-CUDA differences.)
+
+The 3.2× per-share wall gap between the two nodes is the heterogeneous-node
+imbalance the static assignment cannot absorb — the concrete motivation for
+the manager-worker frame dispenser (seam in `main.cpp`) and for weighted
+static shares in the report-25 study.
+
 ## Files
 
 - `verify_dist.sh` — the identity harness (run it from anywhere; takes NNODES)
