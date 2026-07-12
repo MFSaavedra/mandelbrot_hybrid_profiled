@@ -152,6 +152,18 @@ static void generateProcessFrames(MandelFrame **fr, int n, const char *prefix)
 
 
 //************************************************************
+// SplitMix64 (Steele et al.).  The weighted-random frame owner must be
+// computed identically by every rank on every machine and compiler, so the
+// draw is pure uint64 arithmetic -- no floating point, no libc rand().
+static inline unsigned long long splitmix64 (unsigned long long x)
+{
+  x += 0x9E3779B97F4A7C15ULL;
+  x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9ULL;
+  x = (x ^ (x >> 27)) * 0x94D049BB133111EBULL;
+  return x ^ (x >> 31);
+}
+
+//************************************************************
 class CalcThr:public QThread
 {
 private:
@@ -259,11 +271,46 @@ int main (int argc, char *argv[])
   // (report 13).  Environment variables rather than positional arguments so
   // the existing 9-arg CLI and every sweep script stay untouched (precedent:
   // SAMPLE_N on examine/random-sampling).
+  // Three ownership modes, by precedence:
+  //   DIST_FRAMES  = "3,17,42"  explicit global frame list.  This is the
+  //                  dispenser interface: scripts/dist_dynamic.sh dispatches
+  //                  work-stealing chunks through it, one invocation per
+  //                  chunk.  DIST_NODES/RANK/BLOCK/WEIGHTS are ignored.
+  //   DIST_WEIGHTS = "5,1"      seeded weighted-random static assignment
+  //                  (with DIST_SEED, default 1234): frame i belongs to the
+  //                  rank whose cumulative-weight interval contains
+  //                  splitmix64(seed + i) mod sum(weights).  Every rank
+  //                  computes the same partition with no communication; in
+  //                  expectation rank r owns numframes*w_r/W frames,
+  //                  randomly interleaved along the zoom's cost trend (the
+  //                  weighted analogue of cyclic).  DIST_BLOCK is ignored.
+  //   (neither)                 the block-cyclic predicate above.
   int distNodes = 0, distRank = 0, distBlock = 1;
+  unsigned long long distSeed = 1234;
+  const char *distWeightsEnv = getenv ("DIST_WEIGHTS");
+  const char *distFramesEnv  = getenv ("DIST_FRAMES");
+  set<int> distFrameSet;
+  long distWeightSum = 0, distWeightLo = 0, distWeightHi = 0;
   if (const char *env = getenv ("DIST_NODES")) distNodes = atoi (env);
   if (const char *env = getenv ("DIST_RANK"))  distRank  = atoi (env);
   if (const char *env = getenv ("DIST_BLOCK")) distBlock = atoi (env);
-  if (distNodes > 0)
+  if (const char *env = getenv ("DIST_SEED"))  distSeed  = strtoull (env, NULL, 10);
+
+  if (distFramesEnv)
+    {
+      for (const char *p = distFramesEnv; *p; )
+        {
+          char *end;
+          long v = strtol (p, &end, 10);
+          if (end == p)
+            { cerr << "Bad DIST_FRAMES near '" << p << "'\n"; exit (1); }
+          distFrameSet.insert ((int) v);
+          p = (*end == ',') ? end + 1 : end;
+        }
+      if (distFrameSet.empty ())
+        { cerr << "DIST_FRAMES is empty\n"; exit (1); }
+    }
+  else if (distNodes > 0)
     {
       if (distRank < 0 || distRank >= distNodes || distBlock < 1)
         {
@@ -272,13 +319,39 @@ int main (int argc, char *argv[])
                << distBlock << ") >= 1\n";
           exit (1);
         }
-      if (vizMode == 1)
+      if (distWeightsEnv)
         {
-          // viz=1 renders one frozen frame chosen by vizFrame; frame
-          // distribution does not apply to it.
-          fprintf (stderr, "[dist] viz=1 freezes a single frame; ignoring DIST_*\n");
-          distNodes = 0;
+          // exactly distNodes positive integer weights; remember this
+          // rank's half-open interval [lo, hi) in the cumulative sum
+          int k = 0;
+          for (const char *p = distWeightsEnv; *p; )
+            {
+              char *end;
+              long w = strtol (p, &end, 10);
+              if (end == p || w <= 0)
+                { cerr << "Bad DIST_WEIGHTS near '" << p << "'\n"; exit (1); }
+              if (k == distRank) distWeightLo = distWeightSum;
+              distWeightSum += w;
+              if (k == distRank) distWeightHi = distWeightSum;
+              k++;
+              p = (*end == ',') ? end + 1 : end;
+            }
+          if (k != distNodes)
+            {
+              cerr << "DIST_WEIGHTS has " << k << " entries, DIST_NODES is "
+                   << distNodes << "\n";
+              exit (1);
+            }
         }
+    }
+  if ((distFramesEnv || distNodes > 0) && vizMode == 1)
+    {
+      // viz=1 renders one frozen frame chosen by vizFrame; frame
+      // distribution does not apply to it.
+      fprintf (stderr, "[dist] viz=1 freezes a single frame; ignoring DIST_*\n");
+      distNodes = 0;
+      distFramesEnv = NULL;
+      distFrameSet.clear ();
     }
 
   ifstream fin (argv[1]);
@@ -287,6 +360,15 @@ int main (int argc, char *argv[])
   fin >> upperCornerX[0] >> upperCornerY[0] >> lowerCornerX[0] >> lowerCornerY[0] >> maxIterations[0];
   fin >> upperCornerX[1] >> upperCornerY[1] >> lowerCornerX[1] >> lowerCornerY[1] >> maxIterations[1];
   fin.close ();
+
+  if (!distFrameSet.empty ()
+      && (*distFrameSet.begin () < 0 || *distFrameSet.rbegin () >= numframes))
+    {
+      cerr << "DIST_FRAMES index out of range: [" << *distFrameSet.begin ()
+           << ", " << *distFrameSet.rbegin () << "] vs " << numframes
+           << " frames\n";
+      exit (1);
+    }
 
   // generate the pseudocolor map to be used for all frames
   int MAXMAXITER = max (maxIterations[0], maxIterations[1]);
@@ -349,7 +431,21 @@ int main (int argc, char *argv[])
           // dispenser must enqueue the next root before the current frame
           // drains (or block in extract).  Nothing downstream cares which
           // frames exist locally.
-          bool owned = (distNodes <= 0) || ((i / distBlock) % distNodes == distRank);
+          bool owned;
+          if (distFramesEnv)
+            owned = distFrameSet.count (i) != 0;
+          else if (distNodes <= 0)
+            owned = true;
+          else if (distWeightsEnv)
+            {
+              unsigned long long h =
+                splitmix64 (distSeed + (unsigned long long) i)
+                % (unsigned long long) distWeightSum;
+              owned = h >= (unsigned long long) distWeightLo
+                   && h <  (unsigned long long) distWeightHi;
+            }
+          else
+            owned = (i / distBlock) % distNodes == distRank;
           if (owned)
             {
               // fname keeps the GLOBAL frame index i, so the union of all
@@ -381,7 +477,14 @@ int main (int argc, char *argv[])
           numThreads, (int)enableGPU, diffT, pixT,
           resolutionX, resolutionY, framesToBuild, profileQuiet, profileSave,
           vizMode, vizMode ? vizFrame : -1);
-  if (distNodes > 0)
+  if (distFramesEnv)
+    fprintf(stderr, "[dist] mode=list ownedFrames=%d of %d\n",
+            ownedFrames, numframes);
+  else if (distNodes > 0 && distWeightsEnv)
+    fprintf(stderr, "[dist] mode=weighted rank=%d nodes=%d weights=%s seed=%llu "
+            "ownedFrames=%d of %d\n",
+            distRank, distNodes, distWeightsEnv, distSeed, ownedFrames, numframes);
+  else if (distNodes > 0)
     fprintf(stderr, "[dist] rank=%d nodes=%d block=%d ownedFrames=%d of %d\n",
             distRank, distNodes, distBlock, ownedFrames, numframes);
 

@@ -40,6 +40,10 @@
 #           = numThr gpuEnable diffT pixT quiet save)
 #   BLOCK = DIST_BLOCK: 1 = pure cyclic (default); k = block-cyclic;
 #           >= ceil(frames/N) = contiguous block
+#   WEIGHTS = DIST_WEIGHTS, comma ints one per rank (e.g. "5,1"): switches
+#           the binary to seeded weighted-random assignment -- rank r owns
+#           ~frames*w_r/W frames.  SEED = DIST_SEED (default: binary's 1234).
+#           When set, BLOCK is ignored.
 #   JOBS  = concurrent node jobs (default: all hosts at once; the local
 #           identity check sets JOBS=1 because simulated nodes share one GPU)
 #
@@ -78,9 +82,11 @@ if [[ "${1:-}" == "_node" ]]; then
     scp -q "$DIST_SPEC" "$host:$wd/spec.in"
   fi
 
+  denv="DIST_NODES=$DIST_N DIST_RANK=$rank DIST_BLOCK=$DIST_B"
+  [[ -n "${DIST_W:-}" ]] && denv+=" DIST_WEIGHTS=$DIST_W"
+  [[ -n "${DIST_SEEDV:-}" ]] && denv+=" DIST_SEED=$DIST_SEEDV"
   log="$DIST_OUT/logs/rank$rank"
-  rsh "cd '$wd' && DIST_NODES=$DIST_N DIST_RANK=$rank DIST_BLOCK=$DIST_B \
-       '$rdir/mandelHybrid' spec.in $args" \
+  rsh "cd '$wd' && $denv '$rdir/mandelHybrid' spec.in $args" \
       > "$log.stdout" 2> "$log.stderr"
 
   owned=$(grep -oP 'ownedFrames=\K[0-9]+' "$log.stderr" || echo 0)
@@ -119,6 +125,8 @@ export DIST_RDIR="$RDIR"
 export DIST_ARGS="$ARGS"
 export DIST_B="$BLOCK"
 export DIST_N="$N"
+export DIST_W="${WEIGHTS:-}"
+export DIST_SEEDV="${SEED:-}"
 # Image prefix = 4th field of the spec's first line; the union is collected
 # by this glob, keyed by the global frame index the binary already emits.
 export DIST_PREFIX=$(awk 'NR==1{print $4}' "$DIST_SPEC")
