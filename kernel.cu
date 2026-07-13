@@ -1,3 +1,16 @@
+/**
+ * @file kernel.cu
+ * @brief CUDA implementation of the GPU executor: the Mandelbrot device kernel
+ *        and the host-side front-end (@ref hostFE) with its reusable device /
+ *        pinned-host buffers and CUDA-event timing.
+ *
+ * This translation unit provides the GPU half of the @ref kernel.h interface.
+ * @ref CUDAmemSetup allocates once, @ref hostFE renders one region per call
+ * (launch + synchronous copy-back + per-region timing), and @ref CUDAmemCleanup
+ * prints the aggregate GPU summary and frees everything. NVTX ranges bracket
+ * the host front-end so the GPU worker's activity is visible in Nsight Systems.
+ * @see kernel.h, kernel_stub.cpp
+ */
 #include <cstddef>
 #include <cuda.h>
 #include <stdio.h>
@@ -51,6 +64,21 @@ static double totalMemcpyMs = 0.0;
 static long   totalRegions  = 0;
 
 //************************************************************
+/**
+ * @brief Device-side escape-iteration count for one point (mirrors the CPU
+ *        @ref MandelRegion::diverge).
+ *
+ * Iterates @f$z \to z^2 + c@f$ from @p (cx,cy) and returns the escape
+ * iteration, or @p MAXITER if the point does not escape. Carries the same exact
+ * Brent periodicity check as the CPU path: a lane that detects an exactly
+ * repeating orbit returns @p MAXITER early and sits masked while the rest of
+ * the warp finishes, so the warp's time is bounded by its slowest lane's
+ * detection latency rather than @c 32&times;MAXITER. Exactness (no epsilon)
+ * keeps the image byte-identical.
+ * @param cx,cy   Complex coordinate of the point.
+ * @param MAXITER Iteration ceiling.
+ * @return Escape iteration in [0, MAXITER].
+ */
 __device__ int diverge(double cx, double cy, int MAXITER) {
   int iter = 0;
   double vx = cx, vy = cy, tx, ty;
@@ -87,6 +115,21 @@ __device__ int diverge(double cx, double cy, int MAXITER) {
 }
 
 //************************************************************
+/**
+ * @brief Render one region: one CUDA thread computes one pixel.
+ *
+ * Launched over a 2D grid of 16&times;16 blocks covering the region. Each
+ * thread maps its @c (blockIdx,threadIdx) to a pixel, converts it to a complex
+ * coordinate via the per-pixel steps, calls @ref diverge, and writes the
+ * iteration count into the pitched device buffer. Threads outside the
+ * @c resX&times;resY region return immediately.
+ * @param[out] d_res Pitched device result buffer (iteration counts).
+ * @param upperX,upperY Complex coordinate of the region's upper-left pixel.
+ * @param stepX,stepY   Per-pixel complex increment.
+ * @param resX,resY     Region size in pixels.
+ * @param pitch         Row stride of @p d_res in bytes.
+ * @param MAXITER       Iteration ceiling.
+ */
 __global__ void mandelKernel(unsigned *d_res, double upperX, double upperY,
                              double stepX, double stepY, int resX, int resY,
                              int pitch, int MAXITER) {

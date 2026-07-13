@@ -1,9 +1,15 @@
-// CPU-only link stub (make GPU=0): satisfies kernel.h's extern "C" interface
-// on nodes without a usable CUDA stack — e.g. the GT 750M node (Kepler sm_30,
-// dropped after CUDA 10.2).  main.cpp only calls CUDAmemSetup/hostFE when
-// gpuEnable=1, so a CPU-only run (arg3 = 0) never reaches these; if someone
-// forces gpuEnable=1 on a GPU-less binary, fail loudly instead of rendering
-// garbage.
+/**
+ * @file kernel_stub.cpp
+ * @brief CPU-only link stub for @c make @c GPU=0 builds — a GPU-free
+ *        implementation of the @ref kernel.h interface.
+ *
+ * Satisfies the linker on nodes without a usable CUDA stack (e.g. a Kepler
+ * @c sm_30 GT 750M, dropped after CUDA 10.2). @ref main.cpp only calls
+ * @ref CUDAmemSetup / @ref hostFE when @c gpuEnable=1, so a CPU-only run never
+ * reaches these functions; if someone forces @c gpuEnable=1 on a GPU-less
+ * binary, they abort loudly rather than render garbage.
+ * @see kernel.h, kernel.cu
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include "kernel.h"

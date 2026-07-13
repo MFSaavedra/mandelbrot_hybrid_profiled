@@ -1,3 +1,11 @@
+/**
+ * @file mandelregion.cpp
+ * @brief Implementation of @ref MandelRegion — the CPU iteration kernel
+ *        (@ref MandelRegion::diverge), the adaptive subdivision rule
+ *        (@ref MandelRegion::examine), pixel computation, per-thread CPU
+ *        timing, and the load-balancing outlier dump.
+ * @see mandelregion.h
+ */
 #include "mandelregion.h"
 #include "workqueue.h"
 #include "kernel.h"
@@ -27,24 +35,24 @@ static inline int nvtxRangePop()              { return 0; }
 // thread_local gives each QThread its own copy with zero synchronization cost.
 // ============================================================
 #include <time.h>
-static thread_local long   cpuRegionCount = 0;
-static thread_local double cpuTotalMs     = 0.0;
+static thread_local long   cpuRegionCount = 0;   ///< Regions this thread computed on the CPU.
+static thread_local double cpuTotalMs     = 0.0;  ///< Cumulative CPU compute time for this thread (ms).
 
-// Defined in main.cpp.  When set, the per-region CPU timing line below is
-// suppressed; the printCPUSummary call at thread exit is unaffected.
+/// Defined in @ref main.cpp. When set, the per-region CPU timing line is
+/// suppressed; the @ref MandelRegion::printCPUSummary call at thread exit is unaffected.
 extern "C" int profileQuiet;
 
-// Defined in main.cpp.  When set, every examined region registers its pixel
-// rectangle + depth + executor with its owner frame for the subdivision
-// animation.  Gated here so the recording cost never touches a timed run.
+/// Defined in @ref main.cpp. When set, every examined region registers its pixel
+/// rectangle + depth + executor with its owner frame for the subdivision
+/// animation. Gated so the recording cost never touches a timed run.
 extern "C" int vizMode;
 
-// A computed region whose wall time exceeds this is logged in full (location,
-// corner spread, interior fraction, cardioid/bulb membership) regardless of
-// the quiet flag.  These are the load-balancing outliers worth dissecting.
+/// A computed region whose wall time exceeds this (ms) is logged in full
+/// (location, corner spread, interior fraction, cardioid/bulb membership)
+/// regardless of the quiet flag — the load-balancing outliers worth dissecting.
 static const double OUTLIER_MS = 5000.0;
 
-// Returns elapsed milliseconds between two timespec values.
+/// @brief Elapsed milliseconds between two @c timespec values.
 static inline double elapsedMs(const struct timespec &t0, const struct timespec &t1)
 {
   return (t1.tv_sec - t0.tv_sec) * 1e3 + (t1.tv_nsec - t0.tv_nsec) * 1e-6;

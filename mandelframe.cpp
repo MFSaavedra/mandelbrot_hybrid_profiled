@@ -1,7 +1,13 @@
+/**
+ * @file mandelframe.cpp
+ * @brief Implementation of @ref MandelFrame — construction, the atomic
+ *        region-completion protocol, and viz-node recording.
+ * @see mandelframe.h
+ */
 #include "mandelframe.h"
 
-// Defined in main.cpp.  When 0, regionComplete skips img->save() so we can
-// time the pure compute path without the PNG-encode tail.
+/// Defined in @ref main.cpp. When 0, @ref MandelFrame::regionComplete skips
+/// @c img->save() so the pure compute path can be timed without the PNG-encode tail.
 extern "C" int profileSave;
 
 //----------------------------------------------------------------------

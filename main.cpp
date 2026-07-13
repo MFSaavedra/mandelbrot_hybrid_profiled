@@ -1,3 +1,17 @@
+/**
+ * @file main.cpp
+ * @brief Program entry point: argument parsing, frame/region setup, worker
+ *        thread launch, the end-to-end wall timer, distributed frame ownership,
+ *        and the post-timer subdivision visualizer.
+ *
+ * @ref main builds the interpolated zoom sequence of @ref MandelFrame objects,
+ * seeds one root @ref MandelRegion per owned frame into a shared @ref WorkQueue,
+ * launches one @ref CalcThr per worker (thread 0 drives the GPU), and times the
+ * whole compute phase. It also implements the @c DIST_* multi-node
+ * frame-ownership predicate (which frames this process renders) and the three
+ * @c vizMode animation renderers, which run after the timer stops so they never
+ * perturb the measurement.
+ */
 #include <stdlib.h>
 #include <iostream>
 #include <fstream>
@@ -16,9 +30,9 @@
 // Profiling flags consulted by kernel.cu, mandelregion.cpp and mandelframe.cpp.
 // Defined here so a single command-line switch controls them.  C linkage keeps
 // the symbol name identical in nvcc and g++ object files.
-extern "C" int profileQuiet = 0;   // 1 = suppress per-region stderr prints
-extern "C" int profileSave  = 1;   // 0 = skip PNG saves (pure-compute timing)
-extern "C" int vizMode      = 0;   // 1 = subdivision-animation mode (see below)
+extern "C" int profileQuiet = 0;   ///< 1 = suppress per-region stderr prints.
+extern "C" int profileSave  = 1;   ///< 0 = skip PNG saves (pure-compute timing).
+extern "C" int vizMode      = 0;   ///< Subdivision-animation mode 0/1/2/3 (see @ref main).
 
 //************************************************************
 // Draw the recorded subdivision outlines onto an image.  Internal (split)
@@ -26,6 +40,13 @@ extern "C" int vizMode      = 0;   // 1 = subdivision-animation mode (see below)
 // coloured by executor — cyan for the GPU thread, yellow for the CPU threads —
 // so the load-balancing partition is directly visible.  maxDepth < 0 draws the
 // complete partition; maxDepth >= 0 draws only nodes down to that depth.
+/**
+ * @brief Stroke recorded subdivision outlines onto a frame image, coloured by
+ *        executor.
+ * @param[in,out] frame Image to draw onto.
+ * @param rects    Recorded subdivision nodes for the frame (@ref VizRect).
+ * @param maxDepth Draw nodes down to this depth; @c <0 draws the full partition.
+ */
 static void drawVizOverlay(QImage &frame, const QVector<VizRect> &rects, int maxDepth)
 {
   const QColor colSkeleton(90, 90, 90);     // internal / split nodes
@@ -65,6 +86,12 @@ static void drawVizOverlay(QImage &frame, const QVector<VizRect> &rects, int max
 // depth k it writes "<prefix>_dNN.png": a copy of the finished image overlaid
 // with the region outlines that exist down to depth k.  Runs after the
 // wall-clock timer stops, so it never perturbs the measured compute phase.
+/**
+ * @brief @c viz=1: emit the depth-by-depth subdivision animation of one frozen
+ *        frame (@c &lt;prefix&gt;_dNN.png per recursion depth).
+ * @param f      The single rendered frame carrying the recorded @ref VizRect list.
+ * @param prefix Per-frame output filename prefix.
+ */
 static void generateDepthFrames(MandelFrame *f, const char *prefix)
 {
   if (f->vizRects.isEmpty())
@@ -96,6 +123,14 @@ static void generateDepthFrames(MandelFrame *f, const char *prefix)
 // each frame's complete subdivision partition, coloured by executor.  Writes
 // the overlaid images under the normal "<prefix>NNNN.png" names so they can be
 // assembled into a movie of the whole run.  Runs after the timer stops.
+/**
+ * @brief @c viz=2: overlay every frame's complete subdivision partition and
+ *        write @c &lt;prefix&gt;NNNN.png for the whole run.
+ * @param fr     Array of frame pointers (@c NULL entries = frames owned by
+ *               another node under @c DIST_*).
+ * @param n      Number of frames.
+ * @param prefix Output filename prefix.
+ */
 static void generateSequenceFrames(MandelFrame **fr, int n, const char *prefix)
 {
   char outName[MAXFNAME + 16];
@@ -124,6 +159,13 @@ static void generateSequenceFrames(MandelFrame **fr, int n, const char *prefix)
 // Because the work queue is processed concurrently, this is a depth-ordered
 // reconstruction (deterministic), not a wall-clock replay.  Output PNGs are
 // numbered with a single global counter so ffmpeg can assemble them directly.
+/**
+ * @brief @c viz=3: animate the splitting process across the whole run — one
+ *        image per recursion depth per frame, then advance the camera.
+ * @param fr     Array of frame pointers (@c NULL = frame owned by another node).
+ * @param n      Number of frames.
+ * @param prefix Output filename prefix (@c &lt;prefix&gt;NNNNN.png, single global counter).
+ */
 static void generateProcessFrames(MandelFrame **fr, int n, const char *prefix)
 {
   char outName[MAXFNAME + 24];
@@ -155,6 +197,12 @@ static void generateProcessFrames(MandelFrame **fr, int n, const char *prefix)
 // SplitMix64 (Steele et al.).  The weighted-random frame owner must be
 // computed identically by every rank on every machine and compiler, so the
 // draw is pure uint64 arithmetic -- no floating point, no libc rand().
+/**
+ * @brief SplitMix64 hash (Steele et al.) — the seeded, communication-free draw
+ *        behind @c DIST_WEIGHTS frame ownership.
+ * @param x Seed + frame index.
+ * @return A well-mixed 64-bit value; @c mod sum(weights) selects the owning rank.
+ */
 static inline unsigned long long splitmix64 (unsigned long long x)
 {
   x += 0x9E3779B97F4A7C15ULL;
@@ -164,16 +212,29 @@ static inline unsigned long long splitmix64 (unsigned long long x)
 }
 
 //************************************************************
+/**
+ * @brief One worker thread that drains the shared @ref WorkQueue.
+ *
+ * There is one @ref CalcThr per logical worker. Thread 0 (constructed with
+ * @c gpu=true when the GPU is enabled) drives the GPU path; all others are
+ * CPU-only. Each thread loops @ref WorkQueue::extract &rarr;
+ * @ref MandelRegion::examine until the queue drains, then prints its per-thread
+ * CPU timing summary and exits.
+ */
 class CalcThr:public QThread
 {
 private:
-  WorkQueue * que;
-  bool isGPU;
+  WorkQueue * que;              ///< Shared task queue all workers pull from.
+  bool isGPU;                   ///< @c true for the GPU-driving worker (affinity + executor selection).
 
 public:
+  /** @brief Bind the worker to a queue and its executor role.
+   *  @param q   Shared work queue.
+   *  @param gpu @c true if this thread drives the GPU path. */
     CalcThr (WorkQueue * q, bool gpu):que (q), isGPU (gpu)
   {
   }
+  /** @brief Thread body: examine regions until the queue is empty, then summarize. */
   void run ();
 };
 
@@ -211,6 +272,23 @@ void CalcThr::run ()
 //                      3 = full sequence AND the splitting process: per run frame, one
 //                      image per recursion depth (depth 0..terminal), then advance the
 //                      camera (saved as <prefix>NNNNN.png, single global counter).
+/**
+ * @brief Program entry point.
+ *
+ * Reads the spec file, builds the interpolated frame sequence (honouring the
+ * @c DIST_* frame-ownership predicate), seeds one root region per owned frame
+ * into a shared @ref WorkQueue, launches the @ref CalcThr worker pool (thread 0
+ * drives the GPU), times the full compute phase to @c stderr as
+ * @c [total_elapsed_s], then renders the @c vizMode animation outside the timed
+ * region.
+ *
+ * @param argc,argv Command line:
+ *   @c spec_file @c [numThr] @c [GPUenable] @c [diffT] @c [pixT] @c [quiet]
+ *   @c [save] @c [viz] @c [vizFrame]. See the usage banner above for each
+ *   argument; multi-node frame ownership is configured through the @c DIST_*
+ *   environment variables (see the frame-ownership seam in the frame loop).
+ * @return 0 on success; exits non-zero on a malformed spec or @c DIST_* config.
+ */
 int main (int argc, char *argv[])
 {
   int numframes, resolutionX, resolutionY;

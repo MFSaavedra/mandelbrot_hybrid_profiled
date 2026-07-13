@@ -36,6 +36,10 @@ experiments/*/viz_*/ff*.log
 *.fdb_latexmk
 *.synctex.gz
 
+# Doxygen generated output (Doxyfile + docs/mainpage.dox stay tracked)
+docs/html/
+docs/doxygen-warnings.log
+
 # Claude Code local settings
 .claude/
 
