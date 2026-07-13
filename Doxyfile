@@ -1,0 +1,111 @@
+# Doxyfile for mandelHybrid — hybrid CPU+GPU Mandelbrot renderer.
+# Only options that differ from the doxygen defaults are set here; run
+#   doxygen Doxyfile
+# from the project root to generate HTML docs into docs/html/.
+
+#---------------------------------------------------------------------------
+# Project
+#---------------------------------------------------------------------------
+PROJECT_NAME           = "mandelHybrid"
+PROJECT_BRIEF          = "Hybrid CPU+GPU Mandelbrot renderer with adaptive load balancing"
+OUTPUT_DIRECTORY       = docs
+CREATE_SUBDIRS         = NO
+FULL_PATH_NAMES        = NO
+TAB_SIZE               = 2
+MARKDOWN_SUPPORT       = YES
+AUTOLINK_SUPPORT       = YES
+BUILTIN_STL_SUPPORT    = YES
+JAVADOC_AUTOBRIEF      = YES
+OPTIMIZE_OUTPUT_FOR_C  = NO
+TOC_INCLUDE_HEADINGS   = 3
+
+#---------------------------------------------------------------------------
+# What to extract
+#---------------------------------------------------------------------------
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+INTERNAL_DOCS          = NO
+SORT_MEMBER_DOCS       = NO
+SORT_BRIEF_DOCS        = NO
+
+#---------------------------------------------------------------------------
+# Input — flat source tree at the project root, plus the hand-written main page.
+# reports/, experiments/, scripts/ hold LaTeX/data/shell, not documented C++.
+#---------------------------------------------------------------------------
+INPUT                  = . docs/mainpage.dox
+RECURSIVE              = NO
+FILE_PATTERNS          = *.cpp *.cu *.h *.dox
+EXTENSION_MAPPING      = cu=C++
+# Exclude only the generated HTML tree, NOT the whole docs/ dir — mainpage.dox
+# lives under docs/ and must still be parsed.
+EXCLUDE                = docs/html
+EXCLUDE_PATTERNS       = */reports/* */experiments/* */scripts/* */dist_work/*
+USE_MDFILE_AS_MAINPAGE =
+
+#---------------------------------------------------------------------------
+# Preprocessor — strip CUDA/attribute qualifiers so the .cu and the
+# QThread-derived classes parse cleanly.
+#---------------------------------------------------------------------------
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+PREDEFINED             = __global__= \
+                         __device__= \
+                         __host__= \
+                         __restrict__= \
+                         "extern \"C\"="
+SKIP_FUNCTION_MACROS   = YES
+
+#---------------------------------------------------------------------------
+# Source browser
+#---------------------------------------------------------------------------
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+STRIP_CODE_COMMENTS    = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+REFERENCES_LINK_SOURCE = YES
+
+#---------------------------------------------------------------------------
+# Diagrams (graphviz / dot is installed)
+#---------------------------------------------------------------------------
+HAVE_DOT               = YES
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = YES
+UML_LOOK               = YES
+TEMPLATE_RELATIONS     = YES
+INCLUDE_GRAPH          = YES
+INCLUDED_BY_GRAPH      = YES
+CALL_GRAPH             = YES
+CALLER_GRAPH           = YES
+GRAPHICAL_HIERARCHY    = YES
+DIRECTORY_GRAPH        = YES
+DOT_IMAGE_FORMAT       = svg
+INTERACTIVE_SVG        = YES
+DOT_MULTI_TARGETS      = YES
+DOT_GRAPH_MAX_NODES    = 100
+
+#---------------------------------------------------------------------------
+# Output formats
+#---------------------------------------------------------------------------
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+HTML_DYNAMIC_SECTIONS  = YES
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+FULL_SIDEBAR           = NO
+GENERATE_LATEX         = NO
+
+#---------------------------------------------------------------------------
+# Warnings / diagnostics
+#---------------------------------------------------------------------------
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = NO
+WARN_IF_DOC_ERROR      = YES
+WARN_NO_PARAMDOC       = YES
+WARN_LOGFILE           = docs/doxygen-warnings.log

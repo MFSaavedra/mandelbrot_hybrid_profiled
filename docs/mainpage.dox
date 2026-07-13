@@ -1,0 +1,119 @@
+/**
+@mainpage mandelHybrid — Hybrid CPU+GPU Mandelbrot Renderer
+
+@tableofcontents
+
+@section intro Overview
+
+@c mandelHybrid renders an interpolated zoom sequence of Mandelbrot-set images
+using **adaptive region splitting** as its load-balancing strategy across a
+pool of CPU threads and (optionally) a CUDA GPU. It is the profiled study
+subject for Chapter 11 (Load Balancing) of *Multicore and GPU Programming*.
+
+The core idea: the cost of a region is unknowable until it is sampled, so the
+image is recursively subdivided into rectangles whose corners are cheap to
+probe. A region that looks uniform (or has hit a pixel-size floor) is computed
+directly; otherwise it is quartered and its children are pushed back onto a
+shared work queue. Executors self-schedule by pulling from that queue, and the
+big coherent interior regions are steered to the GPU (where they run ~30&times;
+faster) while small/divergent regions stay on the CPU pool.
+
+@section decisions The three local decisions
+
+The whole system is three small, local decisions that compose into the measured
+load balance:
+
+- **Task size** — @ref MandelRegion::examine samples a region (four corners plus
+  a 9-point interior stencil) and decides *compute vs. split*.
+- **Task owner** — @ref WorkQueue::extract hands each executor the right region:
+  the GPU thread takes the largest pending region, CPU threads the smallest
+  (*GPU affinity*); with no GPU, CPU threads take the largest (LPT).
+- **Completion** — @ref MandelFrame's atomic @ref MandelFrame::remainingRegions
+  counter (net +3 per split, &minus;1 per computed leaf) fires the PNG save when
+  the last region of a frame finishes.
+
+@section arch Architecture
+
+@dot
+digraph arch {
+  rankdir=LR;
+  node [shape=box, style=rounded, fontname="Helvetica"];
+  main   [label="main()\nframe/region setup\nwall timer"];
+  thr    [label="CalcThr\n(one per worker)"];
+  queue  [label="WorkQueue\nmin-max multiset"];
+  region [label="MandelRegion\nexamine / compute"];
+  frame  [label="MandelFrame\nimage + atomic counter"];
+  gpu    [label="kernel.cu\nhostFE / mandelKernel"];
+
+  main   -> thr    [label="launch"];
+  main   -> queue  [label="seed roots"];
+  thr    -> queue  [label="extract / append"];
+  thr    -> region [label="examine"];
+  region -> queue  [label="split -> append x4"];
+  region -> frame  [label="regionComplete"];
+  region -> gpu    [label="compute(onGPU)"];
+}
+@enddot
+
+@subsection exec Execution model
+
+One @ref CalcThr (a @c QThread subclass) runs per logical worker. Thread 0
+drives the GPU path; the rest are CPU-only. All threads pull from a single
+@ref WorkQueue and loop @ref WorkQueue::extract &rarr;
+@ref MandelRegion::examine until it drains.
+
+@subsection subdiv Adaptive subdivision
+
+@ref MandelRegion::examine evaluates the region's corners and a 9-point stencil
+(edge midpoints + centre). If the iteration spread is small relative to the
+@c diffThreshold, or the region is below @c pixelSizeThreshold, it is computed
+via @ref MandelRegion::compute; otherwise it is split into four quadrants that
+are appended back to the queue. The CPU pixel loop
+(@ref MandelRegion::diverge) and the GPU kernel (@c diverge in @ref kernel.cu)
+both carry an exact Brent periodicity check that returns early on non-escaping
+orbits without changing any pixel value.
+
+@subsection gpupath GPU path
+
+@ref CUDAmemSetup pre-allocates pitched device memory, pinned host memory, and
+CUDA timing events once at startup. @ref hostFE launches @c mandelKernel
+(16&times;16 blocks) and synchronously copies results back; the buffers are
+reused across every region processed by the GPU thread. @ref CUDAmemCleanup
+prints the aggregate GPU timing and frees everything.
+
+@section files Key files
+
+| File | Role |
+|------|------|
+| @ref main.cpp        | Argument parsing, frame/region setup, thread launch, wall timer, viz renderers |
+| @ref mandelregion.cpp / @ref mandelregion.h | Adaptive subdivision + CPU pixel computation |
+| @ref kernel.cu / @ref kernel.h | CUDA kernel and host-side GPU interface |
+| @ref mandelframe.cpp / @ref mandelframe.h | Per-frame image buffer + atomic region counter |
+| @ref workqueue.cpp / @ref workqueue.h | Thread-safe min-max task queue with GPU affinity |
+
+@section build Building
+
+@code{.sh}
+make          # build the mandelHybrid binary (needs nvcc, Qt5, CUDA)
+make clean    # remove the object files and the binary
+@endcode
+
+@section run Running
+
+@code{.sh}
+./mandelHybrid spec.in <numThreads> <gpuEnable> \
+    [diffThreshold] [pixelThreshold] [quiet] [save] [viz] [vizFrame]
+@endcode
+
+See @ref main for the full argument list.
+
+@section spec Spec-file format
+
+@code
+numframes resolutionX resolutionY imageFilePrefix
+upperCornerX upperCornerY lowerCornerX lowerCornerY maxIterations   # first frame
+upperCornerX upperCornerY lowerCornerX lowerCornerY maxIterations   # last frame
+@endcode
+
+Intermediate frames are interpolated linearly between the two corner specs.
+*/

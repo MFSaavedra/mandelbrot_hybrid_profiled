@@ -1,3 +1,8 @@
+/**
+ * @file workqueue.cpp
+ * @brief Implementation of the thread-safe min-max task queue (@ref WorkQueue).
+ * @see workqueue.h
+ */
 #include "workqueue.h"
 
 using namespace std;
