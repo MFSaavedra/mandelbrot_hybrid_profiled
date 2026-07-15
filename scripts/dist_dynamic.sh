@@ -144,8 +144,11 @@ driver() {
     log="$OUT_ABS/logs/dynrank$rank.chunk$c"
     rsh "cd '$wd' && rm -f ${PREFIX}*.png && DIST_FRAMES=$list \
          '$rdir/mandelHybrid' spec.in $args" > "$log.stdout" 2> "$log.stderr"
+    # Batched collection (single tar stream) — see dist_frames.sh: per-file
+    # scp round trips throttle the dispatch cadence itself here, since this
+    # copy sits between a chunk and the next take_chunk.
     if [[ "$host" == ":" ]]; then cp "$wd/"${PREFIX}*.png "$OUT_ABS/"
-    else scp -q "$host:$wd/${PREFIX}*.png" "$OUT_ABS/"; fi
+    else ssh "$host" "cd '$wd' && tar cf - ${PREFIX}*.png" | tar xmf - -C "$OUT_ABS"; fi
     el=$(grep '^\[total_elapsed_s\]' "$log.stderr" | awk '{print $2}')
     busy=$(echo "$busy $el" | awk '{printf "%.3f", $1 + $2}')
     rendered=$((rendered + k))

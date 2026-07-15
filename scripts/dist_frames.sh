@@ -95,7 +95,13 @@ if [[ "${1:-}" == "_node" ]]; then
     if [[ "$host" == ":" ]]; then
       cp "$wd/"${DIST_PREFIX}*.png "$DIST_OUT/"
     else
-      scp -q "$host:$wd/${DIST_PREFIX}*.png" "$DIST_OUT/"
+      # Single tar stream, not scp of the glob: scp moves files one at a time
+      # at ~2-3 protocol round trips each, which dominates on WAN links
+      # (measured on the yeco pair via the dichato jump: 6.6 s scp vs 1.0 s
+      # tar for the same 79 PNGs / 36 MB).  No -z: PNGs are already deflated.
+      # -m: don't restore mtimes (matches scp's default; silences the
+      # "time stamp in the future" warning from small clock skew).
+      ssh "$host" "cd '$wd' && tar cf - ${DIST_PREFIX}*.png" | tar xmf - -C "$DIST_OUT"
     fi
   fi
   echo "[dist] rank $rank on $host ($args): $owned frames in ${elapsed}s"
