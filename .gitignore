@@ -49,6 +49,7 @@ dist_work/
 experiments/25-frame-distribution/collect/
 experiments/25-frame-distribution/verify_work/
 experiments/25-frame-distribution/bench/
+experiments/25-frame-distribution/bench_yeco/
 
 # ncu raw per-kernel dumps (regenerate via ncu --import from the .ncu-rep)
 experiments/16-ncu-divergence/analysis/*_full.csv

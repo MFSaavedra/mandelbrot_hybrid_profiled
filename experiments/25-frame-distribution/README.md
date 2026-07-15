@@ -186,6 +186,38 @@ Findings:
    weighted *interleave* would cut that variance; with stealing on top it
    is moot (the dynamic tail absorbs it).
 
+## yeco: the mirrored pair (laptop + RTX 4090 node, 2026-07-15) — report 27
+
+Same two protocols rerun with **yeco** as the remote node (Core Ultra 7 265K
+20T + RTX 4090, Ubuntu 24.04, CUDA 13.3; `ssh yeco` = ProxyJump via
+dichato.dcc.uchile.cl, ~25 ms multiplexed RTT, ~37 MB/s): a remote node
+**4.1× faster** than the laptop (solo save=1: 5.15 ± 0.10 s vs 21.02 ± 1.94),
+the ivy heterogeneity mirrored. Built with plain `make` after the Makefile
+toolchain-autodetect commit.
+
+- `bench_2node_yeco.sh` → `results_bench_yeco.csv` — equal-share static
+  sweep (`bench_2node.sh` protocol; yeco is a desktop, so only the laptop
+  is AC-gated; `yeco_solo` runs 3 reps because it is cheap). Every 2-node
+  config beats the laptop (best: cyclic 11.24 ± 0.18 s) and **loses to yeco
+  solo** — the roles flip, the report-25 law holds from the other side.
+- `bench_dynamic_yeco.sh` → `results_dynamic_yeco_scp.csv` (per-file scp
+  collection, preserved) and `results_dynamic_yeco.csv` (after the
+  tar-stream batching in `dist_frames.sh`/`dist_dynamic.sh`) — the
+  `bench_dynamic.sh` protocol at the measured 1:4 weights. Weighted static
+  1:4 computes at the 4.14 s harmonic ideal on **both** nodes but e2e was
+  13.11 ± 1.81 s under scp — ~8 s of per-file WAN round trips (~68 ms/file),
+  exposed exactly when compute is balanced. Batching: **6.45 ± 0.26 s**
+  (−51%, σ collapses ×7), parity with yeco-solo+fetch. Dynamic 1:4 pays a
+  +21% chunking premium (CUDA init + dispatch per chunk); dynamic 1:1 shows
+  the `KCAP·w_r` cap throttling the *fast* node when weights are wrong
+  (9 dispatches for 63 frames — the mirror of the ivy in-flight defect).
+- `plot_yeco27.py` → `reports/img/framedist_yeco.png` (gitignored).
+
+Identity note: hybrid-vs-hybrid across sm_75/sm_89 + nvcc 13.2/13.3 is
+**not** expected to be byte-identical (GPU FP64 contraction differs); the
+benchmarks verify the 100/100 union only. CPU-pinned identity transfers
+per the plain `-O2` rule but was not re-run on this pair.
+
 ## Files
 
 - `verify_dist.sh` — the identity harness (run it from anywhere; takes NNODES)
@@ -193,7 +225,10 @@ Findings:
 - `bench_2node.sh` — the laptop+ivy equal-share benchmark driver (AC-gated; REPS env)
 - `results_bench.csv` — one row per run, columns as above
 - `bench_dynamic.sh` / `results_dynamic.csv` — weighted-static vs dynamic-stealing A/B
-- `collect/`, `verify_work/`, `bench/` — gitignored scratch (PNG trees, logs)
+- `bench_2node_yeco.sh` / `results_bench_yeco.csv` — the laptop+yeco equal-share sweep
+- `bench_dynamic_yeco.sh` / `results_dynamic_yeco.csv` + `results_dynamic_yeco_scp.csv` — laptop+yeco weighted/dynamic A/B, post- and pre-batching
+- `plot_bench25.py`, `plot_dynamic26.py`, `plot_yeco27.py` — figures for reports 25/26/27
+- `collect/`, `verify_work/`, `bench/`, `bench_yeco/` — gitignored scratch (PNG trees, logs)
 
 ## Regenerate
 
@@ -204,8 +239,7 @@ experiments/25-frame-distribution/verify_dist.sh 3
 
 ## Pending
 
-The actual multi-node measurement — block vs cyclic vs block-cyclic across
-real machines (report 13's static-LB earmark) — lands as report `25` when a
-second machine with the CUDA/Qt stack is available. `scripts/dist_frames.sh`
-already takes a real hosts file; the binary must be pre-built at `RDIR` on
-every host.
+The homogeneous interleave study — block vs cyclic vs block-cyclic between
+*comparable* nodes (report 13's original static-LB earmark) — remains open:
+both measured pairs (laptop+ivy 4.56×, laptop+yeco 4.1×) are heterogeneous
+enough that the slow node's share buries the interleave effect.
