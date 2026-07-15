@@ -7,17 +7,23 @@
 # the object files are not flavour-tagged.
 GPU ?= 1
 
+# CUDA install root: /opt/cuda on Arch, /usr/local/cuda (version symlink) on
+# Ubuntu.  Overridable: make CUDAINST=/usr/local/cuda-13.3
+CUDAINST ?= $(firstword $(wildcard /opt/cuda /usr/local/cuda))
+
 ifeq ($(GPU),0)
-HOSTCC    = g++
+HOSTCC   ?= g++
 CC        = $(HOSTCC)
 else
-# nvcc 13.2 does not support gcc 16 yet; pin to g++-15 for the host compiler
-# and for nvcc's -ccbin so both halves of the program share an ABI.
-HOSTCC    = g++-15
-NVCC      = nvcc -ccbin $(HOSTCC)
+# nvcc needs a host gcc it supports: Arch's system gcc 16 is too new for nvcc
+# 13.2, so pin g++-15 where it exists; elsewhere the system g++ is fine (e.g.
+# Ubuntu 24.04's gcc 13 under nvcc 13.3).  -ccbin keeps both halves of the
+# program on the same ABI.  Invoke the toolkit's own nvcc, not whatever is
+# first in PATH (Ubuntu's /usr/bin/nvcc is a stale apt toolkit).
+HOSTCC   ?= $(shell command -v g++-15 >/dev/null 2>&1 && echo g++-15 || echo g++)
+NVCC      = $(CUDAINST)/bin/nvcc -ccbin $(HOSTCC)
 CC        = $(HOSTCC)
 endif
-CUDAINST  = /opt/cuda
 
 # ---------------------------------------------------------------------------
 # Qt5: use pkg-config so the paths are correct on any distro (Arch, Ubuntu…)
