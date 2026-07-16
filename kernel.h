@@ -3,10 +3,13 @@
  * @brief Host-side interface to the CUDA Mandelbrot kernel (the GPU executor).
  *
  * Three @c extern @c "C" entry points bridge the C++ worker threads to the
- * CUDA translation unit (@ref kernel.cu). C linkage keeps the symbol names
- * identical across the @c nvcc and @c g++ object files.
+ * CUDA translation unit. C linkage keeps the symbol names identical across the
+ * @c nvcc and @c g++ object files. Exactly one implementation is linked:
+ * @ref kernel.cu for a GPU build, or @ref kernel_stub.cpp for @c make @c GPU=0
+ * (a CPU-only node with no usable CUDA stack), where every entry point aborts
+ * loudly if the GPU path is ever reached.
  *
- * @see kernel.cu
+ * @see kernel.cu, kernel_stub.cpp
  */
 #ifndef KERNEL_H_
 #define KERNEL_H_

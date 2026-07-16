@@ -1,0 +1,15 @@
+== DLT optimum (SolveImage, a=0, c=1), 2 nodes ==
+compute-only (l=0)            laptop  19.7 frames | yeco  80.3 frames | wall  4.14 s (+1.2 fixed =  5.34 s)  [lanes 4.14 | 4.14]
+scp collection (l=83.5ms)     laptop  39.1 frames | yeco  60.9 frames | wall  8.22 s (+1.2 fixed =  9.42 s)  [lanes 8.22 | 8.22]
+tar collection (l=12.2ms)     laptop  23.3 frames | yeco  76.7 frames | wall  4.89 s (+1.2 fixed =  6.09 s)  [lanes 4.89 | 4.89]
+
+== our static weights 1:4 (yeco 79 / laptop 21) evaluated ==
+weights 1:4 under scp         laptop  21.0 frames | yeco  79.0 frames | wall 10.67 s (+1.2 fixed = 11.87 s)  [lanes 4.41 | 10.67]
+weights 1:4 under tar         laptop  21.0 frames | yeco  79.0 frames | wall  5.03 s (+1.2 fixed =  6.23 s)  [lanes 4.41 | 5.03]
+
+== dynamic-stealing endpoints observed (report 27) ==
+dyn scp: 42/58 (measured)     laptop  42.0 frames | yeco  58.0 frames | wall  8.83 s (+1.2 fixed = 10.03 s)  [lanes 8.83 | 7.83]
+DLT scp optimum rounded       laptop  39.0 frames | yeco  61.0 frames | wall  8.24 s (+1.2 fixed =  9.44 s)  [lanes 8.20 | 8.24]
+
+== 3-node outlook: + ivy (p=0.958, l~4ms LAN), tar ==
+laptop+yeco+ivy               laptop  22.1 | yeco  73.0 | ivy   4.8 frames | wall  4.65 s (+1.2 fixed =  5.85 s)

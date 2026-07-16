@@ -9,7 +9,7 @@
  * (launch + synchronous copy-back + per-region timing), and @ref CUDAmemCleanup
  * prints the aggregate GPU summary and frees everything. NVTX ranges bracket
  * the host front-end so the GPU worker's activity is visible in Nsight Systems.
- * @see kernel.h
+ * @see kernel.h, kernel_stub.cpp
  */
 #include <cstddef>
 #include <cuda.h>

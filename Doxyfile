@@ -47,8 +47,8 @@ EXCLUDE_PATTERNS       = */reports/* */experiments/* */scripts/* */dist_work/*
 USE_MDFILE_AS_MAINPAGE =
 
 #---------------------------------------------------------------------------
-# Preprocessor — strip CUDA/attribute qualifiers so the .cu and the
-# QThread-derived classes parse cleanly.
+# Preprocessor — strip CUDA/attribute qualifiers and NVTX so the .cu and the
+# QThread-derived classes parse cleanly; define NO_NVTX so the no-op path shows.
 #---------------------------------------------------------------------------
 ENABLE_PREPROCESSING   = YES
 MACRO_EXPANSION        = YES
@@ -57,7 +57,8 @@ PREDEFINED             = __global__= \
                          __device__= \
                          __host__= \
                          __restrict__= \
-                         "extern \"C\"="
+                         "extern \"C\"=" \
+                         NO_NVTX
 SKIP_FUNCTION_MACROS   = YES
 
 #---------------------------------------------------------------------------

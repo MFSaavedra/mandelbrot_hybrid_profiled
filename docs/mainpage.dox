@@ -79,15 +79,18 @@ orbits without changing any pixel value.
 CUDA timing events once at startup. @ref hostFE launches @c mandelKernel
 (16&times;16 blocks) and synchronously copies results back; the buffers are
 reused across every region processed by the GPU thread. @ref CUDAmemCleanup
-prints the aggregate GPU timing and frees everything.
+prints the aggregate GPU timing and frees everything. A CPU-only build
+(@c make @c GPU=0) links @ref kernel_stub.cpp instead, which aborts loudly if
+the GPU path is ever invoked.
 
 @section files Key files
 
 | File | Role |
 |------|------|
-| @ref main.cpp        | Argument parsing, frame/region setup, thread launch, wall timer, viz renderers |
+| @ref main.cpp        | Argument parsing, frame/region setup, thread launch, wall timer, @c DIST_* frame ownership, viz renderers |
 | @ref mandelregion.cpp / @ref mandelregion.h | Adaptive subdivision + CPU pixel computation |
 | @ref kernel.cu / @ref kernel.h | CUDA kernel and host-side GPU interface |
+| @ref kernel_stub.cpp | CPU-only (@c GPU=0) stub for the GPU interface |
 | @ref mandelframe.cpp / @ref mandelframe.h | Per-frame image buffer + atomic region counter |
 | @ref workqueue.cpp / @ref workqueue.h | Thread-safe min-max task queue with GPU affinity |
 
@@ -95,7 +98,8 @@ prints the aggregate GPU timing and frees everything.
 
 @code{.sh}
 make          # build the mandelHybrid binary (needs nvcc, Qt5, CUDA)
-make clean    # remove the object files and the binary
+make GPU=0    # CPU-only build: no CUDA (kernel_stub.cpp + -DNO_NVTX)
+make clean    # required when switching GPU=0 <-> GPU=1
 @endcode
 
 @section run Running
@@ -105,7 +109,10 @@ make clean    # remove the object files and the binary
     [diffThreshold] [pixelThreshold] [quiet] [save] [viz] [vizFrame]
 @endcode
 
-See @ref main for the full argument list.
+See @ref main for the full argument list. Multi-node frame distribution is
+configured through the @c DIST_NODES / @c DIST_RANK / @c DIST_BLOCK /
+@c DIST_WEIGHTS / @c DIST_FRAMES environment variables (frames are distributed
+across nodes; the region-level work queue stays intra-node).
 
 @section spec Spec-file format
 

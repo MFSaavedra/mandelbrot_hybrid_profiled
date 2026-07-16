@@ -43,6 +43,17 @@ docs/doxygen-warnings.log
 # Claude Code local settings
 .claude/
 
+# Distributed-rendering scratch: per-rank workdirs, PNG collection, and the
+# identity check's ref/collect trees (results_identity.csv stays tracked)
+dist_work/
+experiments/25-frame-distribution/collect/
+experiments/25-frame-distribution/verify_work/
+experiments/25-frame-distribution/bench/
+experiments/25-frame-distribution/bench_yeco/
+
+# DLT analysis build scratch (patched copy of the external ../DLTlib; run.sh regenerates)
+experiments/28-dlt-analysis/build/
+
 # ncu raw per-kernel dumps (regenerate via ncu --import from the .ncu-rep)
 experiments/16-ncu-divergence/analysis/*_full.csv
 experiments/16-ncu-divergence/analysis/*_warp.csv
