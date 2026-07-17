@@ -22,7 +22,7 @@ walkthrough see [`reports/14-architecture-guide.tex`](reports/14-architecture-gu
 | # | arg | default | meaning |
 |---|---|---|---|
 | 2 | `numThreads` | core count | total CPU+GPU worker threads (thread 0 drives the GPU when `gpuEnable=1`) |
-| 3 | `gpuEnable` | 1 | 1 enables GPU; 0 is CPU-only (and flips the work queue to LPT — see below) |
+| 3 | `gpuEnable` | 1 | 1 enables GPU; 0 is CPU-only (and flips the work queue to LPT — see below). On a `make GPU=0` build (CPU-only, `kernel_stub.cpp`, no CUDA needed) only 0 is valid — the stub aborts loudly if the GPU path is invoked |
 | 4 | `diffThreshold` | 0.5 (legacy) | region is "uniform" when `(maxIter − minIter) < diffT × maxIter`. **Recommended default: 0.1** (report 06) |
 | 5 | `pixelThreshold` | 32768 | regions smaller than this many pixels are computed without further splitting |
 | 6 | `quiet` | 0 | 1 suppresses the per-region `[CPU region]` / `[GPU region]` / `[… metrics]` lines; per-thread, GPU, and `[OUTLIER]` summaries still emit |
@@ -51,6 +51,112 @@ first.
 > passes the whole string as `argv[2]` and silently runs the defaults. Pass run
 > arguments as literal tokens and confirm them against the `[config]` banner
 > (below) before trusting any timing.
+
+---
+
+## Running on one node or many (`DIST_*` frame distribution)
+
+With no `DIST_*` environment variables set, the binary renders **every**
+frame — the classic single-node run; nothing below applies. Setting them
+turns the same binary into one *rank* of a multi-node run: frames are
+distributed **across** nodes while the region-level work queue stays
+**intra-node**, untouched. Every rank reads the *same* `spec.in` (the corner
+interpolation still accumulates over all frame indices, so an owned frame's
+corners are bit-identical to a single-node run); non-owned frames get no
+`MandelFrame` and no root region, so per-node frame-buffer memory drops to the
+owned share. Output PNGs keep the **global** frame index, which makes
+multi-node collection a plain union — no renumbering, no collisions.
+
+### Ownership modes (environment variables)
+
+Precedence: `DIST_FRAMES` > `DIST_WEIGHTS` > block-cyclic.
+
+| Variable | Mode | Meaning |
+|---|---|---|
+| `DIST_NODES`, `DIST_RANK`, `DIST_BLOCK` | block-cyclic (static) | frame `i` is owned iff `(i / DIST_BLOCK) % DIST_NODES == DIST_RANK`. `DIST_BLOCK=1` = pure cyclic (default); `k` = block-cyclic; `≥ ceil(frames/N)` = contiguous block |
+| `DIST_WEIGHTS` (+ `DIST_SEED`, default 1234) | weighted-random (static) | `"1,4"` = one positive integer per rank; frame `i` belongs to the rank whose cumulative-weight interval contains `splitmix64(seed+i) mod W`. Pure uint64 arithmetic → every rank on every machine computes the same partition with **no communication**; rank `r` owns ~`F·w_r/W` frames randomly interleaved along the zoom's cost trend. `DIST_BLOCK` is ignored |
+| `DIST_FRAMES` | explicit list | `"3,17,42"` = render exactly these global frames. The dispenser interface: `dist_dynamic.sh` dispatches every chunk this way. All other `DIST_*` are ignored |
+
+Malformed settings exit non-zero before any compute (`Bad DIST_*
+environment`, `DIST_WEIGHTS has k entries…`, `DIST_FRAMES index out of
+range`). `viz=1` freezes a single frame, so frame distribution is ignored
+there with a warning. **Weights rule** (report 28): a node's share should be
+proportional to `1/(p_i + l_i)` — per-frame compute *plus* per-frame
+collection cost — not `1/p_i` alone; with batched (tar) collection the two
+coincide within noise.
+
+### The `[dist]` banner
+
+Each rank prints one stderr line right after the `[config]` banner — read
+both before trusting a distributed run (there are no dist fields in
+`[config]` itself):
+
+```
+[dist] rank=0 nodes=3 block=1 ownedFrames=34 of 100          # block-cyclic
+[dist] mode=weighted rank=1 nodes=2 weights=1,4 seed=1234 ownedFrames=79 of 100
+[dist] mode=list ownedFrames=12 of 100                       # DIST_FRAMES
+[dist] viz=1 freezes a single frame; ignoring DIST_*
+```
+
+`ownedFrames` across all ranks must sum to the frame count — the union check
+the benchmark scripts perform after collection.
+
+### Orchestrators
+
+Both scripts drive N ranks over SSH from one coordinator (GNU parallel; no
+node-to-node connections, no resident daemon) and share the hosts-file
+format — one node per line, rank `r` = line `r+1`:
+
+```
+host [rdir [args...]]
+```
+
+`host` = SSH destination, or `":"` for this machine without SSH; `rdir` =
+that host's project root (`-`/omitted = the `RDIR` default); `args` = that
+host's `mandelHybrid` arguments — which is how heterogeneous nodes join, e.g.
+a CPU-only `make GPU=0` node runs `8 0 0.1 32768 1 1` while a hybrid node
+runs `20 1 0.1 32768 1 1`. Binaries must already be built on each node; the
+scripts ship only the spec and collect only PNGs. Each rank runs in
+`rdir/dist_work/rank<r>` (the spec's short prefix is reused — do **not**
+encode per-node paths into the prefix; `fin >> imageFilePrefix` overflows
+`char[42]` on prefixes > 41 chars).
+
+- **`scripts/dist_frames.sh hosts.txt`** — static distribution. Env knobs:
+  `SPEC`, `OUT` (collection dir), `RDIR`, `ARGS` (defaults for hosts-file
+  omissions), `BLOCK` (= `DIST_BLOCK`), `WEIGHTS`/`SEED` (= `DIST_WEIGHTS`/
+  `DIST_SEED`; when set, `BLOCK` is ignored), `JOBS` (concurrent node jobs;
+  the local identity check uses `JOBS=1` because simulated ranks share one
+  GPU).
+- **`scripts/dist_dynamic.sh hosts.txt`** — weighted-random initial bags +
+  coordinator-driven **work stealing**: per-node drivers dispatch guided
+  chunks (half the remaining bag, min `KMIN`, capped at `KCAP·w_r` frames)
+  as repeated `DIST_FRAMES` invocations; a node whose bag empties steals half
+  the richest node's undispatched tail (bag mutations under one `flock`;
+  in-flight chunks are already out of the bags, so every frame renders
+  exactly once). Env knobs: `SPEC`/`OUT`/`RDIR`/`ARGS` as above, `WEIGHTS`
+  (default all-1), `SEED` (default 1234), `KMIN` (default 4), `KCAP`
+  (default 8). The weight-proportional cap bounds every node's unstealable
+  in-flight exposure at the same wall-time budget (report 26); note each
+  chunk is a fresh process — a GPU node pays a CUDA-context creation per
+  chunk, which is the dynamic mode's +21 % premium over weighted static when
+  weights are already right (report 27).
+
+Collection in both scripts is a **single tar stream per rank**
+(`ssh host "cd wd && tar cf - prefix*.png" | tar xmf -`), not per-file scp —
+the SCP/SFTP protocol pays 2–3 round trips *per file* (~68 ms/file at 25 ms
+RTT, 6.60 s vs 0.96 s on a 79-file/36 MB share; report 27).
+
+### Verifying a distributed setup
+
+`experiments/25-frame-distribution/verify_dist.sh` is the byte-identity
+check: 3 simulated local ranks vs. a single-process reference, executor-pinned
+(CPU-only and GPU-only separately, cyclic and block-cyclic). Pinning matters:
+CPU-vs-CUDA FP64 last-ulp rounding makes *hybrid* output timing-dependent, and
+hybrid output across different GPU generations/nvcc versions (sm_75/13.2 vs
+sm_89/13.3) is not expected to be byte-identical either. Cross-machine
+*CPU* identity holds because the build uses plain `-O2` — no `-march`, no FMA
+contraction (verified Coffee Lake g++-15 vs Haswell g++ 16, report 25);
+adding `-march=native` would break it.
 
 ---
 
@@ -427,11 +533,15 @@ What report 16 measured (`reports/16-ncu-divergence.tex`):
 ## Measurement hygiene
 
 - **AC power is mandatory for timing.** On battery the CPU throttles ~3× and the
-  Max-Q GPU is power-capped (a 52 s run balloons to ~147 s and the GPU/CPU split
-  inverts). Confirm the machine is on AC and that a baseline FIFO run lands at
-  ~52 s with GPU ≥ 4000 leaves before trusting any A/B delta.
+  Max-Q GPU is power-capped (a v5-era 52 s run ballooned to ~147 s and the
+  GPU/CPU split inverted). The benchmark drivers (`experiments/23-…/ab.sh`,
+  `experiments/25-…/bench_*.sh`) refuse to run off AC.
+- **Same-day in-batch baselines.** The absolute hybrid wall drifts with ambient
+  conditions (v7 baseline measured anywhere from 18.7 to 23.7 s across report
+  days); every A/B in the reports therefore carries its own same-day baseline,
+  and cross-day walls are never compared directly.
 - **Read the `[config]` banner** of every log before quoting its numbers (zsh
-  word-split caveat above).
+  word-split caveat above) — and the `[dist]` banner too on distributed runs.
 - Wall comparisons in the reports use alternating A/B reps and quote the range,
   not just the mean, so signal can be distinguished from noise.
 
@@ -454,10 +564,22 @@ What report 16 measured (`reports/16-ncu-divergence.tex`):
 | `experiments/12-gpu-affinity/`    | `binary-v5-affinity` (`fc33e29`) | hybrid A/B (−3.6 %), nsys, CPU-only 3-way ordering study |
 | `experiments/13-zoom-points/`     | `binary-v5-affinity` (`fc33e29`) | four-regime characterization (outside/inside/Misiurewicz/seahorse), per-point logs |
 | `experiments/16-ncu-divergence/`  | `binary-v5-affinity` (`fc33e29`) vs ncu 2026.2 | Nsight **Compute** kernel measurement — warp efficiency / FP64 / roofline across four content regimes; `capture.sh` (sudo), `specs/`, `analysis/summary.csv` (report 16) |
+| `experiments/17-ncu-zoom-points/` | `binary-v5-affinity` (`fc33e29`) vs ncu 2026.2 | report 16's method re-run on the four report-13 zoom geometries (report 17) |
+| `experiments/18-maxiter-split/`   | `examine/maxiter-split` (`d572c78`) | leaf-count equivalence of the parameter-free split rule vs `diffT=0.1` (report 18) |
+| `experiments/20-igpu-opencl/`     | `feat/igpu-opencl` atop v5 | iGPU third-executor sweep + CUDA-vs-OpenCL output verification (report 20) |
+| `experiments/21-periodicity-check/` | `binary-v6-periodicity` (`fa6d8ac`) vs `main` | CPU Brent periodicity A/B (−78.6 % CPU12, −46.3 % hybrid) + `verify_identity.sh` 100/100 (report 21) |
+| `experiments/22-igpu-atop-v6/`    | `feat/igpu-opencl` atop v6 | iGPU re-price after periodicity (a wash) + blocking-sync and oversubscription probes (report 22) |
+| `experiments/23-gpu-periodicity/` | `binary-v7-gpu-periodicity` (`2abc909`) vs `main` | GPU Brent periodicity A/B (kernel 2.34×, hybrid 23.72 s) + identity check; AC-gated `ab.sh` (report 23) |
+| `experiments/24-ncu-gpu-periodicity/` | `binary-v7` (`2abc909`) vs ncu 2026.2 | ncu re-baseline after the GPU check — the “degraded” warp metrics are eliminated waste (report 24) |
+| `experiments/25-frame-distribution/` | `binary-frame-dist`+ (branch lineage) | `verify_dist.sh` identity checks, laptop+ivy and laptop+yeco benchmark drivers and CSVs (static, weighted, dynamic-stealing, pre/post tar batching) — reports 25/26/27 |
+| `experiments/28-dlt-analysis/`    | analysis (external DLTlib + GLPK) | DLT solver driver, `run.sh`, `results.txt`, `sweep.csv` — closed-form retrodiction of the distribution campaign (report 28) |
 
 `*.nsys-rep`, `*.ncu-rep`, `*.sqlite`, `*.png`, and plain `*.log` files are gitignored;
 per-rep `*.stderr`/`*.stdout` files are tracked so the reports' numbers can be
 re-derived without rerunning. Each report file (`reports/NN-name.tex`) names the
-experiment directory it draws from. (There is no report 10; experiment 10's
-re-tuning sweep is written up as a section of report 09. There is no
-`experiments/03`; report 03 is pure code analysis.)
+experiment directory it draws from. (There are no reports 10/19; experiment
+10's re-tuning sweep is written up as a section of report 09. There is no
+`experiments/03` — report 03 is pure code analysis — and none for reports
+14/15, which are analysis/guide documents. Reports 26 and 27 draw their data
+from `experiments/25-frame-distribution/`, which hosts the whole
+distribution campaign.)
